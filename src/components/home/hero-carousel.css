@@ -1,0 +1,195 @@
+.hero-creator-reel {
+  --creator-reel-duration: 35s;
+  --creator-reel-gap: 0.7rem;
+  --creator-reel-card-width: 10.5rem;
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+  mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    #000 6%,
+    #000 94%,
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    #000 6%,
+    #000 94%,
+    transparent 100%
+  );
+}
+
+.hero-creator-reel--dragging {
+  cursor: grabbing;
+}
+
+@media (min-width: 640px) {
+  .hero-creator-reel {
+    --creator-reel-gap: 0.8rem;
+    --creator-reel-card-width: 11.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .hero-creator-reel {
+    --creator-reel-card-width: 11.75rem;
+  }
+}
+
+@media (min-width: 1280px) {
+  .hero-creator-reel {
+    --creator-reel-gap: 0.85rem;
+    --creator-reel-card-width: 12.25rem;
+  }
+}
+
+.hero-creator-reel__viewport {
+  width: 100%;
+  overflow: hidden;
+  contain: paint;
+}
+
+.hero-creator-reel__track {
+  display: flex;
+  width: max-content;
+  will-change: transform;
+  transform: translate3d(0, 0, 0);
+}
+
+.hero-creator-reel__set {
+  display: flex;
+  gap: var(--creator-reel-gap);
+  /* Matches inter-card gap so duplicated sets loop without a blank seam */
+  padding-right: var(--creator-reel-gap);
+}
+
+.hero-creator-reel--static {
+  cursor: default;
+  touch-action: auto;
+  user-select: auto;
+  -webkit-user-select: auto;
+  mask-image: none;
+  -webkit-mask-image: none;
+}
+
+.hero-creator-reel--static .hero-creator-reel__viewport {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x proximity;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.hero-creator-reel--static .hero-creator-reel__viewport::-webkit-scrollbar {
+  display: none;
+}
+
+.hero-creator-reel--static .hero-creator-reel__set {
+  padding-right: 0;
+}
+
+.hero-creator-reel__card {
+  flex: 0 0 var(--creator-reel-card-width);
+  width: var(--creator-reel-card-width);
+  aspect-ratio: 9 / 16;
+  scroll-snap-align: start;
+  pointer-events: auto;
+}
+
+.hero-creator-reel__card-surface {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: #1c1c1f;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+  transition:
+    border-color 0.25s ease,
+    box-shadow 0.25s ease;
+}
+
+.hero-creator-reel__placeholder {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(
+      ellipse at 30% 20%,
+      rgba(198, 255, 0, 0.1),
+      transparent 55%
+    ),
+    linear-gradient(180deg, #1c1c1f 0%, #080809 100%);
+}
+
+.hero-creator-reel__placeholder-grid {
+  position: absolute;
+  inset: 0;
+  opacity: 0.07;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
+.hero-creator-reel__placeholder-letter {
+  position: absolute;
+  top: 40%;
+  left: 50%;
+  color: rgba(245, 245, 245, 0.15);
+  font-family: var(--font-display);
+  font-size: 3rem;
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  transform: translate(-50%, -50%);
+}
+
+.hero-creator-reel__player {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #080809;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms ease;
+}
+
+.hero-creator-reel__player--playing {
+  opacity: 1;
+}
+
+.hero-creator-reel__post-link {
+  position: absolute;
+  z-index: 20;
+  inset: 0;
+  border-radius: inherit;
+  cursor: inherit;
+  -webkit-user-drag: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .hero-creator-reel:not(.hero-creator-reel--dragging)
+    .hero-creator-reel__card-surface:hover {
+    border-color: rgba(198, 255, 0, 0.35);
+    box-shadow:
+      0 10px 28px rgba(0, 0, 0, 0.28),
+      0 0 22px rgba(198, 255, 0, 0.1);
+  }
+}
+
+@media (max-width: 767px) {
+  .hero-creator-reel {
+    mask-image: none;
+    -webkit-mask-image: none;
+  }
+}

@@ -1,0 +1,415 @@
+.process-hud {
+  position: absolute;
+  z-index: 4;
+  width: min(34rem, 46%);
+  pointer-events: none;
+}
+
+.process-hud--after {
+  top: 0;
+  left: calc(var(--node-x) + 2.2rem);
+  width: min(36rem, calc(100% - var(--node-x) - var(--process-pad) - 1.6rem));
+  transform: translateY(-42%);
+}
+
+.process-hud--before {
+  top: 0;
+  left: var(--process-pad);
+  width: min(32rem, calc(var(--node-x) - var(--process-pad) - 1.8rem));
+  transform: translateY(-42%);
+}
+
+.process-hud--compact {
+  top: 7.5rem;
+  left: 50%;
+  width: min(20.5rem, calc(100% - 2 * var(--process-pad)));
+  transform: translate(-50%, 0);
+}
+
+.process-hud__motion {
+  position: relative;
+  width: 100%;
+}
+
+.process-hud__watermark {
+  position: absolute;
+  right: -6%;
+  bottom: 4%;
+  z-index: 0;
+  color: rgba(245, 245, 245, 0.045);
+  font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
+  font-size: clamp(6.5rem, 18vw, 11.5rem);
+  font-weight: 600;
+  letter-spacing: -0.08em;
+  line-height: 0.7;
+  user-select: none;
+}
+
+.process-hud__glow {
+  position: absolute;
+  inset: 8% 6%;
+  z-index: 0;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(198, 255, 0, 0.16) 0%,
+    rgba(198, 255, 0, 0.05) 38%,
+    transparent 72%
+  );
+}
+
+.process-hud__stage {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  aspect-ratio: 1;
+}
+
+.process-hud__svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.process-hud__ring {
+  fill: none;
+  stroke: rgba(198, 255, 0, 0.16);
+  stroke-width: 0.7px;
+}
+
+.process-hud__ring--faint {
+  stroke: rgba(198, 255, 0, 0.08);
+}
+
+.process-hud__ring--soft {
+  stroke: rgba(198, 255, 0, 0.14);
+}
+
+.process-hud__ring--dotted {
+  stroke: rgba(198, 255, 0, 0.28);
+  stroke-dasharray: 1.6 5.4;
+}
+
+.process-hud__ring--core {
+  stroke: rgba(198, 255, 0, 0.22);
+}
+
+.process-hud__arc {
+  fill: none;
+  stroke: #c6ff00;
+  stroke-width: 1.35px;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 4px rgba(198, 255, 0, 0.35));
+}
+
+.process-hud__arc--thin {
+  stroke-width: 0.8px;
+  stroke: rgba(198, 255, 0, 0.55);
+  filter: none;
+}
+
+.process-hud__arc--mid {
+  stroke-width: 1.05px;
+}
+
+.process-hud__marker {
+  fill: #c6ff00;
+}
+
+.process-hud__ticks line {
+  stroke: rgba(198, 255, 0, 0.28);
+  stroke-width: 0.7px;
+}
+
+.process-hud__spike {
+  stroke: #c6ff00;
+  stroke-width: 1.35px;
+  stroke-linecap: round;
+  transform-box: fill-box;
+  transform-origin: center bottom;
+}
+
+.process-hud__core-ring {
+  fill: none;
+  stroke: rgba(198, 255, 0, 0.45);
+  stroke-width: 1px;
+}
+
+.process-hud__core {
+  fill: #c6ff00;
+  filter: drop-shadow(0 0 8px rgba(198, 255, 0, 0.55));
+}
+
+.process-hud__callout {
+  position: absolute;
+  display: grid;
+  gap: 0.12rem;
+  color: var(--color-off-white);
+  font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
+  white-space: nowrap;
+}
+
+.process-hud__callout span {
+  color: var(--color-acid-lime);
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.58rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.process-hud__callout span::before {
+  display: inline-block;
+  width: 0.32rem;
+  height: 0.32rem;
+  margin-right: 0.4rem;
+  border-radius: 50%;
+  background: #c6ff00;
+  box-shadow: 0 0 6px rgba(198, 255, 0, 0.45);
+  vertical-align: 0.05rem;
+  content: "";
+}
+
+.process-hud__callout strong {
+  font-size: 0.92rem;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+.process-hud__callout em {
+  color: var(--color-muted-grey);
+  font-size: 0.72rem;
+  font-style: normal;
+}
+
+.process-hud__callout--tempo {
+  top: 1.5%;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+}
+
+.process-hud__callout--mood {
+  top: 27%;
+  right: 0;
+  text-align: right;
+}
+
+.process-hud__callout--genre {
+  right: 3%;
+  bottom: 11%;
+  text-align: right;
+}
+
+.process-hud__callout--audience {
+  bottom: 11%;
+  left: 3%;
+}
+
+.process-hud__callout--energy {
+  top: 39%;
+  left: 0;
+}
+
+.process-hud__mini-wave {
+  display: block;
+  width: 3.2rem;
+  margin-top: 0.15rem;
+  margin-left: auto;
+}
+
+.process-hud__mini-wave path {
+  fill: none;
+  stroke: #c6ff00;
+  stroke-width: 1.15px;
+  stroke-linecap: round;
+}
+
+.process-hud__energy {
+  display: flex;
+  gap: 0.18rem;
+  align-items: end;
+  height: 0.85rem;
+  margin: 0.2rem 0 0.12rem;
+}
+
+.process-hud__energy i {
+  display: block;
+  width: 0.22rem;
+  height: 100%;
+  background: #c6ff00;
+  box-shadow: 0 0 6px rgba(198, 255, 0, 0.28);
+}
+
+.process-hud__energy i:nth-child(odd) {
+  height: 72%;
+}
+
+.process-hud__energy i:nth-child(3n) {
+  height: 90%;
+}
+
+.process-journey:not(.process-journey--reduced) .process-hud__glow {
+  animation: process-hud-breathe 6.2s ease-in-out infinite;
+}
+
+.process-journey:not(.process-journey--reduced) .process-hud__wave {
+  animation: process-hud-pulse 5.8s ease-in-out infinite;
+  transform-origin: 200px 200px;
+  transform-box: view-box;
+}
+
+.process-journey:not(.process-journey--reduced) .process-hud__spike {
+  animation: process-hud-spike var(--hud-duration, 2.8s) ease-in-out
+    var(--hud-delay, 0s) infinite;
+}
+
+.process-journey:not(.process-journey--reduced) .process-hud__orbit--slow {
+  animation: process-hud-spin 52s linear infinite;
+  transform-origin: 200px 200px;
+  transform-box: view-box;
+}
+
+.process-journey:not(.process-journey--reduced) .process-hud__orbit--reverse {
+  animation: process-hud-spin-reverse 76s linear infinite;
+  transform-origin: 200px 200px;
+  transform-box: view-box;
+}
+
+.process-journey:not(.process-journey--reduced) .process-hud__core {
+  animation: process-hud-core 6.6s ease-in-out infinite;
+}
+
+.process-journey:not(.process-journey--reduced) .process-hud__marker--pulse {
+  animation: process-hud-blink 3.8s ease-in-out infinite;
+}
+
+.process-journey:not(.process-journey--reduced) .process-hud__mini-wave path {
+  animation: process-hud-sine 2.8s ease-in-out infinite;
+}
+
+@keyframes process-hud-breathe {
+  0%,
+  100% {
+    opacity: 0.72;
+    transform: scale(0.98);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.04);
+  }
+}
+
+@keyframes process-hud-pulse {
+  0%,
+  100% {
+    transform: scale(0.985);
+  }
+  50% {
+    transform: scale(1.035);
+  }
+}
+
+@keyframes process-hud-spike {
+  0%,
+  100% {
+    transform: scaleY(0.78);
+  }
+  50% {
+    transform: scaleY(1.16);
+  }
+}
+
+@keyframes process-hud-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes process-hud-spin-reverse {
+  from {
+    transform: rotate(360deg);
+  }
+  to {
+    transform: rotate(0deg);
+  }
+}
+
+@keyframes process-hud-core {
+  0%,
+  100% {
+    opacity: 0.72;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes process-hud-blink {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes process-hud-sine {
+  0%,
+  100% {
+    stroke-opacity: 0.55;
+  }
+  50% {
+    stroke-opacity: 1;
+  }
+}
+
+.process-journey--reduced .process-hud__glow,
+.process-journey--reduced .process-hud__wave,
+.process-journey--reduced .process-hud__spike,
+.process-journey--reduced .process-hud__orbit--slow,
+.process-journey--reduced .process-hud__orbit--reverse,
+.process-journey--reduced .process-hud__core,
+.process-journey--reduced .process-hud__marker--pulse,
+.process-journey--reduced .process-hud__mini-wave path {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .process-hud__glow,
+  .process-hud__wave,
+  .process-hud__spike,
+  .process-hud__orbit--slow,
+  .process-hud__orbit--reverse,
+  .process-hud__core,
+  .process-hud__marker--pulse,
+  .process-hud__mini-wave path {
+    animation: none;
+  }
+}
+
+@media (min-width: 1024px) {
+  .process-hud--after {
+    width: min(38rem, calc(100% - var(--node-x) - var(--process-pad) - 2rem));
+  }
+
+  .process-hud__callout strong {
+    font-size: 1.02rem;
+  }
+}
+
+@media (max-width: 767px) {
+  .process-hud__callout--mood,
+  .process-hud__callout--energy {
+    display: none;
+  }
+
+  .process-hud__callout strong {
+    font-size: 0.82rem;
+  }
+}
