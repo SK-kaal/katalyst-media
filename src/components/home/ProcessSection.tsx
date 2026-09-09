@@ -7,12 +7,30 @@ import {
   useMotionValue,
   useMotionValueEvent,
   useReducedMotion,
-  useScroll,
   useTransform,
 } from "framer-motion";
 import { processCopy } from "@/content/homepage";
+import { campaignNote } from "@/content/process-campaign";
 import { cn } from "@/lib/utils";
+import { gsap, ScrollTrigger, useGSAP } from "@/lib/motion";
 import { MusicAnalysisHud } from "@/components/home/MusicAnalysisHud";
+import { AudienceConstellation } from "@/components/home/AudienceConstellation";
+import { StrategyEngine } from "@/components/home/StrategyEngine";
+import { CampaignCommand } from "@/components/home/CampaignCommand";
+import { OptimisationEngine } from "@/components/home/OptimisationEngine";
+import {
+  EASE_OUT,
+  EASE_SOFT,
+  clamp,
+  introClearY,
+  introDepart,
+  introFade,
+  introHintFade,
+  introLineReveal,
+  introProgress,
+  INTRO_LOCK_SVH,
+  smoothstep,
+} from "@/components/home/process-motion";
 import "./process-section.css";
 
 type Point = { x: number; y: number };
@@ -35,7 +53,9 @@ type JourneyGeometry = {
   textSides: readonly TextSide[];
 };
 
-const SAMPLE_COUNT = 240;
+const SAMPLE_COUNT = 360;
+const STAGE_HOLD_SVH = 42;
+const INTRO_BEAT_SVH = 24;
 const OVERVIEW_SHORT = [
   "Music",
   "Audience",
@@ -44,124 +64,112 @@ const OVERVIEW_SHORT = [
   "Optimise",
 ] as const;
 
-const INTRO_PARTICLES = [
-  { x: 16, y: 26, s: 0.7 },
-  { x: 82, y: 22, s: 0.52 },
-  { x: 10, y: 58, s: 0.46 },
-  { x: 88, y: 54, s: 0.6 },
-  { x: 24, y: 80, s: 0.42 },
-  { x: 74, y: 84, s: 0.5 },
-  { x: 7, y: 40, s: 0.38 },
-  { x: 93, y: 36, s: 0.44 },
-  { x: 46, y: 14, s: 0.4 },
-] as const;
-
 const DESKTOP_GEOMETRY: JourneyGeometry = {
   width: 1000,
-  height: 10200,
-  vh: 1020,
-  viewBox: "0 0 1000 10200",
-  start: { x: 500, y: 1620 },
+  height: 11040,
+  vh: 1104,
+  viewBox: "0 0 1000 11040",
+  start: { x: 500, y: 680 },
   nodes: [
-    { x: 380, y: 2700 },
-    { x: 620, y: 4050 },
-    { x: 370, y: 5400 },
-    { x: 630, y: 6750 },
-    { x: 400, y: 8100 },
+    { x: 380, y: 4220 },
+    { x: 620, y: 5570 },
+    { x: 370, y: 6920 },
+    { x: 630, y: 8270 },
+    { x: 400, y: 9620 },
   ],
-  overview: { x: 500, y: 9080 },
+  overview: { x: 500, y: 10600 },
   recap: [
-    { x: 200, y: 9380, d: "M 500 9080 C 410 9160 270 9280 200 9380" },
-    { x: 350, y: 9280, d: "M 500 9080 C 450 9140 380 9220 350 9280" },
-    { x: 500, y: 9240, d: "M 500 9080 C 500 9140 500 9200 500 9240" },
-    { x: 650, y: 9280, d: "M 500 9080 C 550 9140 620 9220 650 9280" },
-    { x: 800, y: 9380, d: "M 500 9080 C 590 9160 730 9280 800 9380" },
+    { x: 200, y: 10900, d: "M 500 10600 C 410 10680 270 10800 200 10900" },
+    { x: 350, y: 10800, d: "M 500 10600 C 450 10660 380 10740 350 10800" },
+    { x: 500, y: 10760, d: "M 500 10600 C 500 10660 500 10720 500 10760" },
+    { x: 650, y: 10800, d: "M 500 10600 C 550 10660 620 10740 650 10800" },
+    { x: 800, y: 10900, d: "M 500 10600 C 590 10680 730 10800 800 10900" },
   ],
   recapLayout: "fan",
   textSides: ["before", "after", "before", "after", "before"],
   route:
-    "M 500 1620 C 560 1880 460 2220 380 2700 C 430 3060 540 3520 620 4050 C 680 4420 460 4880 370 5400 C 430 5780 550 6280 630 6750 C 680 7120 480 7640 400 8100 C 360 8380 450 8780 500 9080 C 508 9140 504 9180 500 9220",
+    "M 500 680 C 500 1690 500 2860 492 3700 C 478 3980 420 4140 380 4220 C 430 4580 540 5040 620 5570 C 680 5940 460 6400 370 6920 C 430 7300 550 7800 630 8270 C 680 8640 480 9160 400 9620 C 360 9900 450 10300 500 10600",
 };
 
 const TABLET_GEOMETRY: JourneyGeometry = {
   width: 1000,
-  height: 9700,
-  vh: 970,
-  viewBox: "0 0 1000 9700",
-  start: { x: 500, y: 1580 },
+  height: 10540,
+  vh: 1054,
+  viewBox: "0 0 1000 10540",
+  start: { x: 500, y: 660 },
   nodes: [
-    { x: 390, y: 2580 },
-    { x: 610, y: 3880 },
-    { x: 380, y: 5180 },
-    { x: 620, y: 6480 },
-    { x: 410, y: 7740 },
+    { x: 390, y: 4020 },
+    { x: 610, y: 5320 },
+    { x: 380, y: 6620 },
+    { x: 620, y: 7920 },
+    { x: 410, y: 9180 },
   ],
-  overview: { x: 500, y: 8680 },
+  overview: { x: 500, y: 10120 },
   recap: [
-    { x: 220, y: 8960, d: "M 500 8680 C 420 8760 280 8880 220 8960" },
-    { x: 360, y: 8880, d: "M 500 8680 C 450 8740 390 8820 360 8880" },
-    { x: 500, y: 8840, d: "M 500 8680 C 500 8740 500 8800 500 8840" },
-    { x: 640, y: 8880, d: "M 500 8680 C 550 8740 610 8820 640 8880" },
-    { x: 780, y: 8960, d: "M 500 8680 C 580 8760 720 8880 780 8960" },
+    { x: 220, y: 10400, d: "M 500 10120 C 420 10200 280 10320 220 10400" },
+    { x: 360, y: 10320, d: "M 500 10120 C 450 10180 390 10260 360 10320" },
+    { x: 500, y: 10280, d: "M 500 10120 C 500 10180 500 10240 500 10280" },
+    { x: 640, y: 10320, d: "M 500 10120 C 550 10180 610 10260 640 10320" },
+    { x: 780, y: 10400, d: "M 500 10120 C 580 10200 720 10320 780 10400" },
   ],
   recapLayout: "fan",
   textSides: ["before", "after", "before", "after", "before"],
   route:
-    "M 500 1580 C 548 1820 468 2160 390 2580 C 440 2920 530 3380 610 3880 C 662 4240 468 4680 380 5180 C 436 5540 538 6020 620 6480 C 668 6840 488 7320 410 7740 C 380 8020 450 8400 500 8680 C 508 8740 504 8780 500 8820",
+    "M 500 660 C 500 1590 500 2710 488 3520 C 472 3760 430 3920 390 4020 C 440 4360 530 4820 610 5320 C 662 5680 468 6120 380 6620 C 436 6980 538 7460 620 7920 C 668 8280 488 8760 410 9180 C 380 9460 450 9840 500 10120",
 };
 
 const PORTRAIT_GEOMETRY: JourneyGeometry = {
   width: 1000,
-  height: 9300,
-  vh: 930,
-  viewBox: "0 0 1000 9300",
-  start: { x: 500, y: 1560 },
+  height: 10080,
+  vh: 1008,
+  viewBox: "0 0 1000 10080",
+  start: { x: 500, y: 660 },
   nodes: [
-    { x: 320, y: 2480 },
-    { x: 680, y: 3720 },
-    { x: 330, y: 4960 },
-    { x: 670, y: 6200 },
-    { x: 360, y: 7400 },
+    { x: 320, y: 3840 },
+    { x: 680, y: 5080 },
+    { x: 330, y: 6320 },
+    { x: 670, y: 7560 },
+    { x: 360, y: 8760 },
   ],
-  overview: { x: 500, y: 8280 },
+  overview: { x: 500, y: 9640 },
   recap: [
-    { x: 260, y: 8540, d: "M 500 8280 C 430 8360 300 8480 260 8540" },
-    { x: 380, y: 8480, d: "M 500 8280 C 450 8340 400 8420 380 8480" },
-    { x: 500, y: 8440, d: "M 500 8280 C 500 8340 500 8400 500 8440" },
-    { x: 620, y: 8480, d: "M 500 8280 C 550 8340 600 8420 620 8480" },
-    { x: 740, y: 8540, d: "M 500 8280 C 570 8360 700 8480 740 8540" },
+    { x: 260, y: 9900, d: "M 500 9640 C 430 9720 300 9840 260 9900" },
+    { x: 380, y: 9840, d: "M 500 9640 C 450 9700 400 9780 380 9840" },
+    { x: 500, y: 9800, d: "M 500 9640 C 500 9700 500 9760 500 9800" },
+    { x: 620, y: 9840, d: "M 500 9640 C 550 9700 600 9780 620 9840" },
+    { x: 740, y: 9900, d: "M 500 9640 C 570 9720 700 9840 740 9900" },
   ],
   recapLayout: "stack",
   textSides: ["after", "before", "after", "before", "after"],
   route:
-    "M 500 1560 C 540 1780 430 2080 320 2480 C 292 2740 430 3180 680 3720 C 712 3980 560 4440 330 4960 C 298 5220 450 5680 670 6200 C 702 6460 540 6920 360 7400 C 340 7700 440 8040 500 8280 C 508 8340 504 8380 500 8420",
+    "M 500 660 C 500 1520 490 2500 450 3320 C 400 3600 345 3740 320 3840 C 292 4100 430 4540 680 5080 C 712 5340 560 5800 330 6320 C 298 6580 450 7040 670 7560 C 702 7820 540 8280 360 8760 C 340 9060 440 9400 500 9640",
 };
 
 const MOBILE_GEOMETRY: JourneyGeometry = {
   width: 1000,
-  height: 8900,
-  vh: 890,
-  viewBox: "0 0 1000 8900",
-  start: { x: 500, y: 1580 },
+  height: 11760,
+  vh: 1298,
+  viewBox: "0 0 1000 11760",
+  start: { x: 500, y: 620 },
   nodes: [
-    { x: 300, y: 2500 },
-    { x: 700, y: 3700 },
-    { x: 310, y: 4900 },
-    { x: 690, y: 6100 },
-    { x: 340, y: 7200 },
+    { x: 300, y: 3910 },
+    { x: 700, y: 5110 },
+    { x: 310, y: 6310 },
+    { x: 690, y: 7510 },
+    { x: 340, y: 9060 },
   ],
-  overview: { x: 500, y: 7880 },
+  overview: { x: 500, y: 11060 },
   recap: [
-    { x: 280, y: 8140, d: "M 500 7880 C 430 7960 320 8080 280 8140" },
-    { x: 390, y: 8080, d: "M 500 7880 C 450 7940 410 8020 390 8080" },
-    { x: 500, y: 8040, d: "M 500 7880 C 500 7940 500 8000 500 8040" },
-    { x: 610, y: 8080, d: "M 500 7880 C 550 7940 590 8020 610 8080" },
-    { x: 720, y: 8140, d: "M 500 7880 C 570 7960 680 8080 720 8140" },
+    { x: 280, y: 11320, d: "M 500 11060 C 430 11140 320 11260 280 11320" },
+    { x: 390, y: 11260, d: "M 500 11060 C 450 11120 410 11200 390 11260" },
+    { x: 500, y: 11220, d: "M 500 11060 C 500 11120 500 11180 500 11220" },
+    { x: 610, y: 11260, d: "M 500 11060 C 550 11120 590 11200 610 11260" },
+    { x: 720, y: 11320, d: "M 500 11060 C 570 11140 680 11260 720 11320" },
   ],
   recapLayout: "stack",
   textSides: ["after", "before", "after", "before", "after"],
   route:
-    "M 500 1580 C 536 1800 420 2100 300 2500 C 272 2780 430 3240 700 3700 C 728 3960 560 4400 310 4900 C 282 5180 450 5640 690 6100 C 718 6360 540 6840 340 7200 C 330 7480 440 7720 500 7880 C 508 7940 504 7980 500 8020",
+    "M 500 620 C 500 1520 480 2510 430 3370 C 380 3650 325 3810 300 3910 C 272 4190 430 4650 700 5110 C 728 5370 560 5810 310 6310 C 282 6590 450 7050 690 7510 C 718 7910 520 8490 340 9060 C 328 9660 430 10460 500 11060",
 };
 
 function geometryFor(layoutMode: LayoutMode) {
@@ -169,15 +177,6 @@ function geometryFor(layoutMode: LayoutMode) {
   if (layoutMode === "tablet") return TABLET_GEOMETRY;
   if (layoutMode === "portrait") return PORTRAIT_GEOMETRY;
   return MOBILE_GEOMETRY;
-}
-
-function clamp(value: number, min = 0, max = 1) {
-  return Math.min(Math.max(value, min), max);
-}
-
-function smoothstep(value: number) {
-  const t = clamp(value);
-  return t * t * (3 - 2 * t);
 }
 
 type PathMap = {
@@ -227,50 +226,217 @@ function sampleAtY(map: PathMap, targetY: number) {
   };
 }
 
+type JourneyStop = { id: number; y: number; len: number };
+
+function lengthAtStop(map: PathMap, point: Point) {
+  return sampleAtY(map, point.y).len;
+}
+
+function visualStops(
+  canvasHeight: number,
+  map: PathMap,
+  points: readonly Point[],
+  svgHeight: number,
+): JourneyStop[] {
+  const height = Math.max(canvasHeight, 1);
+  return points.map((point, id) => ({
+    id,
+    y: (point.y / Math.max(svgHeight, 1)) * height,
+    len: lengthAtStop(map, point),
+  }));
+}
+
+function sampleAtLength(map: PathMap, target: number) {
+  const last = map.len.length - 1;
+  if (target <= 0) {
+    return { x: map.x[0], y: map.y[0], len: 0 };
+  }
+  if (target >= map.total) {
+    return { x: map.x[last], y: map.y[last], len: map.total };
+  }
+  let low = 0;
+  let high = last;
+  while (high - low > 1) {
+    const mid = (low + high) >> 1;
+    if (map.len[mid] < target) low = mid;
+    else high = mid;
+  }
+  const span = map.len[high] - map.len[low] || 1;
+  const mix = (target - map.len[low]) / span;
+  return {
+    x: map.x[low] + (map.x[high] - map.x[low]) * mix,
+    y: map.y[low] + (map.y[high] - map.y[low]) * mix,
+    len: target,
+  };
+}
+
+function applyTravelledRoute(
+  paths: Array<SVGPathElement | null>,
+  map: PathMap | null,
+  from: number,
+  to: number,
+) {
+  if (!map) {
+    for (const path of paths) {
+      if (!path) continue;
+      path.removeAttribute("stroke-dasharray");
+      path.removeAttribute("stroke-dashoffset");
+    }
+    return;
+  }
+  const start = clamp(from, 0, map.total);
+  const end = clamp(to, 0, map.total);
+  const drawn = Math.max(end - start, 0);
+  for (const path of paths) {
+    if (!path) continue;
+    path.setAttribute(
+      "stroke-dasharray",
+      drawn <= 0.35
+        ? `0 ${map.total}`
+        : `0 ${start} ${drawn} ${map.total}`,
+    );
+    path.setAttribute("stroke-dashoffset", "0");
+  }
+}
+
+type HeldJourney = {
+  len: number;
+  head: number;
+  holding: boolean;
+};
+
+function lerp(from: number, to: number, t: number) {
+  return from + (to - from) * t;
+}
+
+function journeyWithHolds(
+  stops: JourneyStop[],
+  cameraPx: number,
+  holdPx: number,
+  pause?: { y: number; len: number; holdPx: number },
+): HeldJourney {
+  if (stops.length < 2) {
+    return { len: 0, head: 0, holding: false };
+  }
+
+  const first = stops[0];
+  const last = stops[stops.length - 1];
+  if (cameraPx <= first.y) {
+    return { len: first.len, head: first.id, holding: false };
+  }
+
+  for (let index = 0; index < stops.length - 1; index += 1) {
+    const from = stops[index];
+    const to = stops[index + 1];
+    const stageHold = from.id >= 1 && from.id <= 5 ? holdPx : 0;
+
+    if (stageHold > 0 && cameraPx <= from.y + stageHold) {
+      return { len: from.len, head: from.id, holding: true };
+    }
+
+    const travelStart = from.y + stageHold;
+    const pauseHere =
+      pause && pause.y > travelStart && pause.y < to.y ? pause : undefined;
+
+    if (pauseHere) {
+      if (cameraPx <= pauseHere.y) {
+        const t = clamp(
+          (cameraPx - travelStart) / Math.max(pauseHere.y - travelStart, 1),
+        );
+        return {
+          len: lerp(from.len, pauseHere.len, t),
+          head: lerp(
+            from.id,
+            from.id + (pauseHere.y - from.y) / Math.max(to.y - from.y, 1),
+            t,
+          ),
+          holding: false,
+        };
+      }
+      if (cameraPx <= pauseHere.y + pauseHere.holdPx) {
+        return {
+          len: pauseHere.len,
+          head: from.id + (pauseHere.y - from.y) / Math.max(to.y - from.y, 1),
+          holding: true,
+        };
+      }
+      if (cameraPx <= to.y) {
+        const after = pauseHere.y + pauseHere.holdPx;
+        const t = clamp((cameraPx - after) / Math.max(to.y - after, 1));
+        return {
+          len: lerp(pauseHere.len, to.len, t),
+          head: lerp(
+            from.id + (pauseHere.y - from.y) / Math.max(to.y - from.y, 1),
+            to.id,
+            t,
+          ),
+          holding: false,
+        };
+      }
+    } else if (cameraPx <= to.y) {
+      const t = clamp(
+        (cameraPx - travelStart) / Math.max(to.y - travelStart, 1),
+      );
+      return {
+        len: lerp(from.len, to.len, t),
+        head: lerp(from.id, to.id, t),
+        holding: false,
+      };
+    }
+  }
+
+  return { len: last.len, head: last.id, holding: false };
+}
+
 function JourneyStage({
   step,
   nodeY,
   side,
-  stacked = false,
+  stackedLines,
+  feature,
   readY,
   motionEnabled,
+  lead = 560,
 }: {
   step: (typeof processCopy.steps)[number];
   nodeY: number;
   side: TextSide;
-  stacked?: boolean;
+  stackedLines?: readonly [string, string];
+  feature?: boolean;
   readY: MotionValue<number>;
   motionEnabled: boolean;
+  lead?: number;
 }) {
   const numberOpacity = useTransform(readY, (value) => {
-    const entered = smoothstep((value - (nodeY - 520)) / 280);
-    const faded = smoothstep((value - (nodeY + 220)) / 900);
-    return entered * (1 - faded * 0.7);
+    const entered = smoothstep((value - (nodeY - lead)) / 380);
+    const faded = smoothstep((value - (nodeY + 280)) / 920);
+    return entered * (1 - faded * 0.62);
   });
   const titleOpacity = useTransform(readY, (value) => {
-    const entered = smoothstep((value - (nodeY - 420)) / 260);
-    const faded = smoothstep((value - (nodeY + 240)) / 920);
-    return entered * (1 - faded * 0.7);
+    const entered = smoothstep((value - (nodeY - (lead - 40))) / 360);
+    const faded = smoothstep((value - (nodeY + 300)) / 940);
+    return entered * (1 - faded * 0.62);
   });
   const descriptionOpacity = useTransform(readY, (value) => {
-    const entered = smoothstep((value - (nodeY - 320)) / 250);
-    const faded = smoothstep((value - (nodeY + 260)) / 940);
-    return entered * (1 - faded * 0.72);
+    const entered = smoothstep((value - (nodeY - (lead - 90))) / 340);
+    const faded = smoothstep((value - (nodeY + 320)) / 960);
+    return entered * (1 - faded * 0.64);
   });
   const titleY = useTransform(readY, (value) => {
-    const entered = smoothstep((value - (nodeY - 420)) / 260);
-    return (1 - entered) * 18;
+    const entered = smoothstep((value - (nodeY - (lead - 40))) / 360);
+    return (1 - entered) * 16;
   });
   const descriptionY = useTransform(readY, (value) => {
-    const entered = smoothstep((value - (nodeY - 320)) / 250);
-    return (1 - entered) * 16;
+    const entered = smoothstep((value - (nodeY - (lead - 90))) / 340);
+    return (1 - entered) * 14;
   });
 
   return (
     <article
       className={cn(
         "process-stage-copy",
-        stacked && "process-stage-copy--feature",
+        stackedLines && "process-stage-copy--feature",
+        feature && "process-stage-copy--feature",
         side === "before"
           ? "process-stage-copy--before"
           : "process-stage-copy--after",
@@ -289,10 +455,10 @@ function JourneyStage({
           motionEnabled ? { opacity: titleOpacity, y: titleY } : undefined
         }
       >
-        {stacked ? (
+        {stackedLines ? (
           <>
-            <span>Understand</span>
-            <span>the Music</span>
+            <span>{stackedLines[0]}</span>
+            <span>{stackedLines[1]}</span>
           </>
         ) : (
           step.title
@@ -321,97 +487,170 @@ function IntroAtmosphere({
   unitsPerVh: number;
   motionEnabled: boolean;
 }) {
-  const pull = useTransform(readY, (value) =>
-    smoothstep((value - 0.48 * 100 * unitsPerVh) / (108 * unitsPerVh)),
+  const recede = useTransform(readY, (value) =>
+    introDepart(introProgress(value, unitsPerVh)),
   );
-  const glowOpacity = useTransform(pull, (value) => 0.92 * (1 - value * 0.82));
-  const glowScale = useTransform(pull, (value) => 1 + value * 0.18);
-  const ringOpacity = useTransform(pull, (value) => 0.12 + value * 0.34);
-  const ringScale = useTransform(pull, (value) => 0.86 + value * 0.38);
-  const particleOpacity = useTransform(pull, (value) => 0.18 + value * 0.28);
+  const fade = useTransform(readY, (value) =>
+    introFade(introProgress(value, unitsPerVh)),
+  );
+  const atmosphereOpacity = useTransform(fade, (value) => 1 - value);
+  const atmosphereLift = useTransform(fade, (value) => value * -48);
+  const glowOpacity = useTransform(fade, (value) => 0.88 * (1 - value * 0.82));
+  const glowScale = useTransform(recede, (value) => 1 - value * 0.02);
+  const ringOpacity = useTransform(fade, (value) => 0.78 * (1 - value * 0.7));
+  const ringScale = useTransform(recede, (value) => 1 - value * 0.025);
+  const enter = { opacity: 1, scale: 1 };
+  const viewport = { once: true, amount: 0.42 as const };
 
   return (
-    <div className="process-intro__atmosphere" aria-hidden="true">
+    <motion.div
+      className="process-intro__atmosphere"
+      aria-hidden="true"
+      style={
+        motionEnabled
+          ? { opacity: atmosphereOpacity, y: atmosphereLift }
+          : undefined
+      }
+    >
+      <div className="process-intro__grid" />
+      <div className="process-intro__haze process-intro__haze--left" />
+      <div className="process-intro__haze process-intro__haze--right" />
+      <div className="process-intro__vignette" />
+
       <div className="process-intro__glow-slot">
         <motion.div
-          className="process-intro__glow"
-          style={
-            motionEnabled
-              ? { opacity: glowOpacity, scale: glowScale }
-              : { opacity: 0.7 }
-          }
+          initial={motionEnabled ? { opacity: 0, scale: 0.97 } : false}
+          whileInView={enter}
+          viewport={viewport}
+          transition={{ duration: 1.4, delay: 0.04, ease: EASE_SOFT }}
         >
-          <span className="process-intro__glow-core" />
+          <motion.div
+            className="process-intro__glow"
+            style={
+              motionEnabled
+                ? { opacity: glowOpacity, scale: glowScale }
+                : { opacity: 0.7 }
+            }
+          >
+            <span className="process-intro__glow-core" />
+          </motion.div>
         </motion.div>
       </div>
+
       <div className="process-intro__rings-slot">
         <motion.div
-          className="process-intro__rings"
-          style={
-            motionEnabled
-              ? { opacity: ringOpacity, scale: ringScale }
-              : { opacity: 0.22 }
-          }
+          initial={motionEnabled ? { opacity: 0, scale: 0.97 } : false}
+          whileInView={enter}
+          viewport={viewport}
+          transition={{ duration: 1.25, delay: 0.14, ease: EASE_SOFT }}
         >
-          <svg viewBox="0 0 100 100" className="process-intro__rings-svg">
-            <circle cx="50" cy="50" r="17" />
-            <circle cx="50" cy="50" r="28" />
-            <circle cx="50" cy="50" r="40" />
-          </svg>
+          <motion.div
+            className="process-intro__rings"
+            style={
+              motionEnabled
+                ? { opacity: ringOpacity, scale: ringScale }
+                : { opacity: 0.68 }
+            }
+          >
+            <svg viewBox="0 0 200 200" className="process-intro__rings-svg">
+              <g className="process-intro__ring-static">
+                <circle
+                  cx="100"
+                  cy="100"
+                  r="28"
+                  className="process-intro__orbit process-intro__orbit--hair"
+                />
+                <circle
+                  cx="100"
+                  cy="100"
+                  r="48"
+                  className="process-intro__orbit process-intro__orbit--soft"
+                />
+                <circle
+                  cx="100"
+                  cy="100"
+                  r="68"
+                  className="process-intro__orbit process-intro__orbit--mid"
+                />
+                <circle
+                  cx="100"
+                  cy="100"
+                  r="90"
+                  className="process-intro__orbit process-intro__orbit--outer"
+                />
+              </g>
+              <g className="process-intro__ring-cw">
+                <circle
+                  cx="100"
+                  cy="100"
+                  r="58"
+                  className="process-intro__orbit process-intro__orbit--dashed"
+                />
+                <path
+                  d="M 100 18 A 82 82 0 0 1 164 72"
+                  className="process-intro__arc"
+                />
+              </g>
+              <g className="process-intro__ring-ccw">
+                <circle
+                  cx="100"
+                  cy="100"
+                  r="78"
+                  className="process-intro__orbit process-intro__orbit--sparse"
+                />
+              </g>
+            </svg>
+          </motion.div>
         </motion.div>
       </div>
-      <motion.div
-        className="process-intro__particles"
-        style={motionEnabled ? { opacity: particleOpacity } : { opacity: 0.28 }}
-      >
-        {INTRO_PARTICLES.map((particle) => (
-          <span
-            key={`${particle.x}-${particle.y}`}
-            className="process-intro__particle"
-            style={{
-              left: `${particle.x}%`,
-              top: `${particle.y}%`,
-              width: `${particle.s * 0.28}rem`,
-              height: `${particle.s * 0.28}rem`,
-            }}
-          />
-        ))}
-      </motion.div>
-    </div>
+    </motion.div>
   );
 }
 
 function BloomStem({
   d,
-  readY,
-  hubY,
+  revealed,
   delay,
   motionEnabled,
 }: {
   d: string;
-  readY: MotionValue<number>;
-  hubY: number;
+  revealed: boolean;
   delay: number;
   motionEnabled: boolean;
 }) {
-  const pathLength = useTransform(readY, (value) =>
-    smoothstep((value - (hubY + 40 + delay)) / 240),
-  );
-  const opacity = useTransform(pathLength, (value) => 0.2 + value * 0.8);
-
   return (
     <g>
       <motion.path
         className="process-recap-stem process-recap-stem--glow"
         d={d}
         strokeLinecap="round"
-        style={motionEnabled ? { pathLength, opacity } : undefined}
+        initial={false}
+        animate={
+          revealed
+            ? { pathLength: 1, opacity: 0.85 }
+            : { pathLength: 0, opacity: 0 }
+        }
+        transition={{
+          duration: motionEnabled ? 0.55 : 0,
+          delay: motionEnabled ? delay : 0,
+          ease: EASE_OUT,
+        }}
       />
       <motion.path
         className="process-recap-stem"
         d={d}
         strokeLinecap="round"
-        style={motionEnabled ? { pathLength, opacity } : undefined}
+        initial={false}
+        animate={
+          revealed
+            ? { pathLength: 1, opacity: 1 }
+            : { pathLength: 0, opacity: 0 }
+        }
+        transition={{
+          duration: motionEnabled ? 0.55 : 0,
+          delay: motionEnabled ? delay : 0,
+          ease: EASE_OUT,
+        }}
       />
     </g>
   );
@@ -427,18 +666,18 @@ function OverviewLanding({
   motionEnabled: boolean;
 }) {
   const copyOpacity = useTransform(readY, (value) =>
-    smoothstep((value - (geometry.overview.y + 160)) / 220),
+    smoothstep((value - (geometry.overview.y - 40)) / 90),
   );
   const copyY = useTransform(readY, (value) => {
-    const entered = smoothstep((value - (geometry.overview.y + 160)) / 220);
-    return (1 - entered) * 18;
+    const entered = smoothstep((value - (geometry.overview.y - 40)) / 90);
+    return (1 - entered) * 12;
   });
 
   return (
     <motion.div
       className="process-overview-end"
       style={{
-        top: `${((geometry.overview.y + (geometry.recapLayout === "fan" ? 480 : 560)) / geometry.height) * 100}%`,
+        top: `${((geometry.overview.y + (geometry.recapLayout === "fan" ? 270 : 280)) / geometry.height) * 100}%`,
         x: "-50%",
         ...(motionEnabled
           ? { opacity: copyOpacity, y: copyY }
@@ -469,8 +708,7 @@ function RecapMark({
   number,
   width,
   height,
-  readY,
-  hubY,
+  revealed,
   delay,
   showLabel,
   motionEnabled,
@@ -480,123 +718,178 @@ function RecapMark({
   number: string;
   width: number;
   height: number;
-  readY: MotionValue<number>;
-  hubY: number;
+  revealed: boolean;
   delay: number;
   showLabel: boolean;
   motionEnabled: boolean;
 }) {
-  const opacity = useTransform(readY, (value) =>
-    smoothstep((value - (hubY + 90 + delay)) / 180),
-  );
+  const appear = (extra: number) => ({
+    duration: motionEnabled ? 0.38 : 0,
+    delay: motionEnabled ? delay + extra : 0,
+    ease: EASE_OUT,
+  });
 
   return (
-    <motion.div
+    <div
       className="process-recap-mark"
       style={{
         left: `${(point.x / width) * 100}%`,
         top: `${(point.y / height) * 100}%`,
-        ...(motionEnabled ? { opacity } : { opacity: 1 }),
       }}
     >
-      <span className="process-recap-mark__dot" />
+      <span className="process-recap-mark__dot-slot">
+        <motion.span
+          className="process-recap-mark__dot"
+          initial={false}
+          animate={
+            revealed
+              ? { opacity: 1, scale: [0.7, 1.08, 1] }
+              : { opacity: 0, scale: 0.4 }
+          }
+          transition={{
+            duration: motionEnabled ? 0.55 : 0,
+            delay: motionEnabled ? delay + 0.18 : 0,
+            ease: EASE_OUT,
+          }}
+        />
+      </span>
       {showLabel ? (
         <span className="process-recap-mark__label">
-          <span className="process-recap-mark__number">{number}</span>
-          {label}
+          <motion.span
+            className="process-recap-mark__number"
+            initial={false}
+            animate={revealed ? { opacity: 1, y: 0 } : { opacity: 0, y: 6 }}
+            transition={appear(0.22)}
+          >
+            {number}
+          </motion.span>
+          <motion.span
+            initial={false}
+            animate={revealed ? { opacity: 1, y: 0 } : { opacity: 0, y: 6 }}
+            transition={appear(0.32)}
+          >
+            {label}
+          </motion.span>
         </span>
       ) : null}
-    </motion.div>
+    </div>
   );
 }
 
 function Checkpoint({
   point,
-  readY,
   width,
   height,
+  stopId,
+  headProgress,
   emphasized = false,
   origin = false,
+  finale = false,
   motionEnabled,
+  veil,
 }: {
   point: Point;
-  readY: MotionValue<number>;
   width: number;
   height: number;
+  stopId: number;
+  headProgress: MotionValue<number>;
   emphasized?: boolean;
   origin?: boolean;
+  finale?: boolean;
   motionEnabled: boolean;
+  veil?: MotionValue<number>;
 }) {
-  const state = useTransform(readY, (value) => {
-    const delta = value - point.y;
-    const lead = origin ? 220 : 90;
-    if (delta < -lead) return 0;
-    if (delta < 80) return smoothstep((delta + lead) / (lead + 80));
-    return 1;
+  const intensity = useTransform(headProgress, (value) => {
+    const delta = value - stopId;
+    if (delta < -0.55) return origin ? 0.42 : 0.12;
+    if (delta < -0.04) return 0.22 + smoothstep((delta + 0.55) / 0.51) * 0.5;
+    if (delta <= 0.08) return origin ? 0.82 : 1;
+    return finale || origin || emphasized ? 0.72 : 0.5;
   });
-  const ringOpacity = useTransform(state, (value) => 0.22 + value * 0.55);
-  const coreOpacity = useTransform(state, (value) => 0.18 + value * 0.82);
+  const scale = useTransform(headProgress, (value) => {
+    const active = Math.abs(value - stopId) <= 0.08;
+    if (!active) return finale ? 1.04 : 1;
+    return finale || emphasized ? 1.1 : 1.08;
+  });
+  const ringOpacity = useTransform(intensity, (value) => 0.2 + value * 0.58);
+  const coreOpacity = useTransform(intensity, (value) => 0.16 + value * 0.84);
 
   return (
-    <div
+    <motion.div
       className={cn(
         "process-node",
         emphasized && "process-node--result",
         origin && "process-node--origin",
+        finale && "process-node--finale",
       )}
+      data-process-stop={stopId}
       style={{
         left: `${(point.x / width) * 100}%`,
         top: `${(point.y / height) * 100}%`,
+        ...(veil ? { opacity: veil } : {}),
       }}
     >
       <motion.span
         className="process-node__ring"
-        style={motionEnabled ? { opacity: ringOpacity } : undefined}
+        style={
+          motionEnabled ? { opacity: ringOpacity, scale } : undefined
+        }
       />
       <motion.span
         className="process-node__core"
         style={motionEnabled ? { opacity: coreOpacity } : undefined}
       />
-    </div>
+    </motion.div>
   );
 }
 
 export function ProcessSection() {
   const sectionRef = useRef<HTMLElement>(null);
+  const canvasRef = useRef<HTMLDivElement>(null);
   const pathRef = useRef<SVGPathElement>(null);
+  const glowPathRef = useRef<SVGPathElement>(null);
+  const completePathRef = useRef<SVGPathElement>(null);
+  const signalRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<PathMap | null>(null);
+  const stopsRef = useRef<JourneyStop[]>([]);
   const reduceMotion = useReducedMotion();
   const motionEnabled = reduceMotion === false;
   const [layoutMode, setLayoutMode] = useState<LayoutMode>("mobile");
+  const [overviewBloom, setOverviewBloom] = useState(false);
+  const introSceneRef = useRef<HTMLDivElement>(null);
   const geometry = geometryFor(layoutMode);
-  const { scrollYProgress } = useScroll({
-    target: sectionRef,
-    offset: ["start start", "end end"],
-  });
+  const geometryRef = useRef(geometry);
+  geometryRef.current = geometry;
 
-  const pathLength = useMotionValue(motionEnabled ? 0 : 1);
+  const headProgress = useMotionValue(0);
   const signalX = useMotionValue(geometry.start.x);
   const signalY = useMotionValue(geometry.start.y);
   const signalOpacity = useMotionValue(0);
+  const signalScale = useMotionValue(1);
   const readY = useMotionValue(0);
   const hazeX = useMotionValue(`${(geometry.start.x / geometry.width) * 100}%`);
   const hazeY = useMotionValue(`${(geometry.start.y / geometry.height) * 100}%`);
 
   const unitsPerVh = geometry.height / geometry.vh;
-  const introPull = useTransform(readY, (value) =>
-    smoothstep((value - 0.48 * 100 * unitsPerVh) / (108 * unitsPerVh)),
+  const introProgressValue = useTransform(readY, (value) =>
+    introProgress(value, unitsPerVh),
   );
-  const introScale = useTransform(introPull, (value) => 1 - value * 0.3);
-  const introY = useTransform(introPull, (value) => value * -78);
-  const introOpacity = useTransform(readY, (value) => {
-    const pull = smoothstep(
-      (value - 0.48 * 100 * unitsPerVh) / (108 * unitsPerVh),
-    );
-    const leave = smoothstep(
-      (value - (geometry.start.y + 80)) / (70 * unitsPerVh),
-    );
-    return (1 - pull * 0.12) * (1 - leave);
-  });
+  const introRecede = useTransform(introProgressValue, (value) =>
+    introDepart(value),
+  );
+  const introScale = useTransform(introRecede, (value) => 1 - value * 0.01);
+  const introOpacity = useTransform(introProgressValue, (value) =>
+    1 - introFade(value),
+  );
+  const introLift = useTransform(introProgressValue, (value) =>
+    introFade(value) * -56,
+  );
+  const hintOpacity = useTransform(introProgressValue, (value) =>
+    1 - introHintFade(value),
+  );
+  const lineReveal = useTransform(introProgressValue, (value) =>
+    introLineReveal(value),
+  );
   const signalLeft = useTransform(
     signalX,
     (value) => `${(value / geometry.width) * 100}%`,
@@ -607,22 +900,38 @@ export function ProcessSection() {
   );
 
   const updateFromScroll = useCallback(
-    (progress: number) => {
+    () => {
+      const geometry = geometryRef.current;
       const section = sectionRef.current;
+      const canvas = canvasRef.current;
       const map = mapRef.current;
-      if (!section || !map) return;
-      const sectionHeight = section.offsetHeight;
+      if (!section || !canvas || !map) return;
       const viewport = window.innerHeight;
-      const centerFrac =
-        sectionHeight <= viewport
-          ? progress
-          : (progress * (sectionHeight - viewport) + 0.52 * viewport) /
-            sectionHeight;
-      const targetY = centerFrac * geometry.height;
-      readY.set(targetY);
+      const canvasHeight = canvas.offsetHeight || 1;
+      const units = geometry.height / geometry.vh;
+      const readPx = viewport * 0.5 - section.getBoundingClientRect().top;
+      const holdPx = viewport * (STAGE_HOLD_SVH / 100);
+      const beatPx = viewport * (INTRO_BEAT_SVH / 100);
+      const introY = introClearY(units);
+      const introYpx = (introY / geometry.height) * canvasHeight;
+      const startLen = sampleAtY(map, introY).len;
+      const held = journeyWithHolds(
+        stopsRef.current,
+        readPx,
+        holdPx,
+        motionEnabled
+          ? { y: introYpx, len: startLen, holdPx: beatPx }
+          : undefined,
+      );
+      const visualY = clamp(readPx / canvasHeight, 0, 1) * geometry.height;
+      readY.set(visualY);
       if (!motionEnabled) {
-        pathLength.set(1);
+        glowPathRef.current?.removeAttribute("stroke-dasharray");
+        completePathRef.current?.removeAttribute("stroke-dasharray");
+        headProgress.set(6);
         signalOpacity.set(0);
+        signalScale.set(1);
+        signalRef.current?.classList.remove("is-holding");
         const end = sampleAtY(map, map.y[map.y.length - 1]);
         signalX.set(end.x);
         signalY.set(end.y);
@@ -630,33 +939,54 @@ export function ProcessSection() {
         hazeY.set(`${(end.y / geometry.height) * 100}%`);
         return;
       }
-      const sample = sampleAtY(map, targetY);
-      const arrived = sample.y >= geometry.overview.y - 10;
-      const approachingOrigin = smoothstep(
-        (targetY - (geometry.start.y - 180)) / 170,
+      const reveal = introLineReveal(introProgress(visualY, units));
+      const arrived = held.head >= 6 - 0.04;
+      const from = startLen;
+      const to =
+        reveal <= 0
+          ? startLen
+          : Math.min(map.total, Math.max(held.len, startLen));
+      applyTravelledRoute(
+        [glowPathRef.current, completePathRef.current],
+        map,
+        from,
+        to,
       );
-      const travelling =
-        sample.len > 8 && sample.y > geometry.start.y + 8 && !arrived;
-      pathLength.set(map.total === 0 ? 0 : sample.len / map.total);
-      signalX.set(arrived ? geometry.overview.x : sample.x);
-      signalY.set(arrived ? geometry.overview.y : sample.y);
-      signalOpacity.set(arrived ? 0.2 : travelling ? 1 : approachingOrigin * 0.7);
+      const tipLength = Math.min(Math.max(to, 0), map.total);
+      const route = pathRef.current;
+      const tip = route
+        ? route.getPointAtLength(tipLength)
+        : sampleAtLength(map, tipLength);
+      headProgress.set(held.head);
+      signalX.set(arrived ? geometry.overview.x : tip.x);
+      signalY.set(arrived ? geometry.overview.y : tip.y);
+      signalOpacity.set(arrived ? 0.12 : reveal);
+      signalScale.set(held.holding ? 1.07 : 1);
+      signalRef.current?.classList.toggle("is-holding", held.holding);
       hazeX.set(
-        `${((arrived ? geometry.overview.x : sample.x) / geometry.width) * 100}%`,
+        `${((arrived ? geometry.overview.x : tip.x) / geometry.width) * 100}%`,
       );
       hazeY.set(
-        `${((arrived ? geometry.overview.y : sample.y) / geometry.height) * 100}%`,
+        `${((arrived ? geometry.overview.y : tip.y) / geometry.height) * 100}%`,
       );
     },
-    [geometry.height, geometry.overview, geometry.start.y, geometry.width, hazeX, hazeY, motionEnabled, pathLength, readY, signalOpacity, signalX, signalY],
+    [hazeX, hazeY, headProgress, motionEnabled, readY, signalOpacity, signalScale, signalX, signalY],
   );
 
   const measurePath = useCallback(() => {
     const route = pathRef.current;
-    if (!route) return;
-    mapRef.current = buildPathMap(route);
-    updateFromScroll(scrollYProgress.get());
-  }, [scrollYProgress, updateFromScroll]);
+    const canvas = canvasRef.current;
+    if (!route || !canvas) return;
+    const map = buildPathMap(route);
+    mapRef.current = map;
+    stopsRef.current = visualStops(
+      canvas.offsetHeight,
+      map,
+      [geometry.start, ...geometry.nodes, geometry.overview],
+      geometry.height,
+    );
+    updateFromScroll();
+  }, [geometry.height, geometry.nodes, geometry.overview, geometry.start, updateFromScroll]);
 
   useEffect(() => {
     const portraitQuery = window.matchMedia("(min-width: 768px)");
@@ -680,15 +1010,87 @@ export function ProcessSection() {
   }, []);
 
   useEffect(() => {
-    const frame = requestAnimationFrame(measurePath);
+    let cancelled = false;
+    const run = () => {
+      if (!cancelled) measurePath();
+    };
+    const frame = requestAnimationFrame(() => {
+      run();
+      requestAnimationFrame(run);
+    });
     window.addEventListener("resize", measurePath);
+    window.addEventListener("orientationchange", measurePath);
+    window.visualViewport?.addEventListener("resize", measurePath);
+    const observer =
+      typeof ResizeObserver !== "undefined" && sectionRef.current
+        ? new ResizeObserver(measurePath)
+        : null;
+    if (sectionRef.current && observer) observer.observe(sectionRef.current);
     return () => {
+      cancelled = true;
       cancelAnimationFrame(frame);
       window.removeEventListener("resize", measurePath);
+      window.removeEventListener("orientationchange", measurePath);
+      window.visualViewport?.removeEventListener("resize", measurePath);
+      observer?.disconnect();
     };
   }, [geometry.route, measurePath]);
 
-  useMotionValueEvent(scrollYProgress, "change", updateFromScroll);
+  useGSAP(
+    () => {
+      const section = sectionRef.current;
+      const canvas = canvasRef.current;
+      if (!section) return;
+      if (canvas) gsap.set(canvas, { clearProps: "transform" });
+      const trigger = ScrollTrigger.create({
+        id: "process-journey",
+        trigger: section,
+        start: "top bottom",
+        end: "bottom top",
+        invalidateOnRefresh: true,
+        onUpdate: updateFromScroll,
+        onRefresh: updateFromScroll,
+      });
+      updateFromScroll();
+      return () => trigger.kill();
+    },
+    { dependencies: [updateFromScroll, geometry.route, layoutMode] },
+  );
+
+  // Pauses the intro's blurred haze and orbit rings once the intro scene has
+  // scrolled away. Toggled straight on the DOM so it costs no React renders.
+  useEffect(() => {
+    const scene = introSceneRef.current;
+    const section = sectionRef.current;
+    if (!scene || !section || !motionEnabled) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        section.classList.toggle(
+          "process-journey--intro-idle",
+          !entry.isIntersecting,
+        );
+      },
+      { rootMargin: "120px 0px", threshold: 0 },
+    );
+    observer.observe(scene);
+
+    return () => {
+      observer.disconnect();
+      section.classList.remove("process-journey--intro-idle");
+    };
+  }, [motionEnabled]);
+
+  useEffect(() => {
+    if (reduceMotion) setOverviewBloom(true);
+    else setOverviewBloom(headProgress.get() >= 5.78);
+  }, [headProgress, reduceMotion]);
+
+  useMotionValueEvent(headProgress, "change", (value) => {
+    if (reduceMotion) return;
+    const bloom = value >= 5.78;
+    setOverviewBloom((was) => (was === bloom ? was : bloom));
+  });
 
   return (
     <section
@@ -700,12 +1102,16 @@ export function ProcessSection() {
         !motionEnabled && "process-journey--reduced",
       )}
       aria-labelledby="process-heading"
-      style={{ ["--process-vh" as string]: `${geometry.vh}svh` }}
+      style={{
+        ["--process-vh" as string]: `${geometry.vh}svh`,
+        ["--process-scroll" as string]: `${geometry.vh}svh`,
+        ["--process-intro-lock" as string]: `${INTRO_LOCK_SVH}svh`,
+      }}
     >
       <div className="process-journey__vignette" aria-hidden="true" />
       <div className="process-journey__grain" aria-hidden="true" />
 
-      <div className="process-journey__canvas">
+      <div ref={canvasRef} className="process-journey__canvas">
         <motion.div
           className="process-journey__haze"
           aria-hidden="true"
@@ -729,43 +1135,42 @@ export function ProcessSection() {
             fill="none"
           />
           <path
-            className="process-route__base"
-            d={geometry.route}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-          <motion.path
+            ref={glowPathRef}
             className="process-route__glow"
             d={geometry.route}
             strokeLinecap="round"
             strokeLinejoin="round"
-            style={motionEnabled ? { pathLength } : undefined}
           />
-          <motion.path
+          <path
+            ref={completePathRef}
             className="process-route__complete"
             d={geometry.route}
             strokeLinecap="round"
             strokeLinejoin="round"
-            style={motionEnabled ? { pathLength } : undefined}
           />
           {geometry.recap.map((mark, index) => (
             <BloomStem
               key={mark.d}
               d={mark.d}
-              readY={readY}
-              hubY={geometry.overview.y}
-              delay={index * 36}
+              revealed={overviewBloom}
+              delay={index * 0.04}
               motionEnabled={motionEnabled}
             />
           ))}
         </svg>
 
         <motion.div
+          ref={signalRef}
           className="process-signal"
           aria-hidden="true"
           style={
             motionEnabled
-              ? { left: signalLeft, top: signalTop, opacity: signalOpacity }
+              ? {
+                  left: signalLeft,
+                  top: signalTop,
+                  opacity: signalOpacity,
+                  scale: signalScale,
+                }
               : { opacity: 0 }
           }
         >
@@ -777,23 +1182,28 @@ export function ProcessSection() {
           <Checkpoint
             key={processCopy.steps[index].number}
             point={node}
-            readY={readY}
+            stopId={index + 1}
+            headProgress={headProgress}
             width={geometry.width}
             height={geometry.height}
+            finale={index === 4}
             motionEnabled={motionEnabled}
           />
         ))}
         <Checkpoint
           point={geometry.start}
-          readY={readY}
+          stopId={0}
+          headProgress={headProgress}
           width={geometry.width}
           height={geometry.height}
           origin
+          veil={lineReveal}
           motionEnabled={motionEnabled}
         />
         <Checkpoint
           point={geometry.overview}
-          readY={readY}
+          stopId={6}
+          headProgress={headProgress}
           width={geometry.width}
           height={geometry.height}
           emphasized
@@ -807,9 +1217,8 @@ export function ProcessSection() {
             number={processCopy.steps[index].number}
             width={geometry.width}
             height={geometry.height}
-            readY={readY}
-            hubY={geometry.overview.y}
-            delay={index * 36}
+            revealed={overviewBloom}
+            delay={index * 0.04}
             showLabel={geometry.recapLayout === "fan"}
             motionEnabled={motionEnabled}
           />
@@ -828,9 +1237,17 @@ export function ProcessSection() {
               step={step}
               nodeY={geometry.nodes[index].y}
               side={geometry.textSides[index]}
-              stacked={index === 0}
+              stackedLines={
+                index === 0
+                  ? ["Understand", "the Music"]
+                  : index === 1
+                    ? ["Understand", "the Audience"]
+                    : undefined
+              }
+              feature={index === 2 || index === 3 || index === 4}
               readY={readY}
               motionEnabled={motionEnabled}
+              lead={index === 0 ? 640 : 560}
             />
             {index === 0 ? (
               <MusicAnalysisHud
@@ -838,9 +1255,60 @@ export function ProcessSection() {
                 side={
                   geometry.textSides[0] === "before" ? "after" : "before"
                 }
-                compact={layoutMode === "mobile" || layoutMode === "portrait"}
+                compact={layoutMode === "mobile"}
                 readY={readY}
                 motionEnabled={motionEnabled}
+                enterLead={640}
+              />
+            ) : null}
+            {index === 1 ? (
+              <AudienceConstellation
+                nodeY={geometry.nodes[1].y}
+                side={
+                  geometry.textSides[1] === "after" ? "before" : "after"
+                }
+                compact={layoutMode === "mobile"}
+                readY={readY}
+                motionEnabled={motionEnabled}
+              />
+            ) : null}
+            {index === 2 ? (
+              <StrategyEngine
+                nodeY={geometry.nodes[2].y}
+                side={
+                  geometry.textSides[2] === "before" ? "after" : "before"
+                }
+                compact={layoutMode === "mobile"}
+                readY={readY}
+                motionEnabled={motionEnabled}
+              />
+            ) : null}
+            {index === 3 ? (
+              <CampaignCommand
+                nodeY={geometry.nodes[3].y}
+                side={
+                  geometry.textSides[3] === "after" ? "before" : "after"
+                }
+                compact={layoutMode === "mobile"}
+                readY={readY}
+                motionEnabled={motionEnabled}
+                exitY={
+                  layoutMode === "mobile" ? geometry.nodes[4].y : undefined
+                }
+              />
+            ) : null}
+            {index === 4 ? (
+              <OptimisationEngine
+                nodeY={geometry.nodes[4].y}
+                side={
+                  geometry.textSides[4] === "before" ? "after" : "before"
+                }
+                compact={layoutMode === "mobile"}
+                readY={readY}
+                motionEnabled={motionEnabled}
+                exitY={
+                  layoutMode === "mobile" ? geometry.overview.y : undefined
+                }
               />
             ) : null}
           </div>
@@ -853,22 +1321,37 @@ export function ProcessSection() {
         />
       </div>
 
-      <div className="process-intro-lock">
-        <header className="process-intro">
+      <div
+        ref={introSceneRef}
+        className="process-intro-lock process-intro-lock--scene"
+      >
+        <div className="process-intro">
           <IntroAtmosphere
             readY={readY}
             unitsPerVh={unitsPerVh}
             motionEnabled={motionEnabled}
           />
+        </div>
+      </div>
+
+      <div className="process-intro-lock">
+        <header className="process-intro">
           <motion.div
             className="process-intro__copy"
             style={
               motionEnabled
-                ? { opacity: introOpacity, scale: introScale, y: introY }
+                ? {
+                    opacity: introOpacity,
+                    scale: introScale,
+                    y: introLift,
+                    originX: 0.5,
+                    originY: 0.5,
+                  }
                 : undefined
             }
           >
             <p className="process-intro__eyebrow label-caps text-acid-lime">
+              <span className="process-intro__eyebrow-rule" />
               {processCopy.eyebrow}
             </p>
             <h2
@@ -877,7 +1360,19 @@ export function ProcessSection() {
             >
               {processCopy.headline}
             </h2>
+            <p className="process-intro__note">{campaignNote}</p>
           </motion.div>
+          <motion.p
+            className="process-intro__hint"
+            style={motionEnabled ? { opacity: hintOpacity } : undefined}
+          >
+            <span className="process-intro__hint-inner">
+              {processCopy.scrollHint}
+              <span className="process-intro__hint-arrow" aria-hidden="true">
+                ↓
+              </span>
+            </span>
+          </motion.p>
         </header>
       </div>
     </section>

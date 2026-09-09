@@ -4,12 +4,12 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
   useState,
 } from "react";
 import { usePathname } from "next/navigation";
 import { sectionIds } from "@/content/navigation";
+import { ScrollTrigger, useGSAP } from "@/lib/motion";
 
 type ActiveSectionContextValue = {
   activeId: string;
@@ -20,44 +20,62 @@ const ActiveSectionContext = createContext<ActiveSectionContextValue | null>(
   null,
 );
 
-/**
- * All homepage bands in document order, mapped to the nearest primary-nav id.
- */
 const scrollSections: { id: string; navId: string }[] = [
   { id: "overview", navId: "overview" },
-  { id: "services", navId: "services" },
   { id: "process", navId: "process" },
   { id: "contact", navId: "contact" },
 ];
 
-function readActiveFromScroll(defaultId: string) {
-  const elements = scrollSections
-    .map((section) => {
-      const el = document.getElementById(section.id);
-      return el ? { el, navId: section.navId } : null;
-    })
-    .filter((item): item is { el: HTMLElement; navId: string } => Boolean(item));
+type NavGeometry = {
+  /** Section tops as absolute document offsets, in source order. */
+  tops: { top: number; navId: string }[];
+  viewport: number;
+  docHeight: number;
+};
 
-  if (elements.length === 0) return defaultId;
+/**
+ * Section offsets only change on resize or a ScrollTrigger refresh, so they are
+ * measured there rather than on every scroll tick. This keeps the hot path free
+ * of forced layout reads while producing the same boundaries as before:
+ * `rect.top <= probe` is equivalent to `absoluteTop <= scrollTop + probe`.
+ */
+function measureNavGeometry(): NavGeometry {
+  const scrollTop = window.scrollY || document.documentElement.scrollTop;
+  const tops: { top: number; navId: string }[] = [];
+
+  for (const section of scrollSections) {
+    const el = document.getElementById(section.id);
+    if (!el) continue;
+    tops.push({
+      top: el.getBoundingClientRect().top + scrollTop,
+      navId: section.navId,
+    });
+  }
+
+  return {
+    tops,
+    viewport: window.innerHeight,
+    docHeight: Math.max(
+      document.documentElement.scrollHeight,
+      document.body.scrollHeight,
+    ),
+  };
+}
+
+function readActiveFromScroll(geometry: NavGeometry, defaultId: string) {
+  if (geometry.tops.length === 0) return defaultId;
 
   const scrollTop = window.scrollY || document.documentElement.scrollTop;
-  const viewport = window.innerHeight;
-  const docHeight = Math.max(
-    document.documentElement.scrollHeight,
-    document.body.scrollHeight,
-  );
 
-  if (scrollTop + viewport >= docHeight - 2) {
+  if (scrollTop + geometry.viewport >= geometry.docHeight - 2) {
     return sectionIds[sectionIds.length - 1] ?? defaultId;
   }
 
-  const probe = viewport * 0.25;
+  const probe = scrollTop + geometry.viewport * 0.28;
   let nextId = defaultId;
 
-  for (const item of elements) {
-    if (item.el.getBoundingClientRect().top <= probe) {
-      nextId = item.navId;
-    }
+  for (const item of geometry.tops) {
+    if (item.top <= probe) nextId = item.navId;
   }
 
   return nextId;
@@ -75,48 +93,63 @@ export function ActiveSectionProvider({
     setActiveIdState(id);
   }, []);
 
-  useEffect(() => {
-    if (pathname !== "/") {
-      return;
-    }
+  useGSAP(
+    () => {
+      if (pathname !== "/") return;
 
-    let frame = 0;
+      let geometry = measureNavGeometry();
 
-    const update = () => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => {
-        setActiveIdState(readActiveFromScroll("overview"));
+      const activate = () => {
+        // Process layout / pin growth can change document height after the
+        // initial measure. Remeasure when it drifts so Home → Process → Contact
+        // highlighting stays correct without reading layout on every tick.
+        const liveHeight = Math.max(
+          document.documentElement.scrollHeight,
+          document.body.scrollHeight,
+        );
+        if (Math.abs(liveHeight - geometry.docHeight) > 2) {
+          geometry = measureNavGeometry();
+        }
+
+        const next = readActiveFromScroll(geometry, "overview");
+        setActiveIdState((current) => (current === next ? current : next));
+      };
+
+      const remeasure = () => {
+        geometry = measureNavGeometry();
+        activate();
+      };
+
+      const trigger = ScrollTrigger.create({
+        id: "nav-tracker",
+        start: 0,
+        end: "max",
+        invalidateOnRefresh: true,
+        onUpdate: activate,
+        onRefresh: remeasure,
       });
-    };
 
-    update();
-    window.addEventListener("scroll", update, { passive: true });
-    window.addEventListener("resize", update);
-    document.addEventListener("scroll", update, { passive: true, capture: true });
+      const resizeObserver = new ResizeObserver(() => {
+        remeasure();
+      });
+      resizeObserver.observe(document.documentElement);
 
-    const elements = scrollSections
-      .map((section) => document.getElementById(section.id))
-      .filter((el): el is HTMLElement => Boolean(el));
+      // Process path measurement settles after first paint; catch that layout.
+      const raf = window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(remeasure);
+      });
+      const settleTimer = window.setTimeout(remeasure, 320);
 
-    const observer =
-      elements.length > 0
-        ? new IntersectionObserver(update, {
-            root: null,
-            rootMargin: "-20% 0px -55% 0px",
-            threshold: [0, 0.1, 0.25, 0.5, 0.75, 1],
-          })
-        : null;
-
-    elements.forEach((el) => observer?.observe(el));
-
-    return () => {
-      cancelAnimationFrame(frame);
-      window.removeEventListener("scroll", update);
-      window.removeEventListener("resize", update);
-      document.removeEventListener("scroll", update, true);
-      observer?.disconnect();
-    };
-  }, [pathname]);
+      activate();
+      return () => {
+        trigger.kill();
+        resizeObserver.disconnect();
+        window.cancelAnimationFrame(raf);
+        window.clearTimeout(settleTimer);
+      };
+    },
+    { dependencies: [pathname] },
+  );
 
   const resolvedActiveId = pathname === "/" ? activeId : "overview";
 

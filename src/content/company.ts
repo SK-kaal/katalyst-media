@@ -2,17 +2,16 @@ export const company = {
   name: "Katalyst Media",
   legalName: "Katalyst Media",
   tagline: "Put your music in front of the right people.",
-  positioning:
-    "Creator campaigns, paid media and release strategy for artists, producers, managers and labels.",
+  positioning: "Creator campaigns, paid media and release strategy.",
   heroEyebrow: "For artists, producers, managers and labels",
-  heroSupport:
-    "Creator campaigns, paid media and release strategy for artists, producers, managers and labels.",
-  sidebarEyebrow: "Music marketing for artists, producers, managers & labels",
-  sidebarDescription: "Creator campaigns, paid media & release strategy.",
+  /** Kept deliberately short: the hero carries the full proposition. */
+  sidebarEyebrow: "Music marketing",
+  sidebarDescription: "For artists, producers & labels.",
   description:
     "Katalyst Media builds and manages release campaigns through creator marketing, paid media, content and release strategy.",
   focusLabel: "What we do",
   location: "United Kingdom",
+  sidebarLocation: "London · Worldwide campaigns",
   url: process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.katalystmedia.xyz",
   pageTitle: "Katalyst Media | Music Marketing for Artists & Labels",
   email: (process.env.NEXT_PUBLIC_CONTACT_EMAIL ?? "").trim(),

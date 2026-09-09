@@ -1,0 +1,28 @@
+.home-ending {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100svh;
+  min-height: 100dvh;
+  background: var(--color-deep-black);
+}
+
+.home-ending__contact {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.home-ending__footer {
+  flex-shrink: 0;
+  background: #050506;
+}
+
+@media (max-width: 1023px) {
+  .home-ending {
+    min-height: calc(100vh - var(--mobile-header-height));
+    min-height: calc(100svh - var(--mobile-header-height));
+    min-height: calc(100dvh - var(--mobile-header-height));
+  }
+}

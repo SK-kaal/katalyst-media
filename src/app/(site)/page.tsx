@@ -1,8 +1,7 @@
-import { ContactSection } from "@/components/home/ContactSection";
 import { HashScroll } from "@/components/home/HashScroll";
+import { HomeEnding } from "@/components/home/HomeEnding";
 import { OverviewSection } from "@/components/home/OverviewSection";
 import { ProcessSection } from "@/components/home/ProcessSection";
-import { ServicesSection } from "@/components/home/ServicesSection";
 import { company } from "@/content/company";
 import { createMetadata } from "@/lib/metadata";
 
@@ -17,9 +16,8 @@ export default function HomePage() {
     <>
       <HashScroll />
       <OverviewSection />
-      <ServicesSection />
       <ProcessSection />
-      <ContactSection />
+      <HomeEnding />
     </>
   );
 }

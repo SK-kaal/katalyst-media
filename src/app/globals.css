@@ -35,14 +35,17 @@
 
   --max-content: 1280px;
   --max-wide: 1440px;
-  --sidebar-width: 292px;
+  --sidebar-width: 280px;
   --section-desktop: 5.5rem; /* 88px — compact but not cramped */
   --section-tablet: 4.5rem; /* 72px */
   --section-mobile: 3.5rem; /* 56px */
+  --mobile-header-height: 4rem;
 
-  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
-  --duration-fast: 200ms;
+  --ease-out: cubic-bezier(0.215, 0.61, 0.355, 1);
+  --ease-ui: cubic-bezier(0.22, 1, 0.36, 1);
+  --duration-fast: 280ms;
   --duration-reveal: 550ms;
+  --duration-large: 1050ms;
 }
 
 @layer base {

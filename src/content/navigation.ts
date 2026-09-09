@@ -6,14 +6,12 @@ export type NavItem = {
 };
 
 export const primaryNav: NavItem[] = [
-  { number: "01", label: "Homepage", href: "/#overview", id: "overview" },
-  { number: "02", label: "Services", href: "/#services", id: "services" },
-  { number: "03", label: "Process", href: "/#process", id: "process" },
-  { number: "04", label: "Contact", href: "/#contact", id: "contact" },
+  { number: "01", label: "Home", href: "/#overview", id: "overview" },
+  { number: "02", label: "Process", href: "/#process", id: "process" },
+  { number: "03", label: "Contact", href: "/#contact", id: "contact" },
 ];
 
 export const footerNav = [
-  { label: "Services", href: "/#services" },
   { label: "Process", href: "/#process" },
   { label: "Contact", href: "/#contact" },
 ] as const;

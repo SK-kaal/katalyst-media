@@ -1,0 +1,665 @@
+.process-strategy {
+  position: absolute;
+  z-index: 4;
+  pointer-events: none;
+}
+
+.process-strategy--before {
+  top: 0;
+  left: var(--process-pad);
+  width: min(36rem, calc(var(--node-x) - var(--process-pad) - var(--path-clearance)));
+  transform: translateY(-42%);
+}
+
+.process-strategy--after {
+  top: 0;
+  left: calc(var(--node-x) + var(--path-clearance));
+  width: min(40rem, calc(100% - var(--node-x) - var(--process-pad) - var(--path-clearance)));
+  transform: translateY(-46%);
+}
+
+.process-strategy--compact {
+  top: 10.75rem;
+  left: 50%;
+  width: calc(100% - 2 * var(--process-pad));
+  transform: translate(-50%, 0);
+}
+
+.process-strategy--compact .process-strategy__card-slot--creators {
+  top: 3%;
+  left: 2%;
+}
+
+.process-strategy--compact .process-strategy__metrics {
+  left: 4%;
+  right: 4%;
+}
+
+.process-strategy__motion {
+  position: relative;
+  width: 100%;
+}
+
+.process-strategy__watermark {
+  position: absolute;
+  right: -6%;
+  top: -4%;
+  z-index: 0;
+  color: rgba(245, 245, 245, 0.045);
+  font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
+  font-size: clamp(7rem, 18vw, 13rem);
+  font-weight: 600;
+  letter-spacing: -0.08em;
+  line-height: 0.7;
+  user-select: none;
+}
+
+.process-strategy__particles {
+  position: absolute;
+  inset: 4% 6% 10%;
+  z-index: 0;
+}
+
+.process-strategy__particle {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(198, 255, 0, 0.38);
+  opacity: 0.28;
+}
+
+.process-strategy__stage {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  aspect-ratio: 560 / 500;
+}
+
+.process-strategy__glow-slot {
+  position: absolute;
+  inset: 18% 16% 28%;
+  z-index: 0;
+}
+
+.process-strategy__glow {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(198, 255, 0, 0.16) 0%,
+    rgba(198, 255, 0, 0.05) 42%,
+    transparent 72%
+  );
+}
+
+.process-strategy__svg {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.process-strategy__ring {
+  fill: none;
+  stroke: rgba(198, 255, 0, 0.12);
+  stroke-width: 0.7px;
+  transform-origin: 280px 188px;
+  transform-box: view-box;
+}
+
+.process-strategy__ring--ticks {
+  stroke: rgba(198, 255, 0, 0.2);
+  stroke-dasharray: 1.4 7.5;
+}
+
+.process-strategy__ring--cw,
+.process-strategy__ring--ccw {
+  stroke: rgba(198, 255, 0, 0.22);
+  stroke-dasharray: 18 8 3 10;
+}
+
+.process-strategy__ring--soft {
+  stroke: rgba(198, 255, 0, 0.16);
+}
+
+.process-strategy__ring--drift {
+  stroke: rgba(198, 255, 0, 0.1);
+  stroke-dasharray: 42 120;
+}
+
+.process-strategy__orbit {
+  fill: #c6ff00;
+  opacity: 0.55;
+  transform-origin: 280px 188px;
+  transform-box: view-box;
+}
+
+.process-strategy__scanner {
+  stroke: rgba(198, 255, 0, 0.22);
+  stroke-width: 0.7px;
+  transform-origin: 280px 188px;
+  transform-box: view-box;
+}
+
+.process-strategy__cross line {
+  stroke: rgba(198, 255, 0, 0.2);
+  stroke-width: 0.7px;
+}
+
+.process-strategy__link {
+  fill: none;
+  stroke: rgba(198, 255, 0, 0.28);
+  stroke-width: 1px;
+}
+
+.process-strategy__link--hot {
+  stroke: rgba(198, 255, 0, 0.78);
+}
+
+.process-strategy__energy {
+  fill: none;
+  stroke: #c6ff00;
+  stroke-width: 1.15px;
+  stroke-dasharray: 14 92;
+  stroke-linecap: round;
+  opacity: 0.55;
+}
+
+.process-strategy__packet {
+  fill: #c6ff00;
+}
+
+.process-strategy__core-halo {
+  fill: none;
+  stroke: rgba(198, 255, 0, 0.28);
+  stroke-width: 0.8px;
+  transform-origin: 280px 188px;
+  transform-box: view-box;
+}
+
+.process-strategy__core-ring {
+  fill: none;
+  stroke: rgba(198, 255, 0, 0.7);
+  stroke-width: 1.15px;
+}
+
+.process-strategy__core {
+  fill: rgba(8, 8, 9, 0.9);
+  stroke: #c6ff00;
+  stroke-width: 1.25px;
+}
+
+.process-strategy__core-label {
+  position: absolute;
+  top: 37.6%;
+  left: 50%;
+  z-index: 3;
+  display: grid;
+  width: 5.6rem;
+  color: var(--color-off-white);
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.52rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  line-height: 1.25;
+  text-align: center;
+  text-transform: uppercase;
+  transform: translate(-50%, -50%);
+}
+
+.process-strategy__fg {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+}
+
+.process-strategy__card-slot {
+  position: absolute;
+  z-index: 4;
+}
+
+.process-strategy__card {
+  min-width: 8.6rem;
+}
+
+.process-strategy__card-slot--creators {
+  top: 6%;
+  left: 16%;
+}
+
+.process-strategy__card-slot--content {
+  top: 3%;
+  right: 1%;
+}
+
+.process-strategy__card-slot--paid {
+  top: 54%;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.process-strategy__card-float {
+  padding: 0.7rem 0.8rem 0.72rem;
+  border: 1px solid rgba(198, 255, 0, 0.38);
+  border-radius: 0.55rem;
+  background: rgba(10, 10, 12, 0.72);
+  box-shadow: 0 0 0 1px rgba(198, 255, 0, 0.04);
+}
+
+.process-strategy__card--hot .process-strategy__card-float {
+  border-color: rgba(198, 255, 0, 0.82);
+  box-shadow: 0 0 18px rgba(198, 255, 0, 0.08);
+}
+
+.process-strategy__card-head {
+  display: flex;
+  gap: 0.42rem;
+  align-items: center;
+  margin-bottom: 0.42rem;
+}
+
+.process-strategy__icon {
+  width: 0.92rem;
+  height: 0.92rem;
+  flex: none;
+  stroke: #c6ff00;
+  stroke-width: 1.35;
+}
+
+.process-strategy__icon path,
+.process-strategy__icon circle {
+  stroke: #c6ff00;
+}
+
+.process-strategy__icon-play {
+  fill: rgba(198, 255, 0, 0.85);
+  stroke: none;
+}
+
+.process-strategy__card-head h4 {
+  color: var(--color-acid-lime);
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.58rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.process-strategy__card ul {
+  display: grid;
+  gap: 0.18rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.process-strategy__card li {
+  position: relative;
+  padding-left: 0.72rem;
+  color: var(--color-off-white);
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.68rem;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+}
+
+.process-strategy__card li::before {
+  content: "";
+  position: absolute;
+  top: 0.42em;
+  left: 0;
+  width: 0.22rem;
+  height: 0.22rem;
+  border-radius: 50%;
+  background: rgba(198, 255, 0, 0.7);
+}
+
+.process-strategy__card li.is-lit,
+.process-strategy__card li.is-lit .process-flip,
+.process-strategy__card li.is-lit .process-flip span {
+  color: #c6ff00;
+}
+
+.process-strategy__metrics {
+  position: absolute;
+  right: 2%;
+  bottom: 1.5%;
+  left: 18%;
+  z-index: 3;
+}
+
+.process-strategy__metrics-inner {
+  display: grid;
+  grid-template-columns: 1fr 0.72fr;
+  gap: 1.4rem;
+}
+
+.process-strategy__metrics-col {
+  display: grid;
+  gap: 0.42rem;
+}
+
+.process-strategy__metric {
+  display: flex;
+  gap: 0.45rem;
+  align-items: baseline;
+  margin: 0;
+  padding-bottom: 0.22rem;
+  border-bottom: 1px solid rgba(198, 255, 0, 0.12);
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  white-space: nowrap;
+}
+
+.process-strategy__metric > span:first-child {
+  color: var(--color-acid-lime);
+  font-size: 0.52rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.process-strategy__metric-rule {
+  color: rgba(160, 160, 168, 0.45);
+  font-size: 0.52rem;
+}
+
+.process-strategy__metric-value,
+.process-strategy__metric-value span,
+.process-strategy__metric-value strong {
+  display: inline-grid;
+  min-height: 1em;
+  overflow: hidden;
+  color: var(--color-off-white);
+}
+
+.process-strategy__metric-value strong {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.process-journey:not(.process-journey--reduced) .process-strategy__glow {
+  animation: process-strategy-breathe 7.2s ease-in-out infinite;
+}
+
+.process-journey:not(.process-journey--reduced) .process-strategy__core-ring,
+.process-journey:not(.process-journey--reduced) .process-strategy__core {
+  animation: process-strategy-core 6.6s ease-in-out infinite;
+  transform-origin: 280px 188px;
+  transform-box: view-box;
+}
+
+.process-journey:not(.process-journey--reduced) .process-strategy__ring--cw {
+  animation: process-strategy-spin 22s linear infinite;
+}
+
+.process-journey:not(.process-journey--reduced) .process-strategy__ring--ccw {
+  animation: process-strategy-spin-rev 36s linear infinite;
+}
+
+.process-journey:not(.process-journey--reduced) .process-strategy__ring--ticks {
+  animation: process-strategy-spin 40s linear infinite;
+}
+
+.process-journey:not(.process-journey--reduced) .process-strategy__ring--drift {
+  animation: process-strategy-drift 18s ease-in-out infinite;
+}
+
+.process-journey:not(.process-journey--reduced) .process-strategy__orbit {
+  animation: process-strategy-spin 28s linear infinite;
+}
+
+.process-journey:not(.process-journey--reduced) .process-strategy__orbit--slow {
+  animation: process-strategy-spin-rev 38s linear infinite;
+}
+
+.process-journey:not(.process-journey--reduced) .process-strategy__scanner {
+  animation: process-strategy-spin 15s linear infinite;
+}
+
+.process-journey:not(.process-journey--reduced) .process-strategy__energy {
+  animation: process-strategy-energy 4.8s linear infinite;
+}
+
+.process-journey:not(.process-journey--reduced) .process-strategy__particle {
+  animation: process-strategy-particle 7.4s ease-in-out infinite;
+}
+
+.process-journey:not(.process-journey--reduced) .process-strategy__card-float--creators {
+  animation: process-strategy-float-a 8.2s ease-in-out infinite;
+}
+
+.process-journey:not(.process-journey--reduced) .process-strategy__card-float--content {
+  animation: process-strategy-float-b 9.4s ease-in-out infinite;
+}
+
+.process-journey:not(.process-journey--reduced) .process-strategy__card-float--paid {
+  animation: process-strategy-float-c 7.6s ease-in-out infinite;
+}
+
+.process-journey:not(.process-journey--reduced) .process-strategy__core-halo {
+  animation: process-strategy-halo 0.45s ease-out;
+}
+
+.process-strategy--recalc.process-journey,
+.process-journey:not(.process-journey--reduced) .process-strategy--recalc .process-strategy__ring--cw,
+.process-journey:not(.process-journey--reduced) .process-strategy--recalc .process-strategy__ring--ccw {
+  animation-duration: 8s;
+}
+
+.process-strategy--quiet .process-strategy__energy,
+.process-strategy--quiet .process-strategy__particle,
+.process-strategy--quiet .process-strategy__packet {
+  opacity: 0.18;
+}
+
+.process-strategy--quiet .process-strategy__card-float--creators,
+.process-strategy--quiet .process-strategy__card-float--content,
+.process-strategy--quiet .process-strategy__card-float--paid,
+.process-strategy--quiet .process-strategy__ring--cw,
+.process-strategy--quiet .process-strategy__ring--ccw,
+.process-strategy--quiet .process-strategy__ring--ticks,
+.process-strategy--quiet .process-strategy__ring--drift,
+.process-strategy--quiet .process-strategy__orbit,
+.process-strategy--quiet .process-strategy__scanner,
+.process-strategy--quiet .process-strategy__energy,
+.process-strategy--quiet .process-strategy__particle,
+.process-strategy--quiet .process-strategy__core-halo,
+.process-strategy--quiet .process-strategy__glow {
+  animation-play-state: paused;
+}
+
+@keyframes process-strategy-breathe {
+  0%,
+  100% {
+    opacity: 0.68;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes process-strategy-core {
+  0%,
+  100% {
+    opacity: 0.82;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes process-strategy-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes process-strategy-spin-rev {
+  from {
+    transform: rotate(360deg);
+  }
+  to {
+    transform: rotate(0deg);
+  }
+}
+
+@keyframes process-strategy-drift {
+  0%,
+  100% {
+    transform: rotate(-7deg);
+  }
+  50% {
+    transform: rotate(8deg);
+  }
+}
+
+@keyframes process-strategy-energy {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: -106;
+  }
+}
+
+@keyframes process-strategy-particle {
+  0%,
+  100% {
+    opacity: 0.12;
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    opacity: 0.45;
+    transform: translate3d(4px, -6px, 0);
+  }
+}
+
+@keyframes process-strategy-float-a {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -3px, 0);
+  }
+}
+
+@keyframes process-strategy-float-b {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(3px, 2px, 0);
+  }
+}
+
+@keyframes process-strategy-float-c {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(-2px, 3px, 0);
+  }
+}
+
+@keyframes process-strategy-halo {
+  0% {
+    opacity: 0.7;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.18);
+  }
+}
+
+.process-journey--reduced .process-strategy__glow,
+.process-journey--reduced .process-strategy__core-ring,
+.process-journey--reduced .process-strategy__core,
+.process-journey--reduced .process-strategy__ring--cw,
+.process-journey--reduced .process-strategy__ring--ccw,
+.process-journey--reduced .process-strategy__ring--ticks,
+.process-journey--reduced .process-strategy__ring--drift,
+.process-journey--reduced .process-strategy__orbit,
+.process-journey--reduced .process-strategy__scanner,
+.process-journey--reduced .process-strategy__energy,
+.process-journey--reduced .process-strategy__particle,
+.process-journey--reduced .process-strategy__card-float--creators,
+.process-journey--reduced .process-strategy__card-float--content,
+.process-journey--reduced .process-strategy__card-float--paid,
+.process-journey--reduced .process-strategy__core-halo {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .process-strategy__glow,
+  .process-strategy__core-ring,
+  .process-strategy__core,
+  .process-strategy__ring--cw,
+  .process-strategy__ring--ccw,
+  .process-strategy__ring--ticks,
+  .process-strategy__ring--drift,
+  .process-strategy__orbit,
+  .process-strategy__scanner,
+  .process-strategy__energy,
+  .process-strategy__particle,
+  .process-strategy__card-float--creators,
+  .process-strategy__card-float--content,
+  .process-strategy__card-float--paid,
+  .process-strategy__core-halo {
+    animation: none;
+  }
+}
+
+@media (min-width: 1024px) {
+  .process-strategy--after {
+    width: min(42rem, calc(100% - var(--node-x) - var(--process-pad) - var(--path-clearance)));
+  }
+
+  .process-strategy__card {
+    min-width: 9.4rem;
+  }
+
+  .process-strategy__card li {
+    font-size: 0.72rem;
+  }
+
+  .process-strategy__metric-value strong {
+    font-size: 0.74rem;
+  }
+}
+
+@media (max-width: 767px) {
+  .process-strategy--compact .process-strategy__card-slot--paid {
+    top: 50%;
+  }
+
+  .process-strategy__card {
+    min-width: 7.4rem;
+  }
+
+  .process-strategy__card-float {
+    padding: 0.55rem 0.62rem 0.58rem;
+  }
+
+  .process-strategy__card li {
+    font-size: 0.72rem;
+  }
+
+  .process-strategy__core-label {
+    font-size: 0.62rem;
+    width: 5.4rem;
+  }
+
+  .process-strategy__metric span {
+    font-size: 0.68rem;
+  }
+}

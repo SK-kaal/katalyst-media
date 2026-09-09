@@ -1,0 +1,2 @@
+-- Katalyst Media campaign portal schema (applied via Supabase MCP)
+-- Kept in-repo for reference / future environments.

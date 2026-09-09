@@ -1,13 +1,17 @@
 .process-journey {
   --process-pad: 1.5rem;
   --process-vh: 890svh;
-  min-height: var(--process-vh);
+  --process-scroll: var(--process-vh);
+  --path-clearance: 2.75rem;
+  min-height: var(--process-scroll);
   background: var(--color-carbon);
 }
 
 .process-journey__canvas {
   position: relative;
   height: var(--process-vh);
+  max-width: 96rem;
+  margin-inline: auto;
   overflow-x: clip;
   overflow-y: visible;
 }
@@ -71,27 +75,27 @@
 .process-route__complete,
 .process-route__glow {
   fill: none;
-  vector-effect: non-scaling-stroke;
 }
 
 .process-route__base {
-  stroke: rgba(198, 255, 0, 0.07);
-  stroke-width: 1.15px;
+  stroke: rgba(198, 255, 0, 0.014);
+  stroke-width: 1px;
 }
 
 .process-route__glow {
   stroke: rgba(198, 255, 0, 0.16);
-  stroke-width: 3.4px;
+  stroke-width: 3px;
+  stroke-linecap: round;
 }
 
 .process-route__complete {
   stroke: #c6ff00;
-  stroke-width: 1.45px;
+  stroke-width: 1.5px;
+  stroke-linecap: round;
 }
 
-.process-journey:not(.process-journey--reduced) .process-route__glow,
-.process-journey:not(.process-journey--reduced) .process-route__complete {
-  animation: process-route-breathe 5.2s ease-in-out infinite;
+.process-journey:not(.process-journey--reduced) .process-route__glow {
+  animation: process-route-breathe 6.4s ease-in-out infinite;
 }
 
 .process-signal {
@@ -128,6 +132,18 @@
   box-shadow: 0 0 10px rgba(198, 255, 0, 0.42);
 }
 
+.process-signal.is-holding .process-signal__halo {
+  background: radial-gradient(
+    circle,
+    rgba(198, 255, 0, 0.46) 0%,
+    transparent 74%
+  );
+}
+
+.process-signal.is-holding .process-signal__core {
+  box-shadow: 0 0 16px rgba(198, 255, 0, 0.7);
+}
+
 .process-node {
   position: absolute;
   z-index: 5;
@@ -138,25 +154,25 @@
 }
 
 .process-node--origin {
-  width: 0.82rem;
-  height: 0.82rem;
+  width: 0.62rem;
+  height: 0.62rem;
 }
 
 .process-node--origin::before {
   position: absolute;
-  inset: -0.55rem;
+  inset: -0.4rem;
   border-radius: 50%;
   background: radial-gradient(
     circle,
-    rgba(198, 255, 0, 0.28) 0%,
+    rgba(198, 255, 0, 0.22) 0%,
     transparent 70%
   );
   content: "";
 }
 
 .process-node--origin .process-node__ring {
-  border-color: rgba(234, 255, 158, 0.8);
-  box-shadow: 0 0 12px rgba(198, 255, 0, 0.28);
+  border-color: rgba(234, 255, 158, 0.72);
+  box-shadow: 0 0 8px rgba(198, 255, 0, 0.22);
 }
 
 .process-node__ring,
@@ -171,13 +187,14 @@
   box-shadow: 0 0 10px rgba(198, 255, 0, 0.18);
 }
 
+.process-node--finale .process-node__ring {
+  border-color: rgba(234, 255, 158, 0.88);
+  box-shadow: 0 0 14px rgba(198, 255, 0, 0.32);
+}
+
 .process-node--result .process-node__ring {
   border-color: rgba(234, 255, 158, 0.78);
   box-shadow: 0 0 14px rgba(198, 255, 0, 0.28);
-}
-
-.process-journey:not(.process-journey--reduced) .process-node--result .process-node__ring {
-  animation: process-node-breathe 5.6s ease-in-out infinite;
 }
 
 .process-node__core {
@@ -202,12 +219,12 @@
 
 .process-stage-copy--before {
   left: var(--process-pad);
-  width: min(22rem, calc(var(--node-x) - var(--process-pad) - 1.6rem));
+  width: min(22rem, calc(var(--node-x) - var(--process-pad) - var(--path-clearance)));
 }
 
 .process-stage-copy--after {
-  left: calc(var(--node-x) + 1.6rem);
-  width: min(22rem, calc(100% - var(--node-x) - var(--process-pad) - 1.6rem));
+  left: calc(var(--node-x) + var(--path-clearance));
+  width: min(22rem, calc(100% - var(--node-x) - var(--process-pad) - var(--path-clearance)));
 }
 
 .process-stage-copy__counter {
@@ -238,7 +255,7 @@
 
 .process-stage-copy__description {
   margin-top: 0.85rem;
-  max-width: 34ch;
+  max-width: 42ch;
   color: var(--color-soft-grey);
   font-size: 0.92rem;
   line-height: 1.55;
@@ -312,40 +329,70 @@
 .process-recap-mark {
   position: absolute;
   z-index: 5;
+  width: 0;
+  height: 0;
   pointer-events: none;
+}
+
+.process-recap-mark__dot-slot {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0.48rem;
+  height: 0.48rem;
   transform: translate(-50%, -50%);
 }
 
 .process-recap-mark__dot {
   display: block;
-  width: 0.42rem;
-  height: 0.42rem;
-  margin: 0 auto;
+  width: 100%;
+  height: 100%;
   border-radius: 50%;
   background: #c6ff00;
-  box-shadow: 0 0 8px rgba(198, 255, 0, 0.35);
+  box-shadow: 0 0 10px rgba(198, 255, 0, 0.45);
 }
 
 .process-recap-mark__label {
+  position: absolute;
+  top: 0.92rem;
+  left: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-top: 0.45rem;
   color: var(--color-off-white);
   font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
   font-size: 0.78rem;
   font-weight: 500;
   letter-spacing: -0.02em;
   white-space: nowrap;
+  transform: translateX(-50%);
 }
 
 .process-recap-mark__number {
-  margin-bottom: 0.18rem;
+  margin-bottom: 0.16rem;
   color: var(--color-acid-lime);
   font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
   font-size: 0.58rem;
   font-weight: 500;
   letter-spacing: 0.12em;
+}
+
+.process-flip {
+  display: inline-grid;
+  overflow: hidden;
+  vertical-align: baseline;
+  color: var(--color-off-white);
+}
+
+.process-flip > span,
+.process-flip strong {
+  display: block;
+  color: var(--color-off-white);
+}
+
+.process-flip em {
+  color: var(--color-muted-grey);
+  font-style: normal;
 }
 
 .process-intro-lock {
@@ -354,8 +401,12 @@
   right: 0;
   left: 0;
   z-index: 7;
-  height: 220svh;
+  height: var(--process-intro-lock, 277svh);
   pointer-events: none;
+}
+
+.process-intro-lock--scene {
+  z-index: 2;
 }
 
 @media (min-width: 1024px) {
@@ -382,6 +433,67 @@
   overflow: hidden;
 }
 
+.process-intro__grid {
+  position: absolute;
+  inset: -8%;
+  opacity: 0.045;
+  background-image:
+    linear-gradient(rgba(198, 255, 0, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(198, 255, 0, 0.07) 1px, transparent 1px);
+  background-size: 5.25rem 5.25rem;
+  background-position: center;
+  mask-image: radial-gradient(ellipse at 50% 46%, #000 0%, transparent 58%);
+  -webkit-mask-image: radial-gradient(ellipse at 50% 46%, #000 0%, transparent 58%);
+}
+
+.process-intro__haze {
+  position: absolute;
+  width: min(34rem, 78%);
+  height: min(26rem, 52%);
+  pointer-events: none;
+  filter: blur(28px);
+  background: radial-gradient(
+    ellipse at center,
+    rgba(198, 255, 0, 0.055) 0%,
+    rgba(198, 255, 0, 0.018) 44%,
+    transparent 76%
+  );
+}
+
+.process-intro__haze--left {
+  left: -12%;
+  bottom: 4%;
+}
+
+.process-intro__haze--right {
+  right: -10%;
+  top: 12%;
+}
+
+.process-journey:not(.process-journey--reduced) .process-intro__haze--left {
+  animation: process-intro-haze 12s ease-in-out infinite;
+}
+
+.process-journey:not(.process-journey--reduced) .process-intro__haze--right {
+  animation: process-intro-haze 14s ease-in-out infinite reverse;
+}
+
+.process-intro__vignette {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(
+      ellipse at 50% 46%,
+      rgba(198, 255, 0, 0.028) 0%,
+      transparent 46%
+    ),
+    radial-gradient(
+      ellipse at 50% 50%,
+      transparent 42%,
+      rgba(8, 8, 9, 0.62) 100%
+    );
+}
+
 .process-intro__glow-slot,
 .process-intro__rings-slot {
   position: absolute;
@@ -390,14 +502,20 @@
   transform: translate(-50%, -50%);
 }
 
+.process-intro__glow-slot > *,
+.process-intro__rings-slot > * {
+  width: 100%;
+  height: 100%;
+}
+
 .process-intro__glow-slot {
-  width: min(42rem, 92%);
-  height: min(42rem, 92%);
+  width: min(42rem, 90%);
+  height: min(42rem, 90%);
 }
 
 .process-intro__rings-slot {
-  width: min(38rem, 86%);
-  height: min(38rem, 86%);
+  width: min(36rem, 84%);
+  height: min(36rem, 84%);
 }
 
 .process-intro__glow,
@@ -413,9 +531,9 @@
   border-radius: 50%;
   background: radial-gradient(
     circle,
-    rgba(198, 255, 0, 0.13) 0%,
-    rgba(198, 255, 0, 0.045) 32%,
-    rgba(198, 255, 0, 0.012) 58%,
+    rgba(198, 255, 0, 0.12) 0%,
+    rgba(198, 255, 0, 0.05) 30%,
+    rgba(198, 255, 0, 0.016) 54%,
     transparent 74%
   );
 }
@@ -431,54 +549,147 @@
   overflow: visible;
 }
 
-.process-intro__rings-svg circle {
+.process-intro__orbit,
+.process-intro__arc {
   fill: none;
   stroke: rgba(198, 255, 0, 0.16);
-  stroke-width: 0.35px;
+  stroke-linecap: round;
 }
 
-.process-journey:not(.process-journey--reduced) .process-intro__rings-svg {
-  animation: process-intro-orbit 48s linear infinite;
+.process-intro__orbit--soft {
+  stroke-width: 0.42;
+  stroke: rgba(198, 255, 0, 0.2);
 }
 
-.process-intro__particles {
-  position: absolute;
-  inset: 0;
+.process-intro__orbit--hair {
+  stroke-width: 0.24;
+  stroke: rgba(198, 255, 0, 0.1);
 }
 
-.process-intro__particle {
-  position: absolute;
-  border-radius: 50%;
-  background: #c6ff00;
-  box-shadow: 0 0 6px rgba(198, 255, 0, 0.35);
-  transform: translate(-50%, -50%);
-  opacity: 0.55;
+.process-intro__orbit--mid {
+  stroke-width: 0.32;
+  stroke: rgba(198, 255, 0, 0.14);
 }
 
-.process-journey:not(.process-journey--reduced) .process-intro__particle:nth-child(3n) {
-  animation: process-intro-twinkle 7.2s ease-in-out infinite;
+.process-intro__orbit--outer {
+  stroke-width: 0.26;
+  stroke: rgba(198, 255, 0, 0.08);
 }
 
-.process-journey:not(.process-journey--reduced) .process-intro__particle:nth-child(3n + 1) {
-  animation: process-intro-twinkle 8.4s ease-in-out 1.4s infinite;
+.process-intro__orbit--dashed {
+  stroke-width: 0.3;
+  stroke-dasharray: 1.1 4.2;
+  stroke: rgba(198, 255, 0, 0.16);
+}
+
+.process-intro__orbit--sparse {
+  stroke-width: 0.28;
+  stroke-dasharray: 9 14;
+  stroke: rgba(198, 255, 0, 0.11);
+}
+
+.process-intro__arc {
+  stroke-width: 0.48;
+  stroke: rgba(198, 255, 0, 0.22);
+}
+
+.process-journey:not(.process-journey--reduced) .process-intro__ring-cw,
+.process-journey:not(.process-journey--reduced) .process-intro__ring-ccw {
+  transform-box: view-box;
+  transform-origin: center;
+}
+
+.process-journey:not(.process-journey--reduced) .process-intro__ring-cw {
+  animation: process-intro-spin 96s linear infinite;
+}
+
+.process-journey:not(.process-journey--reduced) .process-intro__ring-ccw {
+  animation: process-intro-spin-rev 128s linear infinite;
+}
+
+/* Paused (never removed) once the intro scene has scrolled well out of view, so
+   the blurred haze and orbit rings stop compositing for the rest of the
+   journey. animation-play-state preserves position, so they resume exactly
+   where they left off. Declared after the shorthand `animation` rules above and
+   at matching specificity, since the shorthand resets play-state to running. */
+.process-journey--intro-idle:not(.process-journey--reduced) .process-intro__haze--left,
+.process-journey--intro-idle:not(.process-journey--reduced) .process-intro__haze--right,
+.process-journey--intro-idle:not(.process-journey--reduced) .process-intro__glow-core,
+.process-journey--intro-idle:not(.process-journey--reduced) .process-intro__ring-cw,
+.process-journey--intro-idle:not(.process-journey--reduced) .process-intro__ring-ccw {
+  animation-play-state: paused;
 }
 
 .process-intro__copy {
   position: relative;
-  z-index: 1;
+  z-index: 2;
   display: flex;
   flex-direction: column;
   align-items: center;
+  transform-origin: center;
 }
 
 .process-intro__eyebrow {
-  margin-bottom: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-bottom: 0.5rem;
+  letter-spacing: 0.24em;
+  font-size: 0.68rem;
+}
+
+.process-intro__eyebrow-rule {
+  display: block;
+  width: 1.15rem;
+  height: 1px;
+  background: var(--color-acid-lime);
+  box-shadow: 0 0 6px rgba(198, 255, 0, 0.4);
 }
 
 .process-intro__headline {
   font-size: clamp(2.7rem, 11vw, 3.55rem);
-  line-height: 0.96;
-  letter-spacing: -0.045em;
+  line-height: 0.94;
+  letter-spacing: -0.05em;
+}
+
+.process-intro__note {
+  margin: 0.85rem 0 0;
+  color: rgba(245, 245, 245, 0.3);
+  font-size: 0.55rem;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.process-intro__hint {
+  position: absolute;
+  right: 0;
+  bottom: max(1.5rem, env(safe-area-inset-bottom));
+  left: 0;
+  z-index: 2;
+  margin: 0;
+  color: rgba(245, 245, 245, 0.34);
+  font-size: 0.58rem;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.process-intro__hint-inner {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.38rem;
+}
+
+.process-intro__hint-arrow {
+  color: var(--color-acid-lime);
+  font-size: 0.66rem;
+  opacity: 0.82;
+}
+
+.process-journey:not(.process-journey--reduced) .process-intro__hint-arrow {
+  animation: process-intro-hint-nudge 2.4s ease-in-out infinite;
 }
 
 @keyframes process-intro-breathe {
@@ -491,22 +702,45 @@
   }
 }
 
-@keyframes process-intro-orbit {
+@keyframes process-intro-spin {
   from {
-    transform: rotate(0deg) scale(1);
+    transform: rotate(0deg);
   }
   to {
-    transform: rotate(360deg) scale(1.04);
+    transform: rotate(360deg);
   }
 }
 
-@keyframes process-intro-twinkle {
+@keyframes process-intro-spin-rev {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(-360deg);
+  }
+}
+
+@keyframes process-intro-haze {
   0%,
   100% {
-    opacity: 0.28;
+    opacity: 0.7;
+    transform: translate(0, 0) scale(1);
   }
   50% {
-    opacity: 0.7;
+    opacity: 1;
+    transform: translate(2%, -1.5%) scale(1.04);
+  }
+}
+
+@keyframes process-intro-hint-nudge {
+  0%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.72;
+  }
+  50% {
+    transform: translateY(3px);
+    opacity: 1;
   }
 }
 
@@ -520,18 +754,6 @@
   }
 }
 
-@keyframes process-node-breathe {
-  0%,
-  100% {
-    opacity: 0.72;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1.08);
-  }
-}
-
 @media (min-width: 768px) {
   .process-journey {
     --process-pad: 2.25rem;
@@ -542,12 +764,12 @@
   }
 
   .process-stage-copy--before {
-    width: min(24rem, calc(var(--node-x) - var(--process-pad) - 2rem));
+    width: min(24rem, calc(var(--node-x) - var(--process-pad) - var(--path-clearance)));
   }
 
   .process-stage-copy--after {
-    left: calc(var(--node-x) + 2rem);
-    width: min(24rem, calc(100% - var(--node-x) - var(--process-pad) - 2rem));
+    left: calc(var(--node-x) + var(--path-clearance));
+    width: min(24rem, calc(100% - var(--node-x) - var(--process-pad) - var(--path-clearance)));
   }
 
   .process-stage-copy__title {
@@ -570,6 +792,7 @@
 @media (min-width: 1024px) {
   .process-journey {
     --process-pad: clamp(4.5rem, 6vw, 6.25rem);
+    --path-clearance: 3.6rem;
   }
 
   .process-journey__haze {
@@ -582,12 +805,12 @@
   }
 
   .process-stage-copy--before {
-    width: min(26rem, calc(var(--node-x) - var(--process-pad) - 2.4rem));
+    width: min(26rem, calc(var(--node-x) - var(--process-pad) - var(--path-clearance)));
   }
 
   .process-stage-copy--after {
-    left: calc(var(--node-x) + 2.4rem);
-    width: min(26rem, calc(100% - var(--node-x) - var(--process-pad) - 2.4rem));
+    left: calc(var(--node-x) + var(--path-clearance));
+    width: min(26rem, calc(100% - var(--node-x) - var(--process-pad) - var(--path-clearance)));
   }
 
   .process-stage-copy__title {
@@ -600,7 +823,12 @@
 
   .process-stage-copy--feature.process-stage-copy--before {
     max-width: 28rem;
-    width: min(28rem, calc(var(--node-x) - var(--process-pad) - 2.4rem));
+    width: min(28rem, calc(var(--node-x) - var(--process-pad) - var(--path-clearance)));
+  }
+
+  .process-stage-copy--feature.process-stage-copy--after {
+    max-width: 28rem;
+    width: min(28rem, calc(100% - var(--node-x) - var(--process-pad) - var(--path-clearance)));
   }
 
   .process-stage-copy__description {
@@ -617,7 +845,6 @@
 
   .process-intro__headline {
     font-size: clamp(3.7rem, 5.4vw, 5.25rem);
-    white-space: nowrap;
   }
 }
 
@@ -644,38 +871,68 @@
   --process-pad: 1.5rem;
 }
 
+.process-journey--mobile .process-intro__rings-slot,
+.process-journey--portrait .process-intro__rings-slot {
+  width: min(22rem, 86vw);
+  height: min(22rem, 86vw);
+}
+
+.process-journey--mobile .process-intro__glow-slot,
+.process-journey--portrait .process-intro__glow-slot {
+  width: min(26rem, 92vw);
+  height: min(26rem, 92vw);
+}
+
+.process-journey--mobile .process-intro__headline {
+  font-size: clamp(2.45rem, 11.5vw, 3.2rem);
+}
+
+.process-journey--mobile .process-stage-copy {
+  transform: translateY(-8%);
+}
+
 .process-journey--mobile {
-  --process-vh: 890svh;
+  --process-vh: 1298svh;
+}
+
+.process-journey--mobile .process-overview-end {
+  padding-bottom: 4.25rem;
 }
 
 .process-journey--portrait {
-  --process-vh: 930svh;
+  --process-vh: 1008svh;
 }
 
 .process-journey--tablet {
-  --process-vh: 970svh;
+  --process-vh: 1054svh;
 }
 
 .process-journey--desktop {
-  --process-vh: 1020svh;
+  --process-vh: 1104svh;
 }
 
 .process-journey--reduced .process-route__complete,
 .process-journey--reduced .process-route__glow,
 .process-journey--reduced .process-intro__glow-core,
 .process-journey--reduced .process-intro__rings-svg,
-.process-journey--reduced .process-intro__particle {
+.process-journey--reduced .process-intro__ring-cw,
+.process-journey--reduced .process-intro__ring-ccw,
+.process-journey--reduced .process-intro__hint-arrow,
+.process-journey--reduced .process-intro__haze--left,
+.process-journey--reduced .process-intro__haze--right {
   animation: none;
 }
 
-.process-journey--reduced .process-signal,
-.process-journey--reduced .process-journey__haze {
-  display: none;
-}
-
 .process-journey--reduced .process-intro__copy,
+.process-journey--reduced .process-intro__hint,
+.process-journey--reduced .process-intro__eyebrow,
+.process-journey--reduced .process-intro__headline,
 .process-journey--reduced .process-stage-copy,
 .process-journey--reduced .process-hud__motion,
+.process-journey--reduced .process-audience__motion,
+.process-journey--reduced .process-strategy__motion,
+.process-journey--reduced .process-command__motion,
+.process-journey--reduced .process-opt__motion,
 .process-journey--reduced .process-overview-end,
 .process-journey--reduced .process-recap-mark,
 .process-journey--reduced .process-node__ring,
@@ -690,7 +947,11 @@
   .process-node--result .process-node__ring,
   .process-intro__glow-core,
   .process-intro__rings-svg,
-  .process-intro__particle {
+  .process-intro__ring-cw,
+  .process-intro__ring-ccw,
+  .process-intro__hint-arrow,
+  .process-intro__haze--left,
+  .process-intro__haze--right {
     animation: none;
   }
 }

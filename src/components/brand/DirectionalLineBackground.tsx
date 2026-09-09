@@ -14,7 +14,7 @@ export function DirectionalLineBackground({
       ? "rgba(13,13,15,0.08)"
       : variant === "cta"
         ? "rgba(198,255,0,0.22)"
-        : "rgba(198,255,0,0.12)";
+        : "rgba(198,255,0,0.07)";
 
   return (
     <svg
@@ -34,20 +34,22 @@ export function DirectionalLineBackground({
         </pattern>
       </defs>
       <rect width="100%" height="100%" fill={`url(#diag-${variant})`} />
-      <line
-        x1="8%"
-        y1="18%"
-        x2="42%"
-        y2="78%"
-        stroke={variant === "light" ? "rgba(90,115,0,0.25)" : "rgba(198,255,0,0.28)"}
-        strokeWidth="1"
-      />
+      <g className="hero-bg-accent">
+        <line
+          x1="8%"
+          y1="18%"
+          x2="42%"
+          y2="78%"
+          stroke={variant === "light" ? "rgba(90,115,0,0.25)" : "rgba(198,255,0,0.2)"}
+          strokeWidth="1"
+        />
+      </g>
       <line
         x1="58%"
         y1="10%"
         x2="92%"
         y2="70%"
-        stroke={variant === "light" ? "rgba(13,13,15,0.12)" : "rgba(255,255,255,0.08)"}
+        stroke={variant === "light" ? "rgba(13,13,15,0.12)" : "rgba(255,255,255,0.055)"}
         strokeWidth="1"
       />
     </svg>
