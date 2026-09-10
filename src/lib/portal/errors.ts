@@ -1,5 +1,19 @@
 /** User-facing error messages — never expose raw stack/API dumps. */
 
+/** Preserve framework redirects/not-found control flow inside client catches. */
+export function rethrowNextNavigation(error: unknown): void {
+  if (
+    error &&
+    typeof error === "object" &&
+    "digest" in error &&
+    /^NEXT_(?:REDIRECT|HTTP_ERROR_FALLBACK)/.test(
+      String((error as { digest?: unknown }).digest),
+    )
+  ) {
+    throw error;
+  }
+}
+
 export function toUserError(error: unknown, fallback = "Something went wrong. Please try again."): string {
   if (!error) return fallback;
 

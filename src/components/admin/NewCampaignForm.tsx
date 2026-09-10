@@ -6,7 +6,7 @@ import {
   createCampaignFromSound,
   previewTikTokSound,
 } from "@/lib/portal/actions";
-import { toUserError } from "@/lib/portal/errors";
+import { rethrowNextNavigation, toUserError } from "@/lib/portal/errors";
 import { formatFullNumber } from "@/lib/portal/metrics";
 import type { Client } from "@/lib/supabase/database.types";
 import type { TikTokSoundData } from "@/lib/tiktok/provider";
@@ -50,6 +50,7 @@ export function NewCampaignForm({
         setPreview(result.data);
         toast("✓ Sound found");
       } catch (err) {
+        rethrowNextNavigation(err);
         const msg = toUserError(err, "TikTok sound unavailable.");
         setError(msg);
         toast(msg, "error");
@@ -97,14 +98,7 @@ export function NewCampaignForm({
             await createCampaignFromSound(formData);
             toast("✓ Campaign created");
           } catch (err) {
-            if (
-              err &&
-              typeof err === "object" &&
-              "digest" in err &&
-              String((err as { digest?: string }).digest).includes("NEXT_REDIRECT")
-            ) {
-              throw err;
-            }
+            rethrowNextNavigation(err);
             const msg = toUserError(
               err,
               "Something went wrong while creating the campaign.",

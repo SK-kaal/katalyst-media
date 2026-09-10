@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { ImageCropModal, useImagePicker } from "@/components/admin/ImageCropModal";
 import { useAdminToast } from "@/components/admin/AdminToast";
-import { toUserError } from "@/lib/portal/errors";
+import { rethrowNextNavigation, toUserError } from "@/lib/portal/errors";
 import type { Client, ClientType } from "@/lib/supabase/database.types";
 
 export function ClientForm({
@@ -59,15 +59,7 @@ export function ClientForm({
               }
               toast(mode === "create" ? "✓ Client created" : "✓ Changes saved");
             } catch (err) {
-              // Server action redirects throw — let Next handle them.
-              if (
-                err &&
-                typeof err === "object" &&
-                "digest" in err &&
-                String((err as { digest?: string }).digest).includes("NEXT_REDIRECT")
-              ) {
-                throw err;
-              }
+              rethrowNextNavigation(err);
               setError(
                 toUserError(err, "Something went wrong while saving."),
               );

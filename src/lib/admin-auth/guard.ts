@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import {
   ADMIN_SESSION_COOKIE,
   verifyAdminSessionToken,
@@ -12,6 +13,6 @@ export async function readAdminSessionFromCookies(): Promise<boolean> {
 export async function requireAdminSession() {
   const ok = await readAdminSessionFromCookies();
   if (!ok) {
-    throw new Error("Unauthorised");
+    redirect("/admin/login");
   }
 }

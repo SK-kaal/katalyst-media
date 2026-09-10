@@ -15,7 +15,7 @@ import {
   trashCampaign,
 } from "@/lib/portal/actions";
 import { formatCompactNumber } from "@/lib/portal/metrics";
-import { toUserError } from "@/lib/portal/errors";
+import { rethrowNextNavigation, toUserError } from "@/lib/portal/errors";
 import { company } from "@/content/company";
 import type { Campaign, CampaignStatus } from "@/lib/supabase/database.types";
 
@@ -134,6 +134,7 @@ export function CampaignActionsMenu({
             setOpen(false);
             router.refresh();
           } catch (error) {
+            rethrowNextNavigation(error);
             toast(toUserError(error, "Refresh failed"), "error");
           }
         });
@@ -185,6 +186,7 @@ export function CampaignActionsMenu({
             setOpen(false);
             router.refresh();
           } catch (error) {
+            rethrowNextNavigation(error);
             toast(toUserError(error, "Could not restore"), "error");
           }
         });
@@ -284,6 +286,7 @@ export function CampaignActionsMenu({
               setConfirm(null);
               router.refresh();
             } catch (error) {
+              rethrowNextNavigation(error);
               toast(toUserError(error, "Could not end campaign"), "error");
             }
           });
@@ -305,6 +308,7 @@ export function CampaignActionsMenu({
               setConfirm(null);
               router.refresh();
             } catch (error) {
+              rethrowNextNavigation(error);
               toast(toUserError(error, "Could not reopen campaign"), "error");
             }
           });
@@ -324,14 +328,7 @@ export function CampaignActionsMenu({
             try {
               await trashCampaign(campaign.id);
             } catch (error) {
-              if (
-                error &&
-                typeof error === "object" &&
-                "digest" in error &&
-                String((error as { digest?: string }).digest).includes("NEXT_REDIRECT")
-              ) {
-                throw error;
-              }
+              rethrowNextNavigation(error);
               toast(toUserError(error, "Could not trash campaign"), "error");
             }
           });
@@ -351,14 +348,7 @@ export function CampaignActionsMenu({
             try {
               await permanentlyDeleteCampaign(campaign.id);
             } catch (error) {
-              if (
-                error &&
-                typeof error === "object" &&
-                "digest" in error &&
-                String((error as { digest?: string }).digest).includes("NEXT_REDIRECT")
-              ) {
-                throw error;
-              }
+              rethrowNextNavigation(error);
               toast(toUserError(error, "Could not delete campaign"), "error");
             }
           });

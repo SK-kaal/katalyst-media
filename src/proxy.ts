@@ -16,6 +16,7 @@ export async function proxy(request: NextRequest) {
     request.cookies.get(ADMIN_SESSION_COOKIE)?.value,
   );
   const isLogin = pathname === "/admin/login";
+  const isServerAction = request.headers.has("next-action");
 
   const withNoStore = (response: NextResponse) => {
     response.headers.set(
@@ -26,6 +27,12 @@ export async function proxy(request: NextRequest) {
   };
 
   if (!hasSession && !isLogin) {
+    // Let the action's mandatory DAL check issue the framework redirect.
+    // Redirecting the Server Action POST here produces an invalid response
+    // instead of navigating the stale tab back to the login screen.
+    if (isServerAction) {
+      return withNoStore(NextResponse.next());
+    }
     const url = request.nextUrl.clone();
     url.pathname = "/admin/login";
     url.search = "";

@@ -9,7 +9,7 @@ import {
   permanentlyDeleteClient,
   restoreClient,
 } from "@/lib/portal/actions";
-import { toUserError } from "@/lib/portal/errors";
+import { rethrowNextNavigation, toUserError } from "@/lib/portal/errors";
 
 export function ClientArchiveActions({
   clientId,
@@ -33,14 +33,7 @@ export function ClientArchiveActions({
         setConfirm(null);
         router.refresh();
       } catch (error) {
-        if (
-          error &&
-          typeof error === "object" &&
-          "digest" in error &&
-          String((error as { digest?: string }).digest).includes("NEXT_REDIRECT")
-        ) {
-          throw error;
-        }
+        rethrowNextNavigation(error);
         toast(toUserError(error, "Could not update client"), "error");
       }
     });

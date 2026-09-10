@@ -18,7 +18,7 @@ import {
   updateTikTokPostManual,
   type AddPostResult,
 } from "@/lib/portal/actions";
-import { toUserError } from "@/lib/portal/errors";
+import { rethrowNextNavigation, toUserError } from "@/lib/portal/errors";
 import {
   buildChartFromSnapshots,
   buildSeriesFromCumulativeSnapshots,
@@ -233,6 +233,7 @@ export function CampaignEditor({
         }
         router.refresh();
       } catch (error) {
+        rethrowNextNavigation(error);
         const text = toUserError(error);
         setMessage(text);
         toast(text, "error");
