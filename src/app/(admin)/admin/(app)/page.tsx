@@ -6,6 +6,8 @@ import {
   calculateMetrics,
   campaignArtwork,
   campaignHeadline,
+  campaignSoundArtist,
+  campaignSoundTitle,
   campaignSyncLabel,
   formatCompactNumber,
   formatEngagementRate,
@@ -70,7 +72,7 @@ export default async function CampaignLibraryPage({
     list = list.filter((c) => {
       const client = Array.isArray(c.clients) ? c.clients[0] : c.clients;
       const hay =
-        `${client?.name ?? ""} ${c.sound_artist ?? ""} ${c.sound_title ?? ""} ${c.display_title ?? ""}`.toLowerCase();
+        `${client?.name ?? ""} ${campaignSoundArtist(c) ?? ""} ${campaignSoundTitle(c) ?? ""} ${c.display_title ?? ""}`.toLowerCase();
       return hay.includes(q);
     });
   }
@@ -328,11 +330,11 @@ export default async function CampaignLibraryPage({
                     </div>
                   </div>
                   <p className="mt-2 truncate font-display text-[1.05rem] font-semibold tracking-[-0.03em]">
-                    {client?.name ?? campaign.sound_artist ?? "Client"}
+                    {client?.name ?? campaignSoundArtist(campaign) ?? "Client"}
                   </p>
                   <p className="truncate text-sm text-soft-grey">
                     {campaign.display_title ||
-                      campaign.sound_title ||
+                      campaignSoundTitle(campaign) ||
                       "Untitled campaign"}
                   </p>
                   <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1 text-[0.72rem] text-soft-grey">

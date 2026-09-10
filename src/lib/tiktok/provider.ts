@@ -19,7 +19,7 @@ const USER_AGENT =
 export type TikTokSoundData = {
   soundId: string;
   soundUrl: string;
-  title: string;
+  title: string | null;
   artist: string | null;
   artworkUrl: string | null;
   usageCount: number | null;
@@ -286,16 +286,12 @@ async function getSoundFromParsed(
     if (!artworkUrl) artworkUrl = readOgImage(pageHtml);
   }
 
-  if (!title) {
-    title = `Sound ${parsed.soundId}`;
-  }
-
   return {
     ok: true,
     data: {
       soundId: parsed.soundId,
       soundUrl: parsed.canonicalUrl,
-      title: cleanMusicTitle(title) || title,
+      title: title ? cleanMusicTitle(title) || title : null,
       artist,
       artworkUrl,
       usageCount,

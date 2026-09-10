@@ -3,6 +3,7 @@ import {
   Eye,
   Heart,
   MessageCircle,
+  Music2,
   Share2,
 } from "lucide-react";
 import { Wordmark } from "@/components/ui/Wordmark";
@@ -144,14 +145,22 @@ export function CampaignReportView({
               {artwork ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={artwork} alt="" />
-              ) : null}
+              ) : (
+                <span className="report-summary__art-placeholder">
+                  <Music2 aria-hidden="true" />
+                </span>
+              )}
             </a>
           ) : (
             <div className="report-summary__art">
               {artwork ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={artwork} alt="" />
-              ) : null}
+              ) : (
+                <span className="report-summary__art-placeholder">
+                  <Music2 aria-hidden="true" />
+                </span>
+              )}
             </div>
           )}
 
@@ -307,6 +316,7 @@ export function CampaignReportView({
               : null
           }
           viewsTotal={metrics.views}
+          showCreations={Boolean(soundUrl)}
         />
 
         <section className="report-section report-section--featured">

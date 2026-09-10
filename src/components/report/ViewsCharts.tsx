@@ -285,22 +285,28 @@ export function ViewsCharts({
   views,
   creationsTotal,
   viewsTotal,
+  showCreations = true,
 }: {
   creations: ReportChartPoint[];
   views: ReportChartPoint[];
   creationsTotal: number | null;
   viewsTotal: number | null;
+  showCreations?: boolean;
 }) {
   return (
-    <div className="report-charts">
-      <ChartCard
-        title="TikTok Creations"
-        totalLabel="Total creations"
-        totalValue={creationsTotal}
-        series={creations}
-        valueNoun="creations"
-        emptyHint="More historical data will appear after additional sound refreshes."
-      />
+    <div
+      className={`report-charts${showCreations ? "" : " report-charts--single"}`}
+    >
+      {showCreations ? (
+        <ChartCard
+          title="TikTok Creations"
+          totalLabel="Total creations"
+          totalValue={creationsTotal}
+          series={creations}
+          valueNoun="creations"
+          emptyHint="More historical data will appear after additional sound refreshes."
+        />
+      ) : null}
       <ChartCard
         title="Campaign Views"
         totalLabel="Total campaign views"

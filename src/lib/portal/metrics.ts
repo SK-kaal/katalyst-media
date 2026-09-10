@@ -19,18 +19,43 @@ export type CampaignMetrics = {
 /** Live campaigns older than this are marked stale (6 hours). */
 export const LIVE_STALE_MS = 6 * 60 * 60 * 1000;
 
+type SoundDisplayFields = {
+  sound_title?: string | null;
+  sound_artist?: string | null;
+  sound_title_override?: string | null;
+  sound_artist_override?: string | null;
+};
+
+export function campaignSoundTitle(campaign: SoundDisplayFields): string | null {
+  return (
+    campaign.sound_title_override?.trim() ||
+    campaign.sound_title?.trim() ||
+    null
+  );
+}
+
+export function campaignSoundArtist(campaign: SoundDisplayFields): string | null {
+  return (
+    campaign.sound_artist_override?.trim() ||
+    campaign.sound_artist?.trim() ||
+    null
+  );
+}
+
 export function campaignHeadline(
   campaign: Pick<
     Campaign,
     | "sound_title"
     | "sound_artist"
+    | "sound_title_override"
+    | "sound_artist_override"
     | "display_title"
   >,
   client?: Pick<Client, "name"> | null,
 ): string {
   if (campaign.display_title?.trim()) return campaign.display_title.trim();
-  const title = campaign.sound_title?.trim() || "Untitled campaign";
-  const soundArtist = campaign.sound_artist?.trim() || "";
+  const title = campaignSoundTitle(campaign) || "Untitled campaign";
+  const soundArtist = campaignSoundArtist(campaign) || "";
   // TikTok sometimes returns the track title as the "artist" — prefer client name.
   const artist =
     (soundArtist &&

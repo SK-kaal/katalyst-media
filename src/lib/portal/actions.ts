@@ -447,7 +447,6 @@ export async function updateCampaignBudget(
   const supabase = await requireUser();
   const budgetRaw = String(formData.get("budget") || "").trim();
   const budget = Number(budgetRaw);
-  const artworkUrl = optionalHttpUrl(formData, "artwork_url");
   const targetRaw = String(formData.get("target_posts") || "").trim();
   const targetPosts = Number(targetRaw);
   const displayTitle =
@@ -473,7 +472,6 @@ export async function updateCampaignBudget(
     .from("campaigns")
     .update({
       budget,
-      artwork_url: artworkUrl,
       target_posts: targetPosts,
       display_title: displayTitle,
       updated_at: new Date().toISOString(),
@@ -491,30 +489,49 @@ export async function attachCampaignSound(campaignId: string, soundUrl: string) 
   const url = soundUrl.trim();
   if (!url) throw new Error("TikTok sound URL is required");
 
-  const { data: campaign } = await supabase
-    .from("campaigns")
-    .select("share_token")
-    .eq("id", campaignId)
-    .single();
-  if (!campaign) throw new Error("Campaign not found");
-
+  // Validate and fetch first. A failed replacement must not touch the current sound.
   const fetched = await tiktokProvider.getSound(url);
   if (!fetched.ok) throw new Error(fetched.error);
   const sound = fetched.data;
+
+  const { data: campaign, error: campaignError } = await supabase
+    .from("campaigns")
+    .select(
+      "share_token, client_id, tiktok_sound_id, sound_title, sound_artist, sound_artwork_url, sound_usage_count, sound_title_override, sound_artist_override, artwork_url",
+    )
+    .eq("id", campaignId)
+    .single();
+  if (campaignError) throw new Error(campaignError.message);
+  if (!campaign) throw new Error("Campaign not found");
+
+  const sameSound = campaign.tiktok_sound_id === sound.soundId;
 
   const { error } = await supabase
     .from("campaigns")
     .update({
       tiktok_sound_url: sound.soundUrl,
       tiktok_sound_id: sound.soundId,
-      sound_title: sound.title,
-      sound_artist: sound.artist,
-      sound_artwork_url: sound.artworkUrl,
-      sound_usage_count: sound.usageCount,
+      sound_title: sound.title ?? (sameSound ? campaign.sound_title : null),
+      sound_artist: sound.artist ?? (sameSound ? campaign.sound_artist : null),
+      sound_artwork_url:
+        sound.artworkUrl ?? (sameSound ? campaign.sound_artwork_url : null),
+      sound_usage_count:
+        sound.usageCount ?? (sameSound ? campaign.sound_usage_count : null),
+      sound_title_override: sameSound
+        ? campaign.sound_title_override
+        : null,
+      sound_artist_override: sameSound
+        ? campaign.sound_artist_override
+        : null,
+      artwork_url: sameSound ? campaign.artwork_url : null,
       updated_at: new Date().toISOString(),
     })
     .eq("id", campaignId);
   if (error) throw new Error(error.message);
+
+  if (!sameSound && campaign.artwork_url) {
+    await removePortalAssetWithClient(supabase, campaign.artwork_url);
+  }
 
   if (sound.usageCount != null) {
     await insertSoundSnapshot(
@@ -526,9 +543,12 @@ export async function attachCampaignSound(campaignId: string, soundUrl: string) 
   }
 
   revalidateCampaign(campaignId, campaign.share_token);
+  revalidatePath(`/admin/clients/${campaign.client_id}`);
   return {
+    sameSound,
     usageRetrieved: sound.usageCount != null,
     usageCount: sound.usageCount,
+    sound,
   };
 }
 
@@ -539,7 +559,7 @@ async function refreshCampaignSoundWithClient(
   const { data: campaign } = await supabase
     .from("campaigns")
     .select(
-      "tiktok_sound_url, tiktok_sound_id, sound_usage_count, share_token",
+      "tiktok_sound_url, tiktok_sound_id, sound_title, sound_artist, sound_artwork_url, sound_usage_count, share_token",
     )
     .eq("id", campaignId)
     .single();
@@ -551,25 +571,30 @@ async function refreshCampaignSoundWithClient(
   if (!fetched.ok) throw new Error(fetched.error);
 
   const sound = fetched.data;
+  if (campaign.tiktok_sound_id && sound.soundId !== campaign.tiktok_sound_id) {
+    throw new Error(
+      "This URL now resolves to a different TikTok sound. Use Change Sound to review it first.",
+    );
+  }
   const nextUsage =
     sound.usageCount != null ? sound.usageCount : campaign.sound_usage_count;
 
   const update: {
     tiktok_sound_url: string;
     tiktok_sound_id: string;
-    sound_title: string;
-    sound_artist: string | null;
     sound_usage_count: number | null;
     updated_at: string;
+    sound_title?: string;
+    sound_artist?: string;
     sound_artwork_url?: string;
   } = {
     tiktok_sound_url: sound.soundUrl,
     tiktok_sound_id: sound.soundId,
-    sound_title: sound.title,
-    sound_artist: sound.artist,
     sound_usage_count: nextUsage,
     updated_at: new Date().toISOString(),
   };
+  if (sound.title) update.sound_title = sound.title;
+  if (sound.artist) update.sound_artist = sound.artist;
   if (sound.artworkUrl) update.sound_artwork_url = sound.artworkUrl;
 
   const { error } = await supabase
@@ -602,6 +627,128 @@ export async function refreshCampaignSound(campaignId: string) {
   revalidateCampaign(campaignId, campaign.share_token);
   revalidatePath(`/admin/clients/${campaign.client_id}`);
   return result;
+}
+
+export async function updateCampaignSoundDetails(
+  campaignId: string,
+  formData: FormData,
+) {
+  const supabase = await requireUser();
+  const useTikTokMetadata =
+    String(formData.get("use_tiktok_metadata") || "") === "1";
+  const titleOverride = useTikTokMetadata
+    ? null
+    : String(formData.get("sound_title") || "").trim() || null;
+  const artistOverride = useTikTokMetadata
+    ? null
+    : String(formData.get("sound_artist") || "").trim() || null;
+  const removeArtwork =
+    String(formData.get("remove_artwork") || "") === "1";
+
+  if (titleOverride && titleOverride.length > 160) {
+    throw new Error("Sound title must be 160 characters or fewer");
+  }
+  if (artistOverride && artistOverride.length > 120) {
+    throw new Error("Artist name must be 120 characters or fewer");
+  }
+
+  const { data: campaign, error: campaignError } = await supabase
+    .from("campaigns")
+    .select(
+      "share_token, client_id, tiktok_sound_id, sound_title, sound_artist, sound_artwork_url, artwork_url",
+    )
+    .eq("id", campaignId)
+    .single();
+  if (campaignError) throw new Error(campaignError.message);
+  if (!campaign?.tiktok_sound_id) throw new Error("This campaign has no TikTok sound.");
+
+  const artworkFile = portalImageFile(formData, "sound_artwork_file");
+  if (removeArtwork && artworkFile) {
+    throw new Error("Choose either replacement artwork or remove the current artwork");
+  }
+  const uploadedArtwork = await uploadCampaignArtwork(
+    supabase,
+    campaignId,
+    artworkFile,
+  );
+  const nextTitleOverride =
+    titleOverride &&
+    titleOverride !==
+      (campaign.sound_title?.trim() || "")
+      ? titleOverride
+      : null;
+  const nextArtistOverride =
+    artistOverride &&
+    artistOverride !==
+      (campaign.sound_artist?.trim() || "")
+      ? artistOverride
+      : null;
+  const nextArtworkUrl = removeArtwork
+    ? null
+    : uploadedArtwork?.url ?? campaign.artwork_url;
+
+  const { error } = await supabase
+    .from("campaigns")
+    .update({
+      sound_title_override: nextTitleOverride,
+      sound_artist_override: nextArtistOverride,
+      artwork_url: nextArtworkUrl,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", campaignId);
+
+  if (error) {
+    if (uploadedArtwork) {
+      await supabase.storage.from(PORTAL_BUCKET).remove([uploadedArtwork.path]);
+    }
+    throw new Error(error.message);
+  }
+
+  if (campaign.artwork_url && (removeArtwork || uploadedArtwork)) {
+    await removePortalAssetWithClient(supabase, campaign.artwork_url);
+  }
+
+  revalidateCampaign(campaignId, campaign.share_token);
+  revalidatePath(`/admin/clients/${campaign.client_id}`);
+  return {
+    title: nextTitleOverride ?? campaign.sound_title,
+    artist: nextArtistOverride ?? campaign.sound_artist,
+    artworkUrl: nextArtworkUrl ?? campaign.sound_artwork_url,
+  };
+}
+
+export async function removeCampaignSound(campaignId: string) {
+  const supabase = await requireUser();
+  const { data: campaign, error: campaignError } = await supabase
+    .from("campaigns")
+    .select("share_token, client_id, artwork_url")
+    .eq("id", campaignId)
+    .single();
+  if (campaignError) throw new Error(campaignError.message);
+  if (!campaign) throw new Error("Campaign not found");
+
+  const { error } = await supabase
+    .from("campaigns")
+    .update({
+      tiktok_sound_url: null,
+      tiktok_sound_id: null,
+      sound_title: null,
+      sound_artist: null,
+      sound_title_override: null,
+      sound_artist_override: null,
+      sound_artwork_url: null,
+      sound_usage_count: null,
+      artwork_url: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", campaignId);
+  if (error) throw new Error(error.message);
+
+  if (campaign.artwork_url) {
+    await removePortalAssetWithClient(supabase, campaign.artwork_url);
+  }
+  revalidateCampaign(campaignId, campaign.share_token);
+  revalidatePath(`/admin/clients/${campaign.client_id}`);
 }
 
 export type AddPostResult =
@@ -724,7 +871,12 @@ async function addFetchedPost(
   } = {
     last_synced_at: now,
   };
-  if (!campaign?.sound_artwork_url && post.musicArtworkUrl) {
+  if (
+    !campaign?.sound_artwork_url &&
+    post.musicArtworkUrl &&
+    post.musicId &&
+    campaign?.tiktok_sound_id === post.musicId
+  ) {
     updates.sound_artwork_url = post.musicArtworkUrl;
   }
   if (
@@ -1070,7 +1222,7 @@ export async function refreshCampaignData(campaignId: string) {
   const supabase = await requireUser();
   const { data: beforeCampaign, error: campaignError } = await supabase
     .from("campaigns")
-    .select("sound_usage_count")
+    .select("sound_usage_count, tiktok_sound_url")
     .eq("id", campaignId)
     .single();
   if (campaignError) throw new Error(campaignError.message);
@@ -1081,6 +1233,7 @@ export async function refreshCampaignData(campaignId: string) {
     before: number | null;
     after: number | null;
     usageRetrieved: boolean;
+    skipped?: boolean;
   } = {
     ok: false,
     before: beforeCampaign?.sound_usage_count ?? null,
@@ -1088,15 +1241,20 @@ export async function refreshCampaignData(campaignId: string) {
     usageRetrieved: false,
   };
 
-  try {
-    const sound = await refreshCampaignSoundWithClient(supabase, campaignId);
+  if (!beforeCampaign?.tiktok_sound_url) {
     soundResult.ok = true;
-    soundResult.after = sound.usageCount ?? null;
-    soundResult.usageRetrieved = sound.usageRetrieved;
-  } catch (error) {
-    soundResult.ok = false;
-    soundResult.error =
-      error instanceof Error ? error.message : "Sound refresh failed";
+    soundResult.skipped = true;
+  } else {
+    try {
+      const sound = await refreshCampaignSoundWithClient(supabase, campaignId);
+      soundResult.ok = true;
+      soundResult.after = sound.usageCount ?? null;
+      soundResult.usageRetrieved = sound.usageRetrieved;
+    } catch (error) {
+      soundResult.ok = false;
+      soundResult.error =
+        error instanceof Error ? error.message : "Sound refresh failed";
+    }
   }
 
   let postsResult: Awaited<ReturnType<typeof refreshCampaignPosts>> & {
@@ -1424,15 +1582,20 @@ const CLIENT_ID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const CLIENT_AVATAR_PATH =
   /^clients\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\/avatar(?:-[0-9a-f-]{36})?\.jpg$/i;
+const CAMPAIGN_ARTWORK_PATH =
+  /^campaigns\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\/sound-artwork-[0-9a-f-]{36}\.jpg$/i;
 
 function assertPortalAssetPath(path: string) {
-  if (!CLIENT_AVATAR_PATH.test(path)) {
+  if (!CLIENT_AVATAR_PATH.test(path) && !CAMPAIGN_ARTWORK_PATH.test(path)) {
     throw new Error("Invalid upload destination");
   }
 }
 
-function portalImageFile(formData: FormData): File | null {
-  const file = formData.get("profile_image_file");
+function portalImageFile(
+  formData: FormData,
+  key = "profile_image_file",
+): File | null {
+  const file = formData.get(key);
   if (!file || typeof file === "string" || file.size === 0) return null;
   if (!PORTAL_IMAGE_TYPES.has(file.type)) {
     throw new Error("Use a JPG, PNG or WEBP image.");
@@ -1450,6 +1613,24 @@ async function uploadClientAvatar(
 ) {
   if (!file) return null;
   const path = `clients/${clientId}/avatar-${crypto.randomUUID()}.jpg`;
+  assertPortalAssetPath(path);
+  const { error } = await supabase.storage.from(PORTAL_BUCKET).upload(path, file, {
+    contentType: file.type,
+    upsert: false,
+    cacheControl: "3600",
+  });
+  if (error) throw new Error(error.message || "Upload failed.");
+  const { data } = supabase.storage.from(PORTAL_BUCKET).getPublicUrl(path);
+  return { path, url: data.publicUrl };
+}
+
+async function uploadCampaignArtwork(
+  supabase: Awaited<ReturnType<typeof createAdminClient>>,
+  campaignId: string,
+  file: File | null,
+) {
+  if (!file) return null;
+  const path = `campaigns/${campaignId}/sound-artwork-${crypto.randomUUID()}.jpg`;
   assertPortalAssetPath(path);
   const { error } = await supabase.storage.from(PORTAL_BUCKET).upload(path, file, {
     contentType: file.type,

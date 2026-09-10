@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  attachCampaignSound,
   createTikTokPostManual,
   deleteSelectedTikTokPosts,
   deleteTikTokPost,
@@ -9,7 +8,6 @@ import {
   importTikTokPostsByUrls,
   moveCampaign,
   refreshCampaignData,
-  refreshCampaignSound,
   refreshFailedCampaignPosts,
   refreshSelectedCampaignPosts,
   refreshTikTokPost,
@@ -24,6 +22,8 @@ import {
   buildSeriesFromCumulativeSnapshots,
   calculateMetrics,
   campaignArtwork,
+  campaignSoundArtist,
+  campaignSoundTitle,
   formatCompactNumber,
   formatEngagementRate,
   formatFullNumber,
@@ -49,6 +49,7 @@ import { ViewsCharts } from "@/components/report/ViewsCharts";
 import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
 import { useAdminToast } from "@/components/admin/AdminToast";
 import { CampaignActionsMenu } from "@/components/admin/CampaignActions";
+import { SoundManager } from "@/components/admin/SoundManager";
 import {
   useCallback,
   useEffect,
@@ -61,6 +62,7 @@ import {
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Music2 } from "lucide-react";
 
 const tabs = ["overview", "content", "sharing"] as const;
 type Tab = (typeof tabs)[number];
@@ -109,7 +111,6 @@ export function CampaignEditor({
   const [refreshProgress, setRefreshProgress] = useState<string | null>(null);
   const [failedPostIds, setFailedPostIds] = useState<string[]>([]);
   const [copied, setCopied] = useState(false);
-  const [soundAttachUrl, setSoundAttachUrl] = useState("");
   const [busyLabel, setBusyLabel] = useState<string | null>(null);
   const [bulkPaste, setBulkPaste] = useState("");
   const [importResults, setImportResults] = useState<AddPostResult[] | null>(
@@ -160,9 +161,9 @@ export function CampaignEditor({
   const artwork = campaignArtwork(campaign);
   const title =
     campaign.display_title?.trim() ||
-    campaign.sound_title?.trim() ||
+    campaignSoundTitle(campaign) ||
     "Untitled campaign";
-  const soundArtist = campaign.sound_artist?.trim() || "";
+  const soundArtist = campaignSoundArtist(campaign) || "";
   const artist =
     soundArtist && soundArtist.toLowerCase() !== title.toLowerCase()
       ? soundArtist
@@ -172,13 +173,6 @@ export function CampaignEditor({
     ? `${company.url}/report/${campaign.share_token}`
     : null;
   const postsVsTarget = formatPostsVsTarget(metrics.posts, campaign.target_posts);
-  const soundWeekly = weeklyDeltaFromSnapshots(
-    soundSnapshots.map((s) => ({
-      captured_at: s.captured_at,
-      value: Number(s.creation_count),
-    })),
-    campaign.sound_usage_count,
-  );
   const viewsWeekly = weeklyDeltaFromSnapshots(
     campaignSnapshots.map((s) => ({
       captured_at: s.captured_at,
@@ -186,9 +180,6 @@ export function CampaignEditor({
     })),
     metrics.views,
   );
-  const soundWeeklyLabel = soundWeekly
-    ? formatWeeklyDelta(soundWeekly.delta)
-    : null;
   const viewsWeeklyLabel = viewsWeekly
     ? formatWeeklyDelta(viewsWeekly.delta)
     : null;
@@ -349,7 +340,11 @@ export function CampaignEditor({
             {artwork ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={artwork} alt="" className="size-full object-cover" />
-            ) : null}
+            ) : (
+              <span className="grid size-full place-items-center">
+                <Music2 className="size-5 text-white/20" aria-hidden="true" />
+              </span>
+            )}
           </div>
           <div>
             <p className="admin-page-eyebrow">Campaign</p>
@@ -469,7 +464,9 @@ export function CampaignEditor({
                 Refresh campaign data
               </h2>
               <p className="mt-1 text-sm text-soft-grey">
-                TikTok sound and all tracked posts
+                {campaign.tiktok_sound_url
+                  ? "TikTok sound and all tracked posts"
+                  : "All tracked posts"}
                 {campaign.last_synced_at
                   ? ` · Last refreshed ${formatRelativeUpdated(campaign.last_synced_at)}`
                   : " · Not refreshed yet"}
@@ -534,105 +531,7 @@ export function CampaignEditor({
             </div>
           </div>
 
-          <div className="admin-panel space-y-3 p-5">
-            <div className="flex flex-wrap items-end justify-between gap-3">
-              <div>
-                <h2 className="font-display text-lg font-semibold tracking-[-0.03em]">
-                  TikTok Sound
-                </h2>
-                <p className="mt-1 text-xs text-muted-grey">
-                  Exact sound only · may include organic / non-Katalyst posts
-                </p>
-              </div>
-              {campaign.tiktok_sound_url ? (
-                <a
-                  href={campaign.tiktok_sound_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm text-acid-lime"
-                >
-                  View Sound on TikTok ↗
-                </a>
-              ) : null}
-            </div>
-            {campaign.sound_usage_count != null ? (
-              <div>
-                <p className="admin-metric__value text-[1.8rem]">
-                  {formatFullNumber(Number(campaign.sound_usage_count))}
-                </p>
-                <p className="admin-metric__label mt-1">TikTok Creations</p>
-                {soundWeeklyLabel ? (
-                  <p className="mt-2 text-sm text-acid-lime">{soundWeeklyLabel}</p>
-                ) : (
-                  <p className="mt-2 text-xs text-muted-grey">
-                    Weekly change appears after enough historical snapshots
-                  </p>
-                )}
-              </div>
-            ) : campaign.tiktok_sound_url ? (
-              <div className="flex flex-wrap items-center gap-3">
-                <p className="text-sm text-muted-grey">
-                  TikTok Creations unavailable
-                </p>
-                <button
-                  type="button"
-                  className="admin-btn admin-btn--ghost"
-                  disabled={pending}
-                  onClick={() =>
-                    run(async () => {
-                      const result = await refreshCampaignSound(campaign.id);
-                      toast(
-                        result.usageRetrieved
-                          ? "✓ TikTok Creations updated"
-                          : "Sound refreshed — creations still unavailable",
-                        result.usageRetrieved ? "ok" : "warn",
-                      );
-                    }, "")
-                  }
-                >
-                  Retry Sound
-                </button>
-              </div>
-            ) : (
-              <div className="max-w-xl space-y-2">
-                <p className="text-sm text-[#ffd27a]">
-                  Sound URL missing — paste the TikTok sound link to restore View
-                  Sound and TikTok Creations.
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  <input
-                    className="admin-input min-w-[16rem] flex-1"
-                    value={soundAttachUrl}
-                    onChange={(e) => setSoundAttachUrl(e.target.value)}
-                    placeholder="https://www.tiktok.com/music/…"
-                    aria-label="TikTok sound URL"
-                  />
-                  <button
-                    type="button"
-                    className="admin-btn admin-btn--primary"
-                    disabled={pending || !soundAttachUrl.trim()}
-                    onClick={() =>
-                      run(async () => {
-                        setBusyLabel("Working…");
-                        const result = await attachCampaignSound(
-                          campaign.id,
-                          soundAttachUrl,
-                        );
-                        setSoundAttachUrl("");
-                        toast(
-                          result.usageRetrieved
-                            ? "✓ Sound attached"
-                            : "✓ Sound attached · creations unavailable",
-                        );
-                      }, "Sound attached ✓")
-                    }
-                  >
-                    Attach Sound
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
+          <SoundManager campaign={campaign} />
 
           <div>
             <h2 className="font-display text-lg font-semibold tracking-[-0.03em]">
@@ -689,6 +588,7 @@ export function CampaignEditor({
                   : null
               }
               viewsTotal={metrics.views}
+              showCreations={Boolean(campaign.tiktok_sound_id)}
             />
           )}
 
@@ -710,7 +610,7 @@ export function CampaignEditor({
                 name="display_title"
                 className="admin-input"
                 defaultValue={campaign.display_title ?? ""}
-                placeholder={campaign.sound_title || "Campaign display title"}
+                placeholder={campaignSoundTitle(campaign) || "Campaign display title"}
                 maxLength={160}
               />
               <p className="mt-1 text-xs text-muted-grey">
@@ -753,23 +653,6 @@ export function CampaignEditor({
                 </p>
               </div>
             </div>
-            <details className="rounded-[8px] border border-white/8 p-3">
-              <summary className="cursor-pointer text-sm text-muted-grey">
-                Artwork override
-              </summary>
-              <div className="mt-3">
-                <label className="admin-label" htmlFor="campaign-artwork-url">
-                  Artwork URL
-                </label>
-                <input
-                  id="campaign-artwork-url"
-                  name="artwork_url"
-                  className="admin-input"
-                  defaultValue={campaign.artwork_url ?? ""}
-                  placeholder="Optional — overrides sound artwork"
-                />
-              </div>
-            </details>
             <div>
               <button
                 type="submit"

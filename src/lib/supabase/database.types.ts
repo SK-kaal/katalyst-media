@@ -69,6 +69,8 @@ export type Database = {
           tiktok_sound_id: string | null;
           sound_title: string | null;
           sound_artist: string | null;
+          sound_title_override: string | null;
+          sound_artist_override: string | null;
           sound_artwork_url: string | null;
           sound_usage_count: number | null;
           last_synced_at: string | null;
@@ -90,6 +92,8 @@ export type Database = {
           tiktok_sound_id?: string | null;
           sound_title?: string | null;
           sound_artist?: string | null;
+          sound_title_override?: string | null;
+          sound_artist_override?: string | null;
           sound_artwork_url?: string | null;
           sound_usage_count?: number | null;
           last_synced_at?: string | null;
@@ -111,6 +115,8 @@ export type Database = {
           tiktok_sound_id?: string | null;
           sound_title?: string | null;
           sound_artist?: string | null;
+          sound_title_override?: string | null;
+          sound_artist_override?: string | null;
           sound_artwork_url?: string | null;
           sound_usage_count?: number | null;
           last_synced_at?: string | null;

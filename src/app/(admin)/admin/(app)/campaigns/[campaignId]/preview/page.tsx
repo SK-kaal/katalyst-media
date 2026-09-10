@@ -75,7 +75,13 @@ export default async function CampaignReportPreviewPage({
         client={client}
         posts={posts ?? []}
         snapshots={snapshots}
-        soundSnapshots={(soundSnapshots ?? []) as SoundMetricSnapshot[]}
+        soundSnapshots={
+          (soundSnapshots ?? []).filter(
+            (snapshot) =>
+              campaign.tiktok_sound_id != null &&
+              snapshot.sound_id === campaign.tiktok_sound_id,
+          ) as SoundMetricSnapshot[]
+        }
         campaignSnapshots={(campaignSnapshots ?? []) as CampaignMetricSnapshot[]}
         adminPreview
       />

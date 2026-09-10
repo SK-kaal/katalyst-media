@@ -44,6 +44,24 @@ export async function cleanupQaClients() {
 
   const ids = (data ?? []).map((row) => row.id);
   if (ids.length > 0) {
+    const { data: campaigns, error: campaignError } = await client
+      .from("campaigns")
+      .select("id, artwork_url")
+      .in("client_id", ids);
+    if (campaignError) {
+      throw new Error(`Could not find QA campaign artwork: ${campaignError.message}`);
+    }
+    for (const campaign of campaigns ?? []) {
+      if (!campaign.artwork_url) continue;
+      const marker = "/object/public/portal-assets/";
+      const path = decodeURIComponent(
+        new URL(campaign.artwork_url).pathname.split(marker)[1] ?? "",
+      );
+      if (path.startsWith(`campaigns/${campaign.id}/sound-artwork-`)) {
+        await client.storage.from("portal-assets").remove([path]);
+      }
+    }
+
     const { error: deleteError } = await client
       .from("clients")
       .delete()

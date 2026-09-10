@@ -9,6 +9,7 @@ import {
   calculateMetrics,
   campaignArtwork,
   campaignHeadline,
+  campaignSoundTitle,
   campaignSyncLabel,
   formatCompactNumber,
   formatEngagementRate,
@@ -191,7 +192,7 @@ export default async function ClientProfilePage({
                     </div>
                     <p className="mt-2 font-semibold">
                       {campaign.display_title ||
-                        campaign.sound_title ||
+                        campaignSoundTitle(campaign) ||
                         "Untitled campaign"}
                     </p>
                     <div className="mt-2 grid grid-cols-2 gap-1 text-xs text-soft-grey">
@@ -290,7 +291,7 @@ export default async function ClientProfilePage({
                     </div>
                     <p className="mt-2 font-semibold">
                       {campaign.display_title ||
-                        campaign.sound_title ||
+                        campaignSoundTitle(campaign) ||
                         "Untitled campaign"}
                     </p>
                     <div className="mt-2 grid grid-cols-2 gap-1 text-xs text-soft-grey">
