@@ -134,6 +134,104 @@ export function calculateMetrics(
   };
 }
 
+export type ReportPostSortKey =
+  | "views"
+  | "likes"
+  | "comments"
+  | "shares"
+  | "newest";
+
+type SortableReportPost = Pick<
+  TikTokPost,
+  | "id"
+  | "views"
+  | "likes"
+  | "comments"
+  | "shares"
+  | "posted_at"
+  | "created_at"
+>;
+
+function safeMetric(value: number): number {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : -1;
+}
+
+function postTime(post: SortableReportPost): number {
+  const time = new Date(post.posted_at || post.created_at).getTime();
+  return Number.isFinite(time) ? time : 0;
+}
+
+function compareDescending(a: number, b: number): number {
+  return safeMetric(b) - safeMetric(a);
+}
+
+function stablePostFallback(a: SortableReportPost, b: SortableReportPost): number {
+  return (
+    compareDescending(a.views, b.views) ||
+    compareDescending(a.likes, b.likes) ||
+    compareDescending(a.shares, b.shares) ||
+    compareDescending(a.comments, b.comments) ||
+    postTime(b) - postTime(a) ||
+    a.id.localeCompare(b.id)
+  );
+}
+
+/** Deterministic report ordering, including ties and missing provider metrics. */
+export function sortReportPosts<T extends SortableReportPost>(
+  posts: T[],
+  sort: ReportPostSortKey,
+): T[] {
+  return [...posts].sort((a, b) => {
+    if (sort === "newest") {
+      return postTime(b) - postTime(a) || stablePostFallback(a, b);
+    }
+    return (
+      compareDescending(a[sort], b[sort]) ||
+      stablePostFallback(a, b)
+    );
+  });
+}
+
+export function getReportPagination(
+  totalItems: number,
+  requestedPage: number,
+  pageSize = 10,
+) {
+  const safeTotal = Number.isFinite(totalItems)
+    ? Math.max(0, Math.floor(totalItems))
+    : 0;
+  const safePageSize = Number.isFinite(pageSize)
+    ? Math.max(1, Math.floor(pageSize))
+    : 10;
+  const totalPages = Math.max(1, Math.ceil(safeTotal / safePageSize));
+  const safeRequestedPage = Number.isFinite(requestedPage)
+    ? Math.max(1, Math.floor(requestedPage))
+    : 1;
+  const currentPage = Math.min(
+    safeRequestedPage,
+    totalPages,
+  );
+  const start = (currentPage - 1) * safePageSize;
+  const visiblePageCount = Math.min(6, totalPages);
+  const firstVisiblePage = Math.min(
+    Math.max(currentPage - 2, 1),
+    Math.max(totalPages - visiblePageCount + 1, 1),
+  );
+
+  return {
+    totalPages,
+    currentPage,
+    start,
+    showingFrom: safeTotal === 0 ? 0 : start + 1,
+    showingTo: Math.min(start + safePageSize, safeTotal),
+    visiblePages: Array.from(
+      { length: visiblePageCount },
+      (_, index) => firstVisiblePage + index,
+    ),
+  };
+}
+
 /** Compact display: 1.2M / 138.4K / 868 */
 export function formatCompactNumber(value: number): string {
   const n = Math.max(0, Number(value) || 0);
@@ -153,6 +251,21 @@ export function formatCompactNumber(value: number): string {
 /** Full locale number: 868,329 */
 export function formatFullNumber(value: number): string {
   return new Intl.NumberFormat("en-GB").format(Math.round(Math.max(0, value)));
+}
+
+export function formatSignedFullNumber(value: number): string {
+  const rounded = Math.round(Number(value) || 0);
+  const formatted = new Intl.NumberFormat("en-GB").format(Math.abs(rounded));
+  if (rounded > 0) return `+${formatted}`;
+  if (rounded < 0) return `−${formatted}`;
+  return "0";
+}
+
+export function formatSignedCompactNumber(value: number): string {
+  const numeric = Number(value) || 0;
+  if (numeric === 0) return "0";
+  const formatted = formatCompactNumber(Math.abs(numeric));
+  return numeric > 0 ? `+${formatted}` : `−${formatted}`;
 }
 
 export function formatEngagementRate(value: number): string {
@@ -310,7 +423,7 @@ export function formatPostsVsTargetLabel(
   const t = target != null && Number.isFinite(Number(target)) ? Math.round(Number(target)) : null;
   return {
     value: formatPostsVsTarget(tracked, t),
-    progress: t && t > 0 ? Math.min(1, tracked / t) : 0,
+    progress: t && t > 0 ? Math.max(0, tracked / t) : 0,
   };
 }
 
@@ -337,9 +450,35 @@ export type ReportChartPoint = {
   cumulative: number;
 };
 
+const REPORT_TIME_ZONE = "Europe/London";
+const REPORT_DAY_FORMATTER = new Intl.DateTimeFormat("en-GB", {
+  timeZone: REPORT_TIME_ZONE,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+/**
+ * Calendar date used by client-report charts. Snapshot timestamps are grouped
+ * in UK local time so late-evening refreshes do not appear on the wrong day.
+ */
+export function reportSnapshotDate(value: string): string | null {
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return null;
+
+  const parts = REPORT_DAY_FORMATTER.formatToParts(date);
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((item) => item.type === type)?.value;
+  const year = part("year");
+  const month = part("month");
+  const day = part("day");
+  return year && month && day ? `${year}-${month}-${day}` : null;
+}
+
 /**
  * Turn cumulative snapshot totals into daily + cumulative series.
- * Never invents values — returns [] when history is insufficient (< 2 days).
+ * Same-day snapshots collapse to the latest reading. Corrections are preserved
+ * as negative deltas rather than being presented as zero growth.
  */
 export function buildSeriesFromCumulativeSnapshots(
   snapshots: { captured_at: string; value: number }[],
@@ -353,7 +492,8 @@ export function buildSeriesFromCumulativeSnapshots(
   for (const snap of sorted) {
     const value = Number(snap.value);
     if (!Number.isFinite(value) || value < 0) continue;
-    const day = new Date(snap.captured_at).toISOString().slice(0, 10);
+    const day = reportSnapshotDate(snap.captured_at);
+    if (!day) continue;
     byDay.set(day, value);
   }
 
@@ -362,19 +502,17 @@ export function buildSeriesFromCumulativeSnapshots(
     Number.isFinite(Number(latestValue)) &&
     Number(latestValue) >= 0
   ) {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = reportSnapshotDate(new Date().toISOString());
     const current = Number(latestValue);
-    const existing = byDay.get(today);
-    byDay.set(today, existing == null ? current : Math.max(existing, current));
+    if (today) byDay.set(today, current);
   }
 
   const days = [...byDay.keys()].sort();
-  if (days.length < 2) return [];
 
   return days.map((date, index) => {
     const cumulative = byDay.get(date) ?? 0;
     const prev = index === 0 ? cumulative : (byDay.get(days[index - 1]) ?? 0);
-    const daily = index === 0 ? 0 : Math.max(0, cumulative - prev);
+    const daily = index === 0 ? 0 : cumulative - prev;
     return { date, daily, cumulative };
   });
 }
@@ -390,47 +528,58 @@ export function buildChartFromSnapshots(
     PostMetricSnapshot,
     "post_id" | "captured_at" | "views"
   >[],
+  latestValue?: number | null,
 ): { date: string; views: number; cumulative: number }[] {
   if (posts.length === 0 || snapshots.length === 0) return [];
 
-  const byPost = new Map<string, { at: number; views: number }[]>();
-  for (const snap of snapshots) {
-    const list = byPost.get(snap.post_id) ?? [];
-    list.push({
-      at: new Date(snap.captured_at).getTime(),
-      views: Number(snap.views) || 0,
-    });
-    byPost.set(snap.post_id, list);
-  }
-  for (const list of byPost.values()) {
-    list.sort((a, b) => a.at - b.at);
-  }
-
+  const postIds = new Set(posts.map((post) => post.id));
+  const byPost = new Map<string, Map<string, number>>();
   const daySet = new Set<string>();
-  for (const snap of snapshots) {
-    daySet.add(new Date(snap.captured_at).toISOString().slice(0, 10));
+  const sorted = [...snapshots].sort(
+    (a, b) => +new Date(a.captured_at) - +new Date(b.captured_at),
+  );
+  for (const snap of sorted) {
+    if (!postIds.has(snap.post_id)) continue;
+    const day = reportSnapshotDate(snap.captured_at);
+    if (!day) continue;
+    const views = Number(snap.views);
+    if (!Number.isFinite(views) || views < 0) continue;
+    daySet.add(day);
+    const dailyValues = byPost.get(snap.post_id) ?? new Map<string, number>();
+    dailyValues.set(day, views);
+    byPost.set(snap.post_id, dailyValues);
   }
   const days = [...daySet].sort();
+  const latestByPost = new Map<string, number>();
 
   const totals: { date: string; total: number }[] = [];
   for (const day of days) {
-    const end = new Date(`${day}T23:59:59.999Z`).getTime();
     let total = 0;
     for (const post of posts) {
-      const list = byPost.get(post.id) ?? [];
-      let latest = 0;
-      for (const point of list) {
-        if (point.at <= end) latest = point.views;
-        else break;
-      }
-      total += latest;
+      const value = byPost.get(post.id)?.get(day);
+      if (value != null) latestByPost.set(post.id, value);
+      total += latestByPost.get(post.id) ?? 0;
     }
     totals.push({ date: day, total });
   }
 
+  if (
+    latestValue != null &&
+    Number.isFinite(Number(latestValue)) &&
+    Number(latestValue) >= 0
+  ) {
+    const today = reportSnapshotDate(new Date().toISOString());
+    if (today) {
+      const existing = totals.find((row) => row.date === today);
+      if (existing) existing.total = Number(latestValue);
+      else totals.push({ date: today, total: Number(latestValue) });
+      totals.sort((a, b) => a.date.localeCompare(b.date));
+    }
+  }
+
   return totals.map((row, index) => {
     const prev = index === 0 ? 0 : totals[index - 1].total;
-    const delta = Math.max(0, row.total - prev);
+    const delta = row.total - prev;
     return {
       date: row.date,
       views: index === 0 ? 0 : delta,

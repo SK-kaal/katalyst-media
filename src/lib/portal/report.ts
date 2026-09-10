@@ -7,6 +7,8 @@ export type ReportCampaign = {
   tiktok_sound_url: string | null;
   sound_title: string | null;
   sound_artist: string | null;
+  sound_title_override?: string | null;
+  sound_artist_override?: string | null;
   artwork_url: string | null;
   sound_artwork_url: string | null;
   sound_usage_count: number | null;
@@ -15,16 +17,12 @@ export type ReportCampaign = {
 
 export type ReportClient = {
   name: string;
-  handle: string | null;
-  profile_image_url: string | null;
 };
 
 export type ReportPost = {
   id: string;
   post_url: string;
-  title: string | null;
   creator_handle: string;
-  creator_display_name: string | null;
   thumbnail_url: string | null;
   posted_at: string | null;
   views: number;

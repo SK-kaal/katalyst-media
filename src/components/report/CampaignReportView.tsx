@@ -2,6 +2,7 @@ import {
   BarChart3,
   Eye,
   Heart,
+  ImageOff,
   MessageCircle,
   Music2,
   Share2,
@@ -14,12 +15,15 @@ import {
   buildSeriesFromCumulativeSnapshots,
   calculateMetrics,
   campaignArtwork,
+  campaignSoundArtist,
+  campaignSoundTitle,
   formatCompactNumber,
   formatEngagementRate,
   formatFullNumber,
   formatGbpExact,
   formatPostsVsTargetLabel,
   formatShortDate,
+  sortReportPosts,
 } from "@/lib/portal/metrics";
 import type {
   ReportCampaign,
@@ -45,10 +49,10 @@ function resolveTitles(
   campaign: ReportCampaign,
   client: ReportClient | null,
 ): { title: string; artist: string | null } {
-  const release = campaign.sound_title?.trim() || "";
+  const release = campaignSoundTitle(campaign) || "";
   const display = campaign.display_title?.trim() || "";
   const title = display || release || client?.name?.trim() || "Campaign";
-  const soundArtist = campaign.sound_artist?.trim() || "";
+  const soundArtist = campaignSoundArtist(campaign) || "";
   const artist =
     soundArtist && soundArtist.toLowerCase() !== title.toLowerCase()
       ? soundArtist
@@ -85,6 +89,7 @@ export function CampaignReportView({
     campaign.target_posts,
   );
   const deliveryPct = Math.round(delivery.progress * 100);
+  const deliveryBarPct = Math.min(100, deliveryPct);
 
   const creationsSeries = buildSeriesFromCumulativeSnapshots(
     soundSnapshots.map((s) => ({
@@ -102,7 +107,11 @@ export function CampaignReportView({
     metrics.views,
   );
 
-  const postSnapSeries = buildChartFromSnapshots(postList, snapshots).map(
+  const postSnapSeries = buildChartFromSnapshots(
+    postList,
+    snapshots,
+    metrics.views,
+  ).map(
     (row) => ({
       date: row.date,
       daily: row.views,
@@ -115,7 +124,7 @@ export function CampaignReportView({
       ? campaignSnapSeries
       : postSnapSeries;
 
-  const topPosts = [...postList].sort((a, b) => b.views - a.views).slice(0, 3);
+  const topPosts = sortReportPosts(postList, "views").slice(0, 3);
   const soundUrl = campaign.tiktok_sound_url?.trim() || null;
 
   return (
@@ -144,7 +153,12 @@ export function CampaignReportView({
             >
               {artwork ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={artwork} alt="" />
+                <img
+                  src={artwork}
+                  alt=""
+                  decoding="async"
+                  fetchPriority="high"
+                />
               ) : (
                 <span className="report-summary__art-placeholder">
                   <Music2 aria-hidden="true" />
@@ -155,7 +169,12 @@ export function CampaignReportView({
             <div className="report-summary__art">
               {artwork ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={artwork} alt="" />
+                <img
+                  src={artwork}
+                  alt=""
+                  decoding="async"
+                  fetchPriority="high"
+                />
               ) : (
                 <span className="report-summary__art-placeholder">
                   <Music2 aria-hidden="true" />
@@ -232,11 +251,14 @@ export function CampaignReportView({
                 role="progressbar"
                 aria-valuenow={deliveryPct}
                 aria-valuemin={0}
-                aria-valuemax={100}
+                aria-valuemax={Math.max(100, deliveryPct)}
+                aria-valuetext={`${metrics.posts} of ${Number(
+                  campaign.target_posts,
+                )} campaign posts, ${deliveryPct}% complete`}
               >
                 <div
                   className="report-progress__fill"
-                  style={{ width: `${deliveryPct}%` }}
+                  style={{ width: `${deliveryBarPct}%` }}
                 />
               </div>
             ) : (
@@ -321,22 +343,12 @@ export function CampaignReportView({
 
         <section className="report-section report-section--featured">
           <div className="report-section__head">
-            <p className="report-section__side" aria-hidden="true">
-              Music / Creators /
-              <br />
-              Real Impact
-            </p>
             <div className="report-section__title-wrap">
               <h2 className="report-section__title">Top Performing Posts</h2>
               <p className="report-section__sub">
                 The highest performing content from this campaign.
               </p>
             </div>
-            <p className="report-section__side" aria-hidden="true">
-              Data Drives /
-              <br />
-              Culture
-            </p>
           </div>
 
           {topPosts.length === 0 ? (
@@ -356,8 +368,18 @@ export function CampaignReportView({
                   <div className="report-vcard__media">
                     {post.thumbnail_url ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={post.thumbnail_url} alt="" />
-                    ) : null}
+                      <img
+                        src={post.thumbnail_url}
+                        alt=""
+                        loading="lazy"
+                        decoding="async"
+                      />
+                    ) : (
+                      <span className="report-vcard__placeholder">
+                        <ImageOff aria-hidden="true" />
+                        <span>Preview unavailable</span>
+                      </span>
+                    )}
                     <span className="report-vcard__rank">#{index + 1}</span>
                     <div className="report-vcard__fade" aria-hidden="true" />
                   </div>
@@ -373,25 +395,37 @@ export function CampaignReportView({
                     <div className="report-vcard__metrics">
                       <div>
                         <p className="report-vcard__metric-label">Views</p>
-                        <p className="report-vcard__metric-value">
+                        <p
+                          className="report-vcard__metric-value"
+                          title={formatFullNumber(post.views)}
+                        >
                           {formatCompactNumber(post.views)}
                         </p>
                       </div>
                       <div>
                         <p className="report-vcard__metric-label">Likes</p>
-                        <p className="report-vcard__metric-value">
+                        <p
+                          className="report-vcard__metric-value"
+                          title={formatFullNumber(post.likes)}
+                        >
                           {formatCompactNumber(post.likes)}
                         </p>
                       </div>
                       <div>
                         <p className="report-vcard__metric-label">Comments</p>
-                        <p className="report-vcard__metric-value">
+                        <p
+                          className="report-vcard__metric-value"
+                          title={formatFullNumber(post.comments)}
+                        >
                           {formatCompactNumber(post.comments)}
                         </p>
                       </div>
                       <div>
                         <p className="report-vcard__metric-label">Shares</p>
-                        <p className="report-vcard__metric-value">
+                        <p
+                          className="report-vcard__metric-value"
+                          title={formatFullNumber(post.shares)}
+                        >
                           {formatCompactNumber(post.shares)}
                         </p>
                       </div>

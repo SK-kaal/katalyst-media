@@ -204,6 +204,32 @@ test.describe.serial("TikTok sound management", () => {
       sound_artist_override: "Manual Artist",
     });
 
+    // Ended admin preview resolves the same manual display overrides as the
+    // public RPC, then the disposable campaign is restored for the flow.
+    await db
+      .from("campaigns")
+      .update({
+        status: "ended",
+        ended_at: new Date().toISOString(),
+        display_title: null,
+      })
+      .eq("id", campaign!.id);
+    const endedPreview = await page.context().newPage();
+    await endedPreview.goto(`/admin/campaigns/${campaign!.id}/preview`);
+    await expect(
+      endedPreview.getByRole("heading", { name: "Manual Sound Title" }),
+    ).toBeVisible();
+    await expect(endedPreview.getByText("Manual Artist")).toBeVisible();
+    await endedPreview.close();
+    await db
+      .from("campaigns")
+      .update({
+        status: "active",
+        ended_at: null,
+        display_title: `QA Sound Workflow ${suffix}`,
+      })
+      .eq("id", campaign!.id);
+
     // Case H: another URL for the same ID refreshes without deleting history.
     await openSoundMenu(page);
     await page.getByRole("menuitem", { name: "Change Sound" }).click();
@@ -275,10 +301,19 @@ test.describe.serial("TikTok sound management", () => {
     const { data: shared } = await publicDb.rpc("fetch_shared_report", {
       p_token: permanentToken,
     });
+    const sharedReport = shared as {
+      client?: Record<string, unknown>;
+      posts?: { id: string; post_url: string }[];
+      sound_snapshots?: { creation_count: number }[];
+    };
     expect(
-      (shared as { sound_snapshots?: { creation_count: number }[] })
-        .sound_snapshots,
+      sharedReport.sound_snapshots,
     ).toMatchObject([{ creation_count: 222 }]);
+    expect(Object.keys(sharedReport.client ?? {})).toEqual(["name"]);
+    expect(sharedReport.posts?.[0]?.id).toBe(sharedReport.posts?.[0]?.post_url);
+    expect(JSON.stringify(sharedReport)).not.toMatch(
+      /internal_notes|share_token|client_id|campaign_id|last_sync_error|"email"/i,
+    );
     await reportPage.reload();
     await expect(
       reportPage.locator(".report-chart-card").filter({ hasText: "TikTok Creations" }),

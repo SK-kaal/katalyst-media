@@ -4,18 +4,30 @@ import { useId, useMemo, useState } from "react";
 import {
   formatCompactNumber,
   formatFullNumber,
+  formatSignedCompactNumber,
+  formatSignedFullNumber,
   type ReportChartPoint,
 } from "@/lib/portal/metrics";
 import "@/components/report/report.css";
 
 type Mode = "cumulative" | "daily";
 
-function formatAxisDate(iso: string): string {
+const AXIS_DATE_FORMATTER = new Intl.DateTimeFormat("en-GB", {
+  day: "numeric",
+  month: "short",
+  timeZone: "Europe/London",
+});
+
+const TOOLTIP_DATE_FORMATTER = new Intl.DateTimeFormat("en-GB", {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+  timeZone: "Europe/London",
+});
+
+function formatChartDate(iso: string, includeYear = false): string {
   const d = new Date(`${iso}T12:00:00Z`);
-  return new Intl.DateTimeFormat("en-GB", {
-    day: "numeric",
-    month: "short",
-  }).format(d);
+  return (includeYear ? TOOLTIP_DATE_FORMATTER : AXIS_DATE_FORMATTER).format(d);
 }
 
 function ChartCard({
@@ -36,23 +48,28 @@ function ChartCard({
   const [mode, setMode] = useState<Mode>("cumulative");
   const [hover, setHover] = useState<number | null>(null);
   const gid = useId().replace(/:/g, "");
+  const changeMode = (nextMode: Mode) => {
+    setHover(null);
+    setMode(nextMode);
+  };
 
-  const values = useMemo(
-    () => series.map((p) => (mode === "cumulative" ? p.cumulative : p.daily)),
+  const chartSeries = useMemo(
+    () => (mode === "cumulative" ? series : series.slice(1)),
     [series, mode],
   );
 
+  const values = useMemo(
+    () =>
+      chartSeries.map((point) =>
+        mode === "cumulative" ? point.cumulative : point.daily,
+      ),
+    [chartSeries, mode],
+  );
+
   const hasData = series.length >= 2;
-  const valuesDistinct =
-    hasData && new Set(values.map((v) => Math.round(Number(v) || 0))).size > 1;
-  // Flat identical snapshots are not a meaningful chart yet.
-  const showChart =
-    hasData &&
-    (mode === "daily"
-      ? values.some((v) => Math.abs(v) > 0)
-      : valuesDistinct);
-  const max = Math.max(...values, 1);
-  const min = mode === "cumulative" ? Math.min(...values, 0) : 0;
+  const showChart = hasData;
+  const max = Math.max(...values, mode === "cumulative" ? 1 : 0);
+  const min = Math.min(...values, 0);
   const span = Math.max(max - min, 1);
 
   const w = 640;
@@ -64,12 +81,12 @@ function ChartCard({
   const plotW = w - padL - padR;
   const plotH = h - padT - padB;
 
-  const points = series.map((row, index) => {
+  const points = chartSeries.map((row, index) => {
     const value = values[index] ?? 0;
     const x =
-      series.length === 1
+      chartSeries.length === 1
         ? padL + plotW / 2
-        : padL + (index / (series.length - 1)) * plotW;
+        : padL + (index / (chartSeries.length - 1)) * plotW;
     const y = padT + plotH - ((value - min) / span) * plotH;
     return { x, y, row, value };
   });
@@ -84,21 +101,26 @@ function ChartCard({
     const value = min + span * (1 - t);
     return {
       y: padT + plotH * t,
-      label: formatCompactNumber(Math.round(value)),
+      label:
+        mode === "daily"
+          ? formatSignedCompactNumber(Math.round(value))
+          : formatCompactNumber(Math.round(value)),
     };
   });
 
   const xLabels = (() => {
-    if (series.length === 0) return [];
-    const idxs = new Set<number>([0, series.length - 1]);
-    if (series.length > 2) idxs.add(Math.floor((series.length - 1) / 2));
-    if (series.length > 5) {
-      idxs.add(Math.floor((series.length - 1) / 4));
-      idxs.add(Math.floor(((series.length - 1) * 3) / 4));
+    if (chartSeries.length === 0) return [];
+    const idxs = new Set<number>([0, chartSeries.length - 1]);
+    if (chartSeries.length > 2) {
+      idxs.add(Math.floor((chartSeries.length - 1) / 2));
+    }
+    if (chartSeries.length > 5) {
+      idxs.add(Math.floor((chartSeries.length - 1) / 4));
+      idxs.add(Math.floor(((chartSeries.length - 1) * 3) / 4));
     }
     return [...idxs].sort((a, b) => a - b).map((i) => ({
       x: points[i]?.x ?? padL,
-      label: formatAxisDate(series[i].date),
+      label: formatChartDate(chartSeries[i].date),
     }));
   })();
 
@@ -110,6 +132,13 @@ function ChartCard({
       : latest
         ? latest.row.cumulative
         : null;
+  const tooltipLabel =
+    mode === "cumulative" ? `Total ${valueNoun}` : `New ${valueNoun}`;
+  const tooltipValue = active
+    ? mode === "cumulative"
+      ? formatFullNumber(active.value)
+      : formatSignedFullNumber(active.value)
+    : "";
 
   return (
     <div className="report-panel report-chart-card">
@@ -131,14 +160,16 @@ function ChartCard({
           <button
             type="button"
             className={mode === "cumulative" ? "is-active" : ""}
-            onClick={() => setMode("cumulative")}
+            aria-pressed={mode === "cumulative"}
+            onClick={() => changeMode("cumulative")}
           >
             Cumulative
           </button>
           <button
             type="button"
             className={mode === "daily" ? "is-active" : ""}
-            onClick={() => setMode("daily")}
+            aria-pressed={mode === "daily"}
+            onClick={() => changeMode("daily")}
           >
             Daily
           </button>
@@ -154,6 +185,9 @@ function ChartCard({
         <div
           className="report-chart-plot"
           onMouseLeave={() => setHover(null)}
+          onPointerLeave={(event) => {
+            if (event.pointerType !== "touch") setHover(null);
+          }}
         >
           <svg
             viewBox={`0 0 ${w} ${h}`}
@@ -163,7 +197,7 @@ function ChartCard({
           >
             <defs>
               <linearGradient id={`fill-${gid}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="rgba(198,255,0,0.22)" />
+                <stop offset="0%" stopColor="rgba(198,255,0,0.12)" />
                 <stop offset="100%" stopColor="rgba(198,255,0,0)" />
               </linearGradient>
             </defs>
@@ -176,6 +210,7 @@ function ChartCard({
                   y1={tick.y}
                   y2={tick.y}
                   stroke="rgba(255,255,255,0.06)"
+                  vectorEffect="non-scaling-stroke"
                 />
                 <text
                   x={padL - 10}
@@ -210,9 +245,10 @@ function ChartCard({
               points={line}
               fill="none"
               stroke="#c6ff00"
-              strokeWidth="2.2"
+              strokeWidth="1.8"
               strokeLinejoin="round"
               strokeLinecap="round"
+              vectorEffect="non-scaling-stroke"
             />
 
             {active ? (
@@ -232,6 +268,7 @@ function ChartCard({
                   fill="#0a0a0a"
                   stroke="#c6ff00"
                   strokeWidth="2"
+                  vectorEffect="non-scaling-stroke"
                 />
               </>
             ) : latest ? (
@@ -252,25 +289,41 @@ function ChartCard({
                 r="14"
                 fill="transparent"
                 onMouseEnter={() => setHover(index)}
+                onPointerDown={() => setHover(index)}
+                onClick={() => setHover(index)}
+                onFocus={() => setHover(index)}
+                onBlur={() => setHover(null)}
+                tabIndex={0}
+                role="button"
+                aria-label={`${formatChartDate(p.row.date, true)}, ${tooltipLabel} ${
+                  mode === "cumulative"
+                    ? formatFullNumber(p.value)
+                    : formatSignedFullNumber(p.value)
+                }`}
               />
             ))}
           </svg>
 
           {active ? (
             <div
-              className="report-chart-tooltip"
+              className={`report-chart-tooltip${
+                active.y < 76 ? " is-below" : ""
+              }`}
               style={{
-                left: `${(active.x / w) * 100}%`,
+                left: `${Math.min(
+                  84,
+                  Math.max(16, (active.x / w) * 100),
+                )}%`,
                 top: `${(active.y / h) * 100}%`,
               }}
             >
               <p className="report-chart-tooltip__date">
-                {formatAxisDate(active.row.date)}
+                {formatChartDate(active.row.date, true)}
               </p>
               <p className="report-chart-tooltip__value">
                 <span className="report-chart-tooltip__dot" aria-hidden="true" />
-                {mode === "cumulative" ? "Total" : "Daily"} {valueNoun}:{" "}
-                <strong>{formatFullNumber(active.value)}</strong>
+                {tooltipLabel}
+                <strong>{tooltipValue}</strong>
               </p>
             </div>
           ) : null}
@@ -304,7 +357,7 @@ export function ViewsCharts({
           totalValue={creationsTotal}
           series={creations}
           valueNoun="creations"
-          emptyHint="More historical data will appear after additional sound refreshes."
+          emptyHint="Tracking has just started. Charts will appear after additional sound refreshes."
         />
       ) : null}
       <ChartCard
@@ -313,7 +366,7 @@ export function ViewsCharts({
         totalValue={viewsTotal}
         series={views}
         valueNoun="views"
-        emptyHint="Tracking has just started. Charts appear after additional refreshes."
+        emptyHint="Tracking has just started. Charts will appear after additional refreshes."
       />
     </div>
   );

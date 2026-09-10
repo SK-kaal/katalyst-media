@@ -152,11 +152,13 @@ export function CampaignEditor({
       metrics.views,
     );
     if (fromCampaign.length >= 2) return fromCampaign;
-    return buildChartFromSnapshots(posts, snapshots).map((row) => ({
-      date: row.date,
-      daily: row.views,
-      cumulative: row.cumulative,
-    }));
+    return buildChartFromSnapshots(posts, snapshots, metrics.views).map(
+      (row) => ({
+        date: row.date,
+        daily: row.views,
+        cumulative: row.cumulative,
+      }),
+    );
   }, [campaignSnapshots, metrics.views, posts, snapshots]);
   const artwork = campaignArtwork(campaign);
   const title =

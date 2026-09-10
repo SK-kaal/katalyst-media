@@ -28,14 +28,18 @@ export default async function ReportPage({
 
   if (!report?.campaign) {
     return (
-      <div className="report-shell grid min-h-svh place-items-center px-5 text-center">
-        <div>
-          <Wordmark className="text-[1.15rem] tracking-[0.16em]" href={null} />
-          <p className="mt-8 text-sm text-soft-grey">Campaign Report</p>
-          <h1 className="mt-3 font-display text-2xl font-semibold tracking-[-0.04em]">
+      <div className="report-shell">
+        <main className="report-state">
+          <Wordmark className="report-state__wordmark" href={null} />
+          <p className="report-state__eyebrow">Campaign Report</p>
+          <h1 className="report-state__title">
             This campaign report is no longer available.
           </h1>
-        </div>
+          <p className="report-state__copy">
+            Please contact your Katalyst Media representative if you need
+            access.
+          </p>
+        </main>
       </div>
     );
   }

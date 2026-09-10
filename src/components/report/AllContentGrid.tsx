@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import {
   Eye,
   Heart,
+  ImageOff,
   MessageCircle,
   Share2,
   Download,
@@ -15,11 +16,14 @@ import {
 import {
   formatCompactNumber,
   formatDateTime,
+  formatFullNumber,
   formatShortDate,
+  getReportPagination,
+  sortReportPosts,
+  type ReportPostSortKey,
 } from "@/lib/portal/metrics";
 import type { ReportPost } from "@/lib/portal/report";
 
-type SortKey = "views" | "likes" | "shares" | "newest";
 type ViewMode = "grid" | "list";
 
 const PAGE_SIZE = 10;
@@ -54,48 +58,31 @@ function exportCsv(posts: ReportPost[]) {
   const a = document.createElement("a");
   a.href = url;
   a.download = "katalyst-campaign-content.csv";
+  a.hidden = true;
+  document.body.append(a);
   a.click();
-  URL.revokeObjectURL(url);
+  a.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
 }
 
 export function AllContentGrid({ posts }: { posts: ReportPost[] }) {
-  const [sort, setSort] = useState<SortKey>("views");
+  const [sort, setSort] = useState<ReportPostSortKey>("views");
   const [view, setView] = useState<ViewMode>("grid");
   const [page, setPage] = useState(1);
 
   const sorted = useMemo(() => {
-    const next = [...posts];
-    switch (sort) {
-      case "likes":
-        return next.sort((a, b) => b.likes - a.likes);
-      case "shares":
-        return next.sort((a, b) => b.shares - a.shares);
-      case "newest":
-        return next.sort(
-          (a, b) =>
-            +new Date(b.posted_at || b.created_at) -
-            +new Date(a.posted_at || a.created_at),
-        );
-      default:
-        return next.sort((a, b) => b.views - a.views);
-    }
+    return sortReportPosts(posts, sort);
   }, [posts, sort]);
 
-  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
-  const currentPage = Math.min(page, totalPages);
-  const start = (currentPage - 1) * PAGE_SIZE;
+  const {
+    totalPages,
+    currentPage,
+    start,
+    showingFrom,
+    showingTo,
+    visiblePages,
+  } = getReportPagination(sorted.length, page, PAGE_SIZE);
   const pageItems = sorted.slice(start, start + PAGE_SIZE);
-  const showingFrom = sorted.length === 0 ? 0 : start + 1;
-  const showingTo = Math.min(start + PAGE_SIZE, sorted.length);
-  const visiblePageCount = Math.min(6, totalPages);
-  const firstVisiblePage = Math.min(
-    Math.max(currentPage - 2, 1),
-    Math.max(totalPages - visiblePageCount + 1, 1),
-  );
-  const visiblePages = Array.from(
-    { length: visiblePageCount },
-    (_, index) => firstVisiblePage + index,
-  );
 
   return (
     <section className="report-section">
@@ -112,12 +99,13 @@ export function AllContentGrid({ posts }: { posts: ReportPost[] }) {
             value={sort}
             aria-label="Sort content"
             onChange={(e) => {
-              setSort(e.target.value as SortKey);
+              setSort(e.target.value as ReportPostSortKey);
               setPage(1);
             }}
           >
             <option value="views">Most Views</option>
             <option value="likes">Most Likes</option>
+            <option value="comments">Most Comments</option>
             <option value="shares">Most Shares</option>
             <option value="newest">Newest</option>
           </select>
@@ -167,8 +155,18 @@ export function AllContentGrid({ posts }: { posts: ReportPost[] }) {
               <div className="report-vcard__media">
                 {post.thumbnail_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={post.thumbnail_url} alt="" />
-                ) : null}
+                  <img
+                    src={post.thumbnail_url}
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
+                  />
+                ) : (
+                  <span className="report-vcard__placeholder">
+                    <ImageOff aria-hidden="true" />
+                    <span>Preview unavailable</span>
+                  </span>
+                )}
                 <div className="report-vcard__fade" aria-hidden="true" />
               </div>
               <div className="report-vcard__body">
@@ -179,19 +177,31 @@ export function AllContentGrid({ posts }: { posts: ReportPost[] }) {
                 </p>
                 <p className="report-vcard__handle">{post.creator_handle}</p>
                 <div className="report-vcard__metrics">
-                  <span className="report-vcard__metric">
+                  <span
+                    className="report-vcard__metric"
+                    title={`${formatFullNumber(post.views)} views`}
+                  >
                     <Eye aria-hidden="true" />
                     {formatCompactNumber(post.views)}
                   </span>
-                  <span className="report-vcard__metric">
+                  <span
+                    className="report-vcard__metric"
+                    title={`${formatFullNumber(post.likes)} likes`}
+                  >
                     <Heart aria-hidden="true" />
                     {formatCompactNumber(post.likes)}
                   </span>
-                  <span className="report-vcard__metric">
+                  <span
+                    className="report-vcard__metric"
+                    title={`${formatFullNumber(post.comments)} comments`}
+                  >
                     <MessageCircle aria-hidden="true" />
                     {formatCompactNumber(post.comments)}
                   </span>
-                  <span className="report-vcard__metric">
+                  <span
+                    className="report-vcard__metric"
+                    title={`${formatFullNumber(post.shares)} shares`}
+                  >
                     <Share2 aria-hidden="true" />
                     {formatCompactNumber(post.shares)}
                   </span>
@@ -213,8 +223,18 @@ export function AllContentGrid({ posts }: { posts: ReportPost[] }) {
               <div className="report-vcard__media">
                 {post.thumbnail_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={post.thumbnail_url} alt="" />
-                ) : null}
+                  <img
+                    src={post.thumbnail_url}
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
+                  />
+                ) : (
+                  <span className="report-vcard__placeholder">
+                    <ImageOff aria-hidden="true" />
+                    <span className="sr-only">Preview unavailable</span>
+                  </span>
+                )}
               </div>
               <div className="report-vcard__body">
                 <div className="report-vcard__row">
@@ -223,20 +243,32 @@ export function AllContentGrid({ posts }: { posts: ReportPost[] }) {
                     {formatShortDate(post.posted_at || post.created_at)}
                   </p>
                 </div>
-                <div className="report-vcard__metrics" style={{ marginTop: "0.55rem" }}>
-                  <span className="report-vcard__metric">
+                <div className="report-vcard__metrics">
+                  <span
+                    className="report-vcard__metric"
+                    title={`${formatFullNumber(post.views)} views`}
+                  >
                     <Eye aria-hidden="true" />
                     {formatCompactNumber(post.views)}
                   </span>
-                  <span className="report-vcard__metric">
+                  <span
+                    className="report-vcard__metric"
+                    title={`${formatFullNumber(post.likes)} likes`}
+                  >
                     <Heart aria-hidden="true" />
                     {formatCompactNumber(post.likes)}
                   </span>
-                  <span className="report-vcard__metric">
+                  <span
+                    className="report-vcard__metric"
+                    title={`${formatFullNumber(post.comments)} comments`}
+                  >
                     <MessageCircle aria-hidden="true" />
                     {formatCompactNumber(post.comments)}
                   </span>
-                  <span className="report-vcard__metric">
+                  <span
+                    className="report-vcard__metric"
+                    title={`${formatFullNumber(post.shares)} shares`}
+                  >
                     <Share2 aria-hidden="true" />
                     {formatCompactNumber(post.shares)}
                   </span>
@@ -247,43 +279,47 @@ export function AllContentGrid({ posts }: { posts: ReportPost[] }) {
         </div>
       )}
 
-      <div className="report-footer-bar">
-        <p>
-          Showing {showingFrom}–{showingTo} items
-        </p>
-        <div className="report-pagination">
-          <button
-            type="button"
-            className="report-page-btn"
-            aria-label="Previous page"
-            disabled={currentPage <= 1}
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-          >
-            <ChevronLeft className="size-3.5" />
-          </button>
-          {visiblePages.map((n) => (
+      {sorted.length > 0 ? (
+        <div className="report-footer-bar">
+          <p>
+            Showing {showingFrom}–{showingTo} items
+          </p>
+          <div className="report-pagination">
             <button
-              key={n}
               type="button"
-              className={`report-page-btn ${n === currentPage ? "is-active" : ""}`}
-              aria-label={`Page ${n} of ${totalPages}`}
-              aria-current={n === currentPage ? "page" : undefined}
-              onClick={() => setPage(n)}
+              className="report-page-btn"
+              aria-label="Previous page"
+              disabled={currentPage <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
             >
-              {n}
+              <ChevronLeft className="size-3.5" />
             </button>
-          ))}
-          <button
-            type="button"
-            className="report-page-btn"
-            aria-label="Next page"
-            disabled={currentPage >= totalPages}
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-          >
-            <ChevronRight className="size-3.5" />
-          </button>
+            {visiblePages.map((n) => (
+              <button
+                key={n}
+                type="button"
+                className={`report-page-btn ${
+                  n === currentPage ? "is-active" : ""
+                }`}
+                aria-label={`Page ${n} of ${totalPages}`}
+                aria-current={n === currentPage ? "page" : undefined}
+                onClick={() => setPage(n)}
+              >
+                {n}
+              </button>
+            ))}
+            <button
+              type="button"
+              className="report-page-btn"
+              aria-label="Next page"
+              disabled={currentPage >= totalPages}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            >
+              <ChevronRight className="size-3.5" />
+            </button>
+          </div>
         </div>
-      </div>
+      ) : null}
     </section>
   );
 }
