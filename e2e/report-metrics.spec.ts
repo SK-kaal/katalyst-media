@@ -2,7 +2,9 @@ import { expect, test } from "@playwright/test";
 import {
   buildChartFromSnapshots,
   buildSeriesFromCumulativeSnapshots,
+  formatDateTime,
   formatPostsVsTargetLabel,
+  formatShortDate,
   getReportPagination,
   reportSnapshotDate,
   sortReportPosts,
@@ -46,6 +48,10 @@ test.describe("client report calculations", () => {
     expect(reportSnapshotDate("2026-09-01T22:30:00Z")).toBe("2026-09-01");
     expect(reportSnapshotDate("2026-09-01T23:30:00Z")).toBe("2026-09-02");
     expect(reportSnapshotDate("not-a-date")).toBeNull();
+    expect(formatShortDate("2026-09-09T23:30:00Z")).toBe("10 Sept 2026");
+    expect(formatDateTime("2026-09-09T23:30:00Z")).toBe(
+      "10 Sept 2026, 00:30",
+    );
   });
 
   test("calculates combined campaign-view totals and true period deltas", () => {

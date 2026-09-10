@@ -25,6 +25,7 @@ test.describe("client report cross-browser quality", () => {
         deviceScaleFactor: 2,
         hasTouch: true,
         permissions: [],
+        timezoneId: "America/Los_Angeles",
       });
       const page = await context.newPage();
       const errors: string[] = [];

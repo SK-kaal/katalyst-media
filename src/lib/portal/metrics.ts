@@ -292,12 +292,15 @@ export function formatGbpExact(value: number): string {
   }).format(Number(value) || 0);
 }
 
+const REPORT_TIME_ZONE = "Europe/London";
+
 export function formatShortDate(value: string | null | undefined): string {
   if (!value) return "—";
   return new Intl.DateTimeFormat("en-GB", {
     day: "numeric",
     month: "short",
     year: "numeric",
+    timeZone: REPORT_TIME_ZONE,
   }).format(new Date(value));
 }
 
@@ -441,6 +444,7 @@ export function formatDateTime(value: string | null | undefined): string {
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: REPORT_TIME_ZONE,
   }).format(new Date(value));
 }
 
@@ -450,7 +454,6 @@ export type ReportChartPoint = {
   cumulative: number;
 };
 
-const REPORT_TIME_ZONE = "Europe/London";
 const REPORT_DAY_FORMATTER = new Intl.DateTimeFormat("en-GB", {
   timeZone: REPORT_TIME_ZONE,
   year: "numeric",
