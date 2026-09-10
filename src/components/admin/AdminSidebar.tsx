@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { LogOut, Menu, X } from "lucide-react";
 import { Wordmark } from "@/components/ui/Wordmark";
 import { logoutAdmin } from "@/lib/admin-auth/actions";
@@ -58,6 +58,33 @@ function LogoutButton({ className }: { className?: string }) {
 export function AdminSidebar() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const mobileButtonRef = useRef<HTMLButtonElement>(null);
+  const mobileMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpen(false);
+        mobileButtonRef.current?.focus();
+      }
+    };
+    const onPointerDown = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (
+        !mobileMenuRef.current?.contains(target) &&
+        !mobileButtonRef.current?.contains(target)
+      ) {
+        setOpen(false);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("mousedown", onPointerDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("mousedown", onPointerDown);
+    };
+  }, [open]);
 
   return (
     <>
@@ -81,6 +108,7 @@ export function AdminSidebar() {
           </p>
         </div>
         <button
+          ref={mobileButtonRef}
           type="button"
           className="admin-btn admin-btn--ghost size-10 p-0"
           aria-label={open ? "Close menu" : "Open menu"}
@@ -92,7 +120,10 @@ export function AdminSidebar() {
       </div>
 
       {open ? (
-        <div className="mb-4 rounded-[12px] border border-white/10 bg-carbon p-3 lg:hidden">
+        <div
+          ref={mobileMenuRef}
+          className="mb-4 rounded-[12px] border border-white/10 bg-carbon p-3 lg:hidden"
+        >
           <AdminNavLinks pathname={pathname} onNavigate={() => setOpen(false)} />
           <div className="mt-3 border-t border-white/10 pt-3">
             <p className="admin-sidebar__user">Authorised access</p>
@@ -108,22 +139,20 @@ export function StatusBadge({
   status,
   className,
 }: {
-  status: "draft" | "live" | "paused" | "closed" | "in_progress";
+  status: "active" | "ended";
   className?: string;
 }) {
-  const normalized =
-    status === "in_progress" ? "draft" : (status as "draft" | "live" | "paused" | "closed");
-  const label =
-    normalized === "live"
-      ? "Live"
-      : normalized === "paused"
-        ? "Paused"
-        : normalized === "closed"
-          ? "Closed"
-          : "Draft";
+  const ended = status === "ended";
+  const label = ended ? "Ended" : "Active";
 
   return (
-    <span className={cn("admin-status", `admin-status--${normalized}`, className)}>
+    <span
+      className={cn(
+        "admin-status",
+        ended ? "admin-status--ended" : "admin-status--active",
+        className,
+      )}
+    >
       {label}
     </span>
   );

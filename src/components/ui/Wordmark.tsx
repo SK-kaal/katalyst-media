@@ -4,7 +4,8 @@ import { cn } from "@/lib/utils";
 type WordmarkProps = {
   className?: string;
   onDark?: boolean;
-  href?: string;
+  /** Pass `null` to render mark without a link. */
+  href?: string | null;
 };
 
 export function Wordmark({ className, onDark = true, href = "/" }: WordmarkProps) {
@@ -20,7 +21,7 @@ export function Wordmark({ className, onDark = true, href = "/" }: WordmarkProps
     </span>
   );
 
-  if (!href) return content;
+  if (href == null || href === "") return content;
 
   return (
     <Link href={href} className="inline-flex focus-visible:outline-offset-4" aria-label="Katalyst Media home">

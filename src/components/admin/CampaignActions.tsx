@@ -7,9 +7,14 @@ import { MoreHorizontal } from "lucide-react";
 import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
 import { useAdminToast } from "@/components/admin/AdminToast";
 import {
-  refreshCampaignPosts,
-  setCampaignStatus,
+  endCampaign,
+  permanentlyDeleteCampaign,
+  refreshCampaignData,
+  reopenCampaign,
+  restoreCampaign,
+  trashCampaign,
 } from "@/lib/portal/actions";
+import { formatCompactNumber } from "@/lib/portal/metrics";
 import { toUserError } from "@/lib/portal/errors";
 import { company } from "@/content/company";
 import type { Campaign, CampaignStatus } from "@/lib/supabase/database.types";
@@ -17,46 +22,60 @@ import type { Campaign, CampaignStatus } from "@/lib/supabase/database.types";
 export function CampaignActionsMenu({
   campaign,
   clientId,
+  trashed = false,
+  context = "card",
+  onMove,
 }: {
   campaign: Pick<
     Campaign,
-    "id" | "status" | "share_token" | "share_enabled"
+    "id" | "status" | "share_token" | "trashed_at"
   >;
   clientId?: string;
+  trashed?: boolean;
+  context?: "card" | "editor";
+  onMove?: () => void;
 }) {
   const router = useRouter();
   const { toast } = useAdminToast();
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
-  const [confirm, setConfirm] = useState<"pause" | "close" | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [confirm, setConfirm] = useState<
+    "end" | "reopen" | "trash" | "deleteForever" | null
+  >(null);
   const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const status = campaign.status as CampaignStatus;
+  const inTrash = trashed || Boolean(campaign.trashed_at);
+  const reportUrl = campaign.share_token
+    ? `${company.url}/report/${campaign.share_token}`
+    : null;
 
   useEffect(() => {
     if (!open) return;
     const onPointer = (event: MouseEvent) => {
       if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
     };
-    window.addEventListener("mousedown", onPointer);
-    return () => window.removeEventListener("mousedown", onPointer);
-  }, [open]);
-
-  const runStatus = (next: CampaignStatus, message: string) => {
-    startTransition(async () => {
-      try {
-        await setCampaignStatus(campaign.id, next);
-        toast(message.startsWith("✓") ? message : `✓ ${message}`);
-        setConfirm(null);
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
         setOpen(false);
-        router.refresh();
-      } catch (error) {
-        toast(
-          toUserError(error, "Could not update campaign"),
-          "error",
-        );
+        triggerRef.current?.focus();
       }
-    });
-  };
+    };
+    window.addEventListener("mousedown", onPointer);
+    window.addEventListener("keydown", onKey);
+    const timer = window.setTimeout(() => {
+      menuRef.current
+        ?.querySelector<HTMLElement>('[role="menuitem"]')
+        ?.focus();
+    }, 0);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("mousedown", onPointer);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
 
   const items: {
     label: string;
@@ -67,72 +86,124 @@ export function CampaignActionsMenu({
     {
       label: "Open Campaign",
       href: `/admin/campaigns/${campaign.id}`,
+      hide: inTrash || context === "editor",
     },
     {
-      label: "Preview Client Report",
-      href: campaign.share_token
-        ? `/report/${campaign.share_token}`
-        : undefined,
-      hide: !campaign.share_token,
+      label: "Add Posts",
+      href: `/admin/campaigns/${campaign.id}?tab=content`,
+      hide: inTrash || status === "ended" || context === "editor",
     },
     {
-      label: "Copy Client Link",
-      hide: !(campaign.share_enabled && campaign.share_token),
+      label: status === "ended" ? "Preview Admin Report" : "Preview Report",
+      href: `/admin/campaigns/${campaign.id}/preview`,
+      hide: inTrash || context === "editor",
+    },
+    {
+      label: copied ? "Copied ✓" : "Copy Client Link",
+      hide: !reportUrl || inTrash || context === "editor",
       onClick: async () => {
-        if (!campaign.share_token) return;
-        await navigator.clipboard.writeText(
-          `${company.url}/report/${campaign.share_token}`,
-        );
-        toast("Client link copied");
-        setOpen(false);
+        if (!reportUrl) return;
+        try {
+          await navigator.clipboard.writeText(reportUrl);
+          setCopied(true);
+          toast(
+            status === "ended"
+              ? "Copied ✓ · Client access currently disabled"
+              : "Copied ✓",
+          );
+          window.setTimeout(() => setCopied(false), 1600);
+          setOpen(false);
+        } catch {
+          toast("Could not copy the client link.", "error");
+        }
       },
     },
     {
       label: "Refresh Data",
-      hide: status === "draft",
+      hide: inTrash || status === "ended" || context === "editor",
       onClick: () => {
         startTransition(async () => {
           try {
-            const result = await refreshCampaignPosts(campaign.id);
+            const result = await refreshCampaignData(campaign.id);
+            const delta = result.posts.after.views - result.posts.before.views;
             toast(
-              `${result.updated}/${result.total} posts refreshed`,
+              result.posts.failed || !result.sound.ok
+                ? `Refresh complete · ${result.posts.updated} updated · ${result.posts.failed} failed`
+                : `Refresh complete · ${result.posts.updated} updated · Views ${formatCompactNumber(result.posts.before.views)} → ${formatCompactNumber(result.posts.after.views)}${delta ? ` (${delta > 0 ? "+" : ""}${formatCompactNumber(Math.abs(delta))})` : ""}`,
             );
             setOpen(false);
             router.refresh();
           } catch (error) {
-            toast(
-              error instanceof Error ? error.message : "Refresh failed",
-              "error",
-            );
+            toast(toUserError(error, "Refresh failed"), "error");
           }
         });
       },
     },
     {
-      label: "Pause Campaign",
-      hide: status !== "live",
-      onClick: () => setConfirm("pause"),
-    },
-    {
-      label: "Resume Campaign",
-      hide: status !== "paused",
-      onClick: () => runStatus("live", "Campaign resumed"),
-    },
-    {
-      label: "Close Campaign",
-      hide: status === "closed" || status === "draft",
-      onClick: () => setConfirm("close"),
+      label: "End Campaign",
+      hide: inTrash || status !== "active" || context === "editor",
+      onClick: () => {
+        setOpen(false);
+        setConfirm("end");
+      },
     },
     {
       label: "Reopen Campaign",
-      hide: status !== "closed",
-      onClick: () => runStatus("live", "Campaign reopened"),
+      hide: inTrash || status !== "ended" || context === "editor",
+      onClick: () => {
+        setOpen(false);
+        setConfirm("reopen");
+      },
+    },
+    {
+      label: "Move Campaign",
+      href: onMove ? undefined : `/admin/campaigns/${campaign.id}?move=1`,
+      hide: inTrash,
+      onClick: onMove
+        ? () => {
+            setOpen(false);
+            onMove();
+          }
+        : undefined,
+    },
+    {
+      label: "Trash Campaign",
+      hide: inTrash,
+      onClick: () => {
+        setOpen(false);
+        setConfirm("trash");
+      },
+    },
+    {
+      label: "Restore Campaign",
+      hide: !inTrash,
+      onClick: () => {
+        startTransition(async () => {
+          try {
+            await restoreCampaign(campaign.id);
+            toast("✓ Campaign restored");
+            setOpen(false);
+            router.refresh();
+          } catch (error) {
+            toast(toUserError(error, "Could not restore"), "error");
+          }
+        });
+      },
+    },
+    {
+      label: "Delete Permanently",
+      hide: !inTrash,
+      onClick: () => {
+        setOpen(false);
+        setConfirm("deleteForever");
+      },
     },
   ];
 
   return (
     <div className="relative" ref={rootRef}>
       <button
+        ref={triggerRef}
         type="button"
         className="admin-icon-btn"
         aria-label="Campaign actions"
@@ -146,7 +217,7 @@ export function CampaignActionsMenu({
         <MoreHorizontal className="size-4" />
       </button>
       {open ? (
-        <div className="admin-menu" role="menu">
+        <div ref={menuRef} className="admin-menu" role="menu">
           {items
             .filter((item) => !item.hide)
             .map((item) =>
@@ -155,7 +226,13 @@ export function CampaignActionsMenu({
                   key={item.label}
                   href={item.href}
                   className="admin-menu__item"
-                  target={item.href.startsWith("/report/") ? "_blank" : undefined}
+                  role="menuitem"
+                  target={item.href.includes("/preview") ? "_blank" : undefined}
+                  rel={
+                    item.href.includes("/preview")
+                      ? "noopener noreferrer"
+                      : undefined
+                  }
                   onClick={(e) => e.stopPropagation()}
                 >
                   {item.label}
@@ -165,6 +242,7 @@ export function CampaignActionsMenu({
                   key={item.label}
                   type="button"
                   className="admin-menu__item"
+                  role="menuitem"
                   disabled={pending}
                   onClick={(e) => {
                     e.preventDefault();
@@ -176,10 +254,11 @@ export function CampaignActionsMenu({
                 </button>
               ),
             )}
-          {clientId ? (
+          {clientId && !inTrash ? (
             <Link
               href={`/admin/clients/${clientId}`}
               className="admin-menu__item"
+              role="menuitem"
               onClick={(e) => e.stopPropagation()}
             >
               View Client
@@ -189,23 +268,101 @@ export function CampaignActionsMenu({
       ) : null}
 
       <ConfirmDialog
-        open={confirm === "pause"}
-        title="Pause Campaign?"
-        body="The campaign will move out of active Live campaigns. You can resume anytime. Data and the client report stay available."
-        confirmLabel="Pause"
-        pending={pending}
-        onCancel={() => setConfirm(null)}
-        onConfirm={() => runStatus("paused", "Campaign paused")}
-      />
-      <ConfirmDialog
-        open={confirm === "close"}
-        title="Close Campaign?"
-        body="This will stop the campaign from appearing under current campaigns. Historical data and the client report will remain available unless you disable the share link."
-        confirmLabel="Close Campaign"
+        open={confirm === "end"}
+        title="End Campaign?"
+        body="This will mark the campaign as finished and disable access to the client report. All campaign data, TikTok posts, analytics and history will remain saved. You can reopen the campaign later."
+        confirmLabel="End Campaign"
+        pendingLabel="Ending…"
         danger
         pending={pending}
         onCancel={() => setConfirm(null)}
-        onConfirm={() => runStatus("closed", "Campaign closed")}
+        onConfirm={() => {
+          startTransition(async () => {
+            try {
+              await endCampaign(campaign.id);
+              toast("✓ Campaign Ended");
+              setConfirm(null);
+              router.refresh();
+            } catch (error) {
+              toast(toUserError(error, "Could not end campaign"), "error");
+            }
+          });
+        }}
+      />
+      <ConfirmDialog
+        open={confirm === "reopen"}
+        title="Reopen Campaign?"
+        body="The campaign will become active again and the existing client report link will become accessible."
+        confirmLabel="Reopen Campaign"
+        pendingLabel="Reopening…"
+        pending={pending}
+        onCancel={() => setConfirm(null)}
+        onConfirm={() => {
+          startTransition(async () => {
+            try {
+              await reopenCampaign(campaign.id);
+              toast("Campaign Active ✓");
+              setConfirm(null);
+              router.refresh();
+            } catch (error) {
+              toast(toUserError(error, "Could not reopen campaign"), "error");
+            }
+          });
+        }}
+      />
+      <ConfirmDialog
+        open={confirm === "trash"}
+        title="Move campaign to Trash?"
+        body="Use Trash for mistakes. Posts and history are kept and can be restored. The client report link will be disabled."
+        confirmLabel="Move to Trash"
+        pendingLabel="Moving…"
+        danger
+        pending={pending}
+        onCancel={() => setConfirm(null)}
+        onConfirm={() => {
+          startTransition(async () => {
+            try {
+              await trashCampaign(campaign.id);
+            } catch (error) {
+              if (
+                error &&
+                typeof error === "object" &&
+                "digest" in error &&
+                String((error as { digest?: string }).digest).includes("NEXT_REDIRECT")
+              ) {
+                throw error;
+              }
+              toast(toUserError(error, "Could not trash campaign"), "error");
+            }
+          });
+        }}
+      />
+      <ConfirmDialog
+        open={confirm === "deleteForever"}
+        title="Delete campaign permanently?"
+        body="This permanently removes the campaign, posts, metrics and report link. This cannot be undone."
+        confirmLabel="Delete Permanently"
+        pendingLabel="Deleting…"
+        danger
+        pending={pending}
+        onCancel={() => setConfirm(null)}
+        onConfirm={() => {
+          startTransition(async () => {
+            try {
+              await permanentlyDeleteCampaign(campaign.id);
+            } catch (error) {
+              if (
+                error &&
+                typeof error === "object" &&
+                "digest" in error &&
+                String((error as { digest?: string }).digest).includes("NEXT_REDIRECT")
+              ) {
+                throw error;
+              }
+              toast(toUserError(error, "Could not delete campaign"), "error");
+            }
+          });
+        }}
       />
     </div>
   );

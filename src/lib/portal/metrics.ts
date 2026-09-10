@@ -16,23 +16,62 @@ export type CampaignMetrics = {
   engagementRate: number;
 };
 
+/** Live campaigns older than this are marked stale (6 hours). */
+export const LIVE_STALE_MS = 6 * 60 * 60 * 1000;
+
 export function campaignHeadline(
   campaign: Pick<
     Campaign,
-    "sound_title" | "sound_artist" | "release_title" | "campaign_name"
+    | "sound_title"
+    | "sound_artist"
+    | "display_title"
   >,
   client?: Pick<Client, "name"> | null,
 ): string {
-  const title =
-    campaign.sound_title?.trim() ||
-    campaign.release_title?.trim() ||
-    "Untitled campaign";
+  if (campaign.display_title?.trim()) return campaign.display_title.trim();
+  const title = campaign.sound_title?.trim() || "Untitled campaign";
+  const soundArtist = campaign.sound_artist?.trim() || "";
+  // TikTok sometimes returns the track title as the "artist" — prefer client name.
   const artist =
-    campaign.sound_artist?.trim() ||
+    (soundArtist &&
+    soundArtist.toLowerCase() !== title.toLowerCase()
+      ? soundArtist
+      : "") ||
     client?.name?.trim() ||
-    campaign.campaign_name?.trim() ||
     "";
-  return artist ? `${artist} — ${title}` : title;
+  return artist && artist.toLowerCase() !== title.toLowerCase()
+    ? `${artist} — ${title}`
+    : title;
+}
+
+export function isPostFailed(
+  post: Pick<TikTokPost, "last_sync_status" | "last_sync_error">,
+): boolean {
+  return post.last_sync_status === "failed" || Boolean(post.last_sync_error);
+}
+
+export function campaignSyncLabel(
+  campaign: Pick<Campaign, "status" | "last_synced_at">,
+  failedCount = 0,
+): { label: string; tone: "ok" | "warn" | "bad" | "muted"; stale: boolean } {
+  if (failedCount > 0) {
+    return {
+      label: `${failedCount} post${failedCount === 1 ? "" : "s"} failed`,
+      tone: "bad",
+      stale: true,
+    };
+  }
+  if (!campaign.last_synced_at) {
+    return { label: "Not refreshed yet", tone: "muted", stale: false };
+  }
+  const age = Date.now() - new Date(campaign.last_synced_at).getTime();
+  const relative = formatRelativeUpdated(campaign.last_synced_at);
+  const stale =
+    campaign.status === "active" && age > LIVE_STALE_MS;
+  if (stale) {
+    return { label: `Data may be outdated · ${relative}`, tone: "warn", stale: true };
+  }
+  return { label: `Refreshed ${relative}`, tone: "ok", stale: false };
 }
 
 export function campaignArtwork(
@@ -97,11 +136,13 @@ export function formatEngagementRate(value: number): string {
 }
 
 export function formatGbp(value: number): string {
+  const amount = Number(value) || 0;
   return new Intl.NumberFormat("en-GB", {
     style: "currency",
     currency: "GBP",
-    maximumFractionDigits: 0,
-  }).format(Number(value) || 0);
+    minimumFractionDigits: Number.isInteger(amount) ? 0 : 2,
+    maximumFractionDigits: 2,
+  }).format(amount);
 }
 
 export function formatGbpExact(value: number): string {
@@ -122,16 +163,6 @@ export function formatShortDate(value: string | null | undefined): string {
   }).format(new Date(value));
 }
 
-export function formatDateRange(
-  start: string | null | undefined,
-  end: string | null | undefined,
-): string | null {
-  if (!start && !end) return null;
-  if (start && end) return `${formatShortDate(start)} – ${formatShortDate(end)}`;
-  if (start) return `From ${formatShortDate(start)}`;
-  return `Until ${formatShortDate(end!)}`;
-}
-
 export function formatRelativeUpdated(value: string): string {
   const then = new Date(value).getTime();
   const now = Date.now();
@@ -146,25 +177,12 @@ export function formatRelativeUpdated(value: string): string {
   return formatShortDate(value);
 }
 
-export function statusLabel(status: CampaignStatus): string {
-  switch (status) {
-    case "live":
-      return "Live";
-    case "paused":
-      return "Paused";
-    case "closed":
-      return "Closed";
-    case "draft":
-      return "Draft";
-  }
-}
-
 export function isActiveCampaignStatus(status: CampaignStatus): boolean {
-  return status === "live" || status === "paused";
+  return status === "active";
 }
 
 export function isPastCampaignStatus(status: CampaignStatus): boolean {
-  return status === "closed";
+  return status === "ended";
 }
 
 export function createShareToken(): string {
@@ -173,32 +191,102 @@ export function createShareToken(): string {
   return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-export function parseDailyPaste(raw: string): { date: string; views: number }[] {
-  const rows: { date: string; views: number }[] = [];
-  for (const line of raw.split(/\r?\n/)) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-    const parts = trimmed.split(/[,\t]/).map((p) => p.trim());
-    if (parts.length < 2) continue;
-    const date = parts[0];
-    const views = Number(parts[1].replace(/,/g, ""));
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(views) || views < 0) {
-      continue;
-    }
-    rows.push({ date, views: Math.round(views) });
+export function formatPostsVsTarget(
+  tracked: number,
+  target: number | null | undefined,
+): string {
+  if (target == null || !Number.isFinite(Number(target))) {
+    return String(tracked);
   }
-  return rows;
+  return `${tracked} / ${Math.round(Number(target))}`;
 }
 
-export function buildCumulative(
-  daily: { date: string; views: number }[],
-): { date: string; views: number; cumulative: number }[] {
-  const sorted = [...daily].sort((a, b) => a.date.localeCompare(b.date));
-  let running = 0;
-  return sorted.map((row) => {
-    running += Number(row.views) || 0;
-    return { date: row.date, views: Number(row.views) || 0, cumulative: running };
-  });
+/** ~7 day window for weekly comparisons (±36h tolerance). */
+export const WEEKLY_DELTA_MS = 7 * 24 * 60 * 60 * 1000;
+export const WEEKLY_DELTA_TOLERANCE_MS = 36 * 60 * 60 * 1000;
+
+export type WeeklyDelta = {
+  current: number;
+  previous: number;
+  delta: number;
+} | null;
+
+/**
+ * Compare latest value against nearest snapshot ~7 days earlier.
+ * Returns null when history is insufficient — never invents a comparison.
+ */
+export function weeklyDeltaFromSnapshots(
+  snapshots: { captured_at: string; value: number }[],
+  currentValue?: number | null,
+): WeeklyDelta {
+  if (snapshots.length === 0 && (currentValue == null || !Number.isFinite(currentValue))) {
+    return null;
+  }
+
+  const points = [...snapshots]
+    .map((s) => ({
+      at: new Date(s.captured_at).getTime(),
+      value: Number(s.value) || 0,
+    }))
+    .filter((p) => Number.isFinite(p.at))
+    .sort((a, b) => a.at - b.at);
+
+  if (currentValue != null && Number.isFinite(currentValue)) {
+    points.push({ at: Date.now(), value: Number(currentValue) });
+  }
+
+  if (points.length < 2) return null;
+
+  const latest = points[points.length - 1];
+  const targetAt = latest.at - WEEKLY_DELTA_MS;
+  let best: (typeof points)[number] | null = null;
+  let bestDist = Number.POSITIVE_INFINITY;
+
+  for (const point of points.slice(0, -1)) {
+    const dist = Math.abs(point.at - targetAt);
+    if (dist <= WEEKLY_DELTA_TOLERANCE_MS && dist < bestDist) {
+      best = point;
+      bestDist = dist;
+    }
+  }
+
+  // Fallback: oldest snapshot at least ~5 days older than latest
+  if (!best) {
+    const minAge = 5 * 24 * 60 * 60 * 1000;
+    for (let i = points.length - 2; i >= 0; i -= 1) {
+      if (latest.at - points[i].at >= minAge) {
+        best = points[i];
+        break;
+      }
+    }
+  }
+
+  if (!best) return null;
+
+  return {
+    current: latest.value,
+    previous: best.value,
+    delta: latest.value - best.value,
+  };
+}
+
+export function formatWeeklyDelta(delta: number | null | undefined): string | null {
+  if (delta == null || !Number.isFinite(delta)) return null;
+  const abs = Math.abs(Math.round(delta));
+  if (abs === 0) return "No change since last week";
+  const arrow = delta > 0 ? "↑" : "↓";
+  return `${arrow} ${formatFullNumber(abs)} since last week`;
+}
+
+export function formatPostsVsTargetLabel(
+  tracked: number,
+  target: number | null | undefined,
+): { value: string; progress: number } {
+  const t = target != null && Number.isFinite(Number(target)) ? Math.round(Number(target)) : null;
+  return {
+    value: formatPostsVsTarget(tracked, t),
+    progress: t && t > 0 ? Math.min(1, tracked / t) : 0,
+  };
 }
 
 export function normalizeHandle(value: string): string {
@@ -218,19 +306,52 @@ export function formatDateTime(value: string | null | undefined): string {
   }).format(new Date(value));
 }
 
-export function deriveCampaignDates(
-  posts: Pick<TikTokPost, "posted_at" | "created_at">[],
-): { started: string | null; latest: string | null } {
-  const stamps = posts
-    .map((p) => p.posted_at || p.created_at)
-    .filter(Boolean)
-    .map((v) => new Date(v as string).getTime())
-    .filter((n) => Number.isFinite(n));
-  if (stamps.length === 0) return { started: null, latest: null };
-  return {
-    started: new Date(Math.min(...stamps)).toISOString(),
-    latest: new Date(Math.max(...stamps)).toISOString(),
-  };
+export type ReportChartPoint = {
+  date: string;
+  daily: number;
+  cumulative: number;
+};
+
+/**
+ * Turn cumulative snapshot totals into daily + cumulative series.
+ * Never invents values — returns [] when history is insufficient (< 2 days).
+ */
+export function buildSeriesFromCumulativeSnapshots(
+  snapshots: { captured_at: string; value: number }[],
+  latestValue?: number | null,
+): ReportChartPoint[] {
+  const sorted = [...snapshots].sort(
+    (a, b) => +new Date(a.captured_at) - +new Date(b.captured_at),
+  );
+
+  const byDay = new Map<string, number>();
+  for (const snap of sorted) {
+    const value = Number(snap.value);
+    if (!Number.isFinite(value) || value < 0) continue;
+    const day = new Date(snap.captured_at).toISOString().slice(0, 10);
+    byDay.set(day, value);
+  }
+
+  if (
+    latestValue != null &&
+    Number.isFinite(Number(latestValue)) &&
+    Number(latestValue) >= 0
+  ) {
+    const today = new Date().toISOString().slice(0, 10);
+    const current = Number(latestValue);
+    const existing = byDay.get(today);
+    byDay.set(today, existing == null ? current : Math.max(existing, current));
+  }
+
+  const days = [...byDay.keys()].sort();
+  if (days.length < 2) return [];
+
+  return days.map((date, index) => {
+    const cumulative = byDay.get(date) ?? 0;
+    const prev = index === 0 ? cumulative : (byDay.get(days[index - 1]) ?? 0);
+    const daily = index === 0 ? 0 : Math.max(0, cumulative - prev);
+    return { date, daily, cumulative };
+  });
 }
 
 /**
@@ -287,18 +408,8 @@ export function buildChartFromSnapshots(
     const delta = Math.max(0, row.total - prev);
     return {
       date: row.date,
-      views: index === 0 ? row.total : delta,
+      views: index === 0 ? 0 : delta,
       cumulative: row.total,
     };
   });
-}
-
-/** Only auto-promote draft ↔ live. Never override paused/closed. */
-export function deriveAutoStatus(
-  current: CampaignStatus,
-  postCount: number,
-): CampaignStatus {
-  if (current === "paused" || current === "closed") return current;
-  if (postCount > 0) return "live";
-  return "draft";
 }

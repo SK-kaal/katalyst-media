@@ -41,6 +41,8 @@ export type TikTokPostData = {
   musicTitle: string | null;
   musicArtist: string | null;
   musicArtworkUrl: string | null;
+  /** TikTok-wide creations for the post's music, when TikTok exposes it */
+  musicVideoCount: number | null;
   metricsComplete: boolean;
 };
 
@@ -57,6 +59,7 @@ export type ProviderResult<T> =
 export interface TikTokDataProvider {
   getSound(url: string): Promise<ProviderResult<TikTokSoundData>>;
   getPost(url: string): Promise<ProviderResult<TikTokPostData>>;
+  refreshSound(url: string): Promise<ProviderResult<TikTokSoundData>>;
   refreshPost(url: string): Promise<ProviderResult<TikTokPostData>>;
 }
 
@@ -105,6 +108,7 @@ type OEmbedVideo = {
 type OEmbedMusic = {
   title?: string;
   author_name?: string;
+  thumbnail_url?: string;
   embed_product_id?: string;
 };
 
@@ -118,6 +122,20 @@ async function fetchOEmbed(url: string): Promise<Record<string, unknown> | null>
     });
     if (!response.ok) return null;
     return (await response.json()) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+async function resolveShortUrl(url: string): Promise<string | null> {
+  try {
+    const response = await fetch(url, {
+      headers: { "User-Agent": USER_AGENT },
+      redirect: "follow",
+      signal: AbortSignal.timeout(12_000),
+      cache: "no-store",
+    });
+    return response.url || null;
   } catch {
     return null;
   }
@@ -206,6 +224,7 @@ function readUsageCountFromHtml(html: string): number | null {
     /"videoCount"\s*:\s*(\d+)/,
     /"video_count"\s*:\s*(\d+)/,
     /"userCount"\s*:\s*(\d+)/,
+    /"originalItemStats"[^}]*"videoCount"\s*:\s*(\d+)/,
   ];
   for (const pattern of patterns) {
     const match = html.match(pattern);
@@ -214,7 +233,31 @@ function readUsageCountFromHtml(html: string): number | null {
       if (Number.isFinite(n) && n > 0) return n;
     }
   }
+
+  // Try music detail hydration JSON when present.
+  const uni = extractScriptJson(html, "__UNIVERSAL_DATA_FOR_REHYDRATION__") as {
+    __DEFAULT_SCOPE__?: Record<string, unknown>;
+  } | null;
+  const scope = uni?.__DEFAULT_SCOPE__;
+  if (scope) {
+    for (const value of Object.values(scope)) {
+      const asJson = JSON.stringify(value);
+      const match = asJson.match(/"videoCount"\s*:\s*(\d+)/);
+      if (match) {
+        const n = Number(match[1]);
+        if (Number.isFinite(n) && n > 0) return n;
+      }
+    }
+  }
+
   return null;
+}
+
+function readOgImage(html: string): string | null {
+  const match =
+    html.match(/property="og:image"\s+content="([^"]+)"/i) ||
+    html.match(/content="([^"]+)"\s+property="og:image"/i);
+  return match?.[1] || null;
 }
 
 async function getSoundFromParsed(
@@ -233,10 +276,14 @@ async function getSoundFromParsed(
   } else if (oembed?.author_name) {
     artist = String(oembed.author_name);
   }
+  if (oembed?.thumbnail_url) {
+    artworkUrl = String(oembed.thumbnail_url);
+  }
 
   const pageHtml = await fetchText(parsed.canonicalUrl);
   if (pageHtml) {
     usageCount = readUsageCountFromHtml(pageHtml);
+    if (!artworkUrl) artworkUrl = readOgImage(pageHtml);
   }
 
   if (!title) {
@@ -294,6 +341,9 @@ async function getPostFromParsed(
         musicTitle: item.music?.title || null,
         musicArtist: item.music?.authorName || null,
         musicArtworkUrl: item.music?.coverLarge || item.music?.coverMedium || null,
+        musicVideoCount: item.music?.videoCount != null
+          ? asNumber(item.music.videoCount) || null
+          : null,
         metricsComplete,
       },
     };
@@ -332,6 +382,7 @@ async function getPostFromParsed(
       musicTitle: null,
       musicArtist: null,
       musicArtworkUrl: null,
+      musicVideoCount: null,
       metricsComplete: false,
     },
   };
@@ -339,7 +390,18 @@ async function getPostFromParsed(
 
 export const tiktokProvider: TikTokDataProvider = {
   async getSound(url) {
-    const parsed = parseTikTokSoundUrl(url);
+    let parsed = parseTikTokSoundUrl(url);
+    if (parsed.kind === "short") {
+      const resolved = await resolveShortUrl(parsed.canonicalUrl);
+      if (!resolved) {
+        return {
+          ok: false,
+          code: "fetch_failed",
+          error: "We couldn't resolve this TikTok short link.",
+        };
+      }
+      parsed = parseTikTokSoundUrl(resolved);
+    }
     if (parsed.kind === "invalid") {
       return { ok: false, code: "invalid_url", error: parsed.reason };
     }
@@ -357,7 +419,18 @@ export const tiktokProvider: TikTokDataProvider = {
   },
 
   async getPost(url) {
-    const parsed = parseTikTokPostUrl(url);
+    let parsed = parseTikTokPostUrl(url);
+    if (parsed.kind === "short") {
+      const resolved = await resolveShortUrl(parsed.canonicalUrl);
+      if (!resolved) {
+        return {
+          ok: false,
+          code: "fetch_failed",
+          error: "We couldn't resolve this TikTok short link.",
+        };
+      }
+      parsed = parseTikTokPostUrl(resolved);
+    }
     if (parsed.kind === "invalid") {
       return { ok: false, code: "invalid_url", error: parsed.reason };
     }
@@ -372,6 +445,10 @@ export const tiktokProvider: TikTokDataProvider = {
       return { ok: false, code: "invalid_url", error: "Invalid TikTok post URL." };
     }
     return getPostFromParsed(parsed);
+  },
+
+  async refreshSound(url) {
+    return this.getSound(url);
   },
 
   async refreshPost(url) {

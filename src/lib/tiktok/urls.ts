@@ -21,9 +21,15 @@ export type ParsedTikTokSoundUrl = {
   canonicalUrl: string;
 };
 
+export type ParsedTikTokShortUrl = {
+  kind: "short";
+  canonicalUrl: string;
+};
+
 export type ParsedTikTokUrl =
   | ParsedTikTokPostUrl
   | ParsedTikTokSoundUrl
+  | ParsedTikTokShortUrl
   | { kind: "invalid"; reason: string }
   | { kind: "wrong_type"; expected: "post" | "sound"; got: "post" | "sound" };
 
@@ -52,6 +58,11 @@ function isTikTokHost(hostname: string) {
   );
 }
 
+function isTikTokShortHost(hostname: string) {
+  const host = hostname.toLowerCase();
+  return host === "vm.tiktok.com" || host === "vt.tiktok.com";
+}
+
 function titleFromMusicSlug(slug: string): { titleHint: string | null; soundId: string | null } {
   // e.g. bank-on-it-7483905998420527894
   const match = slug.match(/^(.*)-(\d{10,25})$/);
@@ -69,6 +80,12 @@ export function parseTikTokPostUrl(raw: string): ParsedTikTokUrl {
   const url = cleanUrl(raw);
   if (!url || !isTikTokHost(url.hostname)) {
     return { kind: "invalid", reason: "This doesn't appear to be a valid TikTok post." };
+  }
+  if (isTikTokShortHost(url.hostname)) {
+    return {
+      kind: "short",
+      canonicalUrl: `${url.origin}${url.pathname}`,
+    };
   }
 
   const music = url.pathname.match(MUSIC_PATH_RE) || url.pathname.match(SOUND_PATH_RE);
@@ -96,6 +113,12 @@ export function parseTikTokSoundUrl(raw: string): ParsedTikTokUrl {
   const url = cleanUrl(raw);
   if (!url || !isTikTokHost(url.hostname)) {
     return { kind: "invalid", reason: "This doesn't appear to be a valid TikTok sound URL." };
+  }
+  if (isTikTokShortHost(url.hostname)) {
+    return {
+      kind: "short",
+      canonicalUrl: `${url.origin}${url.pathname}`,
+    };
   }
 
   const videoMatch =
@@ -126,22 +149,62 @@ export function parseTikTokSoundUrl(raw: string): ParsedTikTokUrl {
 }
 
 export function extractUrlsFromPaste(raw: string): string[] {
-  const found: string[] = [];
+  return analyzePasteUrls(raw).uniqueUrls;
+}
+
+/** Trim, split, normalise, and pre-dedupe a bulk paste before any TikTok fetches. */
+export function analyzePasteUrls(raw: string): {
+  uniqueUrls: string[];
+  uniqueCount: number;
+  pasteDuplicateCount: number;
+  invalidLineCount: number;
+  invalidUrls: { value: string; reason: string }[];
+  totalNonEmptyLines: number;
+} {
+  const uniqueUrls: string[] = [];
   const seen = new Set<string>();
+  const invalidUrls: { value: string; reason: string }[] = [];
+  let pasteDuplicateCount = 0;
+  let invalidLineCount = 0;
+  let totalNonEmptyLines = 0;
+
   for (const line of raw.split(/\r?\n/)) {
     const trimmed = line.trim();
     if (!trimmed) continue;
-    // Allow space-separated URLs on one line
-    const parts = trimmed.split(/\s+/);
+    const parts = trimmed.split(/\s+/).filter(Boolean);
     for (const part of parts) {
+      totalNonEmptyLines += 1;
       const parsed = parseTikTokPostUrl(part);
-      if (parsed.kind !== "post") continue;
-      if (seen.has(parsed.postId)) continue;
-      seen.add(parsed.postId);
-      found.push(part.trim());
+      if (parsed.kind === "invalid" || parsed.kind === "wrong_type") {
+        invalidLineCount += 1;
+        invalidUrls.push({
+          value: part,
+          reason:
+            parsed.kind === "invalid"
+              ? parsed.reason
+              : "That looks like a TikTok sound URL. Paste a post URL instead.",
+        });
+        continue;
+      }
+      const key =
+        parsed.kind === "post" ? parsed.postId : parsed.canonicalUrl.toLowerCase();
+      if (seen.has(key)) {
+        pasteDuplicateCount += 1;
+        continue;
+      }
+      seen.add(key);
+      uniqueUrls.push(parsed.canonicalUrl);
     }
   }
-  return found;
+
+  return {
+    uniqueUrls,
+    uniqueCount: uniqueUrls.length,
+    pasteDuplicateCount,
+    invalidLineCount,
+    invalidUrls,
+    totalNonEmptyLines,
+  };
 }
 
 export function isTikTokVideoId(id: string) {

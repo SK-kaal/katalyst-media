@@ -16,7 +16,9 @@ export default async function AdminAppLayout({
       <div className="admin-shell">
         <div className="admin-shell__frame">
           <AdminSidebar />
-          <div className="admin-main min-w-0 flex-1">{children}</div>
+          <div className="admin-main min-w-0 flex-1">
+            {children}
+          </div>
         </div>
       </div>
     </AdminToastProvider>

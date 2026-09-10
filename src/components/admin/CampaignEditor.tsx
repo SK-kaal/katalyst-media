@@ -1,21 +1,19 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
-  addTikTokPostByUrl,
+  attachCampaignSound,
   createTikTokPostManual,
+  deleteSelectedTikTokPosts,
   deleteTikTokPost,
-  disableCampaignShare,
+  endCampaign,
   importTikTokPostsByUrls,
-  publishCampaignReport,
-  refreshCampaignPosts,
+  moveCampaign,
+  refreshCampaignData,
   refreshCampaignSound,
   refreshFailedCampaignPosts,
+  refreshSelectedCampaignPosts,
   refreshTikTokPost,
-  regenerateCampaignShare,
-  setCampaignStatus,
+  reopenCampaign,
   updateCampaignBudget,
   updateTikTokPostManual,
   type AddPostResult,
@@ -23,21 +21,26 @@ import {
 import { toUserError } from "@/lib/portal/errors";
 import {
   buildChartFromSnapshots,
+  buildSeriesFromCumulativeSnapshots,
   calculateMetrics,
   campaignArtwork,
-  campaignHeadline,
   formatCompactNumber,
-  formatDateTime,
   formatEngagementRate,
   formatFullNumber,
   formatGbp,
+  formatPostsVsTarget,
   formatRelativeUpdated,
   formatShortDate,
+  formatWeeklyDelta,
+  isPostFailed,
+  weeklyDeltaFromSnapshots,
 } from "@/lib/portal/metrics";
 import type {
   Campaign,
+  CampaignMetricSnapshot,
   Client,
   PostMetricSnapshot,
+  SoundMetricSnapshot,
   TikTokPost,
 } from "@/lib/supabase/database.types";
 import { company } from "@/content/company";
@@ -46,63 +49,155 @@ import { ViewsCharts } from "@/components/report/ViewsCharts";
 import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
 import { useAdminToast } from "@/components/admin/AdminToast";
 import { CampaignActionsMenu } from "@/components/admin/CampaignActions";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from "react";
+import { createPortal } from "react-dom";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 const tabs = ["overview", "content", "sharing"] as const;
 type Tab = (typeof tabs)[number];
+const tabLabels: Record<Tab, string> = {
+  overview: "Overview",
+  content: "Content",
+  sharing: "Sharing",
+};
+
+function toDateTimeLocal(value: string | null) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return "";
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 16);
+}
 
 export function CampaignEditor({
   campaign,
   client,
   posts,
   snapshots,
+  soundSnapshots = [],
+  campaignSnapshots = [],
+  clients = [],
   initialTab = "overview",
+  openMove = false,
 }: {
   campaign: Campaign;
   client: Client;
   posts: TikTokPost[];
   snapshots: PostMetricSnapshot[];
+  soundSnapshots?: SoundMetricSnapshot[];
+  campaignSnapshots?: CampaignMetricSnapshot[];
+  clients?: Pick<Client, "id" | "name" | "handle">[];
   initialTab?: Tab;
+  openMove?: boolean;
 }) {
   const router = useRouter();
   const { toast } = useAdminToast();
-  const [tab, setTab] = useState<Tab>(initialTab);
+  const tab = initialTab;
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
-  const [confirm, setConfirm] = useState<"pause" | "close" | null>(null);
+  const [confirm, setConfirm] = useState<"end" | "reopen" | null>(null);
   const [deletePostId, setDeletePostId] = useState<string | null>(null);
   const [refreshProgress, setRefreshProgress] = useState<string | null>(null);
   const [failedPostIds, setFailedPostIds] = useState<string[]>([]);
   const [copied, setCopied] = useState(false);
+  const [soundAttachUrl, setSoundAttachUrl] = useState("");
   const [busyLabel, setBusyLabel] = useState<string | null>(null);
-  const [postUrl, setPostUrl] = useState("");
   const [bulkPaste, setBulkPaste] = useState("");
   const [importResults, setImportResults] = useState<AddPostResult[] | null>(
     null,
   );
-  const [previewPost, setPreviewPost] = useState<Extract<
-    AddPostResult,
-    { status: "added" }
-  > | null>(null);
+  const [importSummary, setImportSummary] = useState<string | null>(null);
   const [showManual, setShowManual] = useState(false);
   const [editingPost, setEditingPost] = useState<TikTokPost | null>(null);
   const [sort, setSort] = useState<"views" | "likes" | "shares" | "newest">(
     "views",
   );
   const [query, setQuery] = useState("");
+  const [postFilter, setPostFilter] = useState<"all" | "attention">("all");
+  const [selected, setSelected] = useState<string[]>([]);
+  const [moveOpen, setMoveOpen] = useState(openMove);
+  const [moveClientId, setMoveClientId] = useState(campaign.client_id);
+  const [bulkRemoveConfirm, setBulkRemoveConfirm] = useState(false);
+  const moveDialogRef = useRef<HTMLDivElement>(null);
+  const moveSelectRef = useRef<HTMLSelectElement>(null);
 
   const metrics = useMemo(() => calculateMetrics(posts), [posts]);
-  const chartData = useMemo(
-    () => buildChartFromSnapshots(posts, snapshots),
-    [posts, snapshots],
+  const creationsSeries = useMemo(
+    () =>
+      buildSeriesFromCumulativeSnapshots(
+        soundSnapshots.map((s) => ({
+          captured_at: s.captured_at,
+          value: Number(s.creation_count),
+        })),
+        campaign.sound_usage_count,
+      ),
+    [soundSnapshots, campaign.sound_usage_count],
   );
+  const viewsSeries = useMemo(() => {
+    const fromCampaign = buildSeriesFromCumulativeSnapshots(
+      campaignSnapshots.map((s) => ({
+        captured_at: s.captured_at,
+        value: Number(s.views),
+      })),
+      metrics.views,
+    );
+    if (fromCampaign.length >= 2) return fromCampaign;
+    return buildChartFromSnapshots(posts, snapshots).map((row) => ({
+      date: row.date,
+      daily: row.views,
+      cumulative: row.cumulative,
+    }));
+  }, [campaignSnapshots, metrics.views, posts, snapshots]);
   const artwork = campaignArtwork(campaign);
-  const headline = campaignHeadline(campaign, client);
+  const title =
+    campaign.display_title?.trim() ||
+    campaign.sound_title?.trim() ||
+    "Untitled campaign";
+  const soundArtist = campaign.sound_artist?.trim() || "";
+  const artist =
+    soundArtist && soundArtist.toLowerCase() !== title.toLowerCase()
+      ? soundArtist
+      : client.name;
+  const failedCount = posts.filter(isPostFailed).length;
   const reportUrl = campaign.share_token
     ? `${company.url}/report/${campaign.share_token}`
+    : null;
+  const postsVsTarget = formatPostsVsTarget(metrics.posts, campaign.target_posts);
+  const soundWeekly = weeklyDeltaFromSnapshots(
+    soundSnapshots.map((s) => ({
+      captured_at: s.captured_at,
+      value: Number(s.creation_count),
+    })),
+    campaign.sound_usage_count,
+  );
+  const viewsWeekly = weeklyDeltaFromSnapshots(
+    campaignSnapshots.map((s) => ({
+      captured_at: s.captured_at,
+      value: Number(s.views),
+    })),
+    metrics.views,
+  );
+  const soundWeeklyLabel = soundWeekly
+    ? formatWeeklyDelta(soundWeekly.delta)
+    : null;
+  const viewsWeeklyLabel = viewsWeekly
+    ? formatWeeklyDelta(viewsWeekly.delta)
     : null;
 
   const sortedPosts = useMemo(() => {
     let list = [...posts];
+    if (postFilter === "attention") {
+      list = list.filter(isPostFailed);
+    }
     if (query.trim()) {
       const q = query.trim().toLowerCase();
       list = list.filter((p) =>
@@ -125,9 +220,10 @@ export function CampaignEditor({
       default:
         return list.sort((a, b) => b.views - a.views);
     }
-  }, [posts, query, sort]);
+  }, [posts, query, sort, postFilter]);
 
   const run = (fn: () => Promise<unknown>, ok = "Saved.") => {
+    setMessage(null);
     startTransition(async () => {
       try {
         await fn();
@@ -146,13 +242,98 @@ export function CampaignEditor({
     });
   };
 
+  const selectTab = (next: Tab) => {
+    const params = new URLSearchParams(window.location.search);
+    params.set("tab", next);
+    router.replace(`?${params.toString()}`, { scroll: false });
+  };
+
+  const handleTabKeyDown = (
+    event: ReactKeyboardEvent<HTMLButtonElement>,
+    current: Tab,
+  ) => {
+    const currentIndex = tabs.indexOf(current);
+    let nextIndex: number | null = null;
+
+    if (event.key === "ArrowRight") nextIndex = (currentIndex + 1) % tabs.length;
+    if (event.key === "ArrowLeft") {
+      nextIndex = (currentIndex - 1 + tabs.length) % tabs.length;
+    }
+    if (event.key === "Home") nextIndex = 0;
+    if (event.key === "End") nextIndex = tabs.length - 1;
+    if (nextIndex === null) return;
+
+    event.preventDefault();
+    const next = tabs[nextIndex];
+    document.getElementById(`campaign-tab-${next}`)?.focus();
+    selectTab(next);
+  };
+
+  const closeMove = useCallback(() => {
+    setMoveOpen(false);
+    const url = new URL(window.location.href);
+    url.searchParams.delete("move");
+    window.history.replaceState(
+      window.history.state,
+      "",
+      `${url.pathname}${url.search}${url.hash}`,
+    );
+  }, []);
+
+  useEffect(() => {
+    if (!moveOpen) return;
+    const previousFocus = document.activeElement as HTMLElement | null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const timer = window.setTimeout(() => moveSelectRef.current?.focus(), 20);
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        closeMove();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const focusable = moveDialogRef.current?.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), select:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
+      );
+      if (!focusable?.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+      previousFocus?.focus();
+    };
+  }, [closeMove, moveOpen]);
+
   const copyLink = async () => {
     if (!reportUrl) return;
-    await navigator.clipboard.writeText(reportUrl);
-    setCopied(true);
-    toast("✓ Client link copied");
-    setMessage("Client link copied.");
-    window.setTimeout(() => setCopied(false), 1800);
+    try {
+      await navigator.clipboard.writeText(reportUrl);
+      setCopied(true);
+      toast(
+        campaign.status === "ended"
+          ? "Copied ✓ · Client access currently disabled"
+          : "Copied ✓",
+      );
+      setMessage(
+        campaign.status === "ended"
+          ? "Client link copied. Client access currently disabled."
+          : "Client link copied.",
+      );
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch {
+      toast("Could not copy the client link.", "error");
+    }
   };
 
   return (
@@ -170,66 +351,45 @@ export function CampaignEditor({
             ) : null}
           </div>
           <div>
-            <h1 className="admin-page-title !mt-0">{headline}</h1>
-            <p className="mt-1 text-sm text-soft-grey">TikTok Campaign</p>
+            <p className="admin-page-eyebrow">Campaign</p>
+            <h1 className="admin-page-title !mt-0">{title}</h1>
+            <p className="mt-1 text-sm text-soft-grey">{artist}</p>
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <StatusBadge status={campaign.status} />
-              <CampaignActionsMenu campaign={campaign} clientId={client.id} />
-              {campaign.status === "live" ? (
+              <CampaignActionsMenu
+                campaign={campaign}
+                clientId={client.id}
+                context="editor"
+                onMove={() => {
+                  setMoveClientId(campaign.client_id);
+                  setMoveOpen(true);
+                }}
+              />
+              {campaign.status === "active" ? (
                 <button
                   type="button"
                   className="admin-btn admin-btn--ghost"
                   disabled={pending}
-                  onClick={() => setConfirm("pause")}
+                  onClick={() => setConfirm("end")}
                 >
-                  Pause
+                  {busyLabel === "Ending…" ? "Ending…" : "End Campaign"}
                 </button>
               ) : null}
-              {campaign.status === "paused" ? (
+              {campaign.status === "ended" ? (
                 <button
                   type="button"
                   className="admin-btn admin-btn--primary"
                   disabled={pending}
-                  onClick={() =>
-                    run(
-                      () => setCampaignStatus(campaign.id, "live"),
-                      "Campaign resumed",
-                    )
-                  }
+                  onClick={() => setConfirm("reopen")}
                 >
-                  Resume
-                </button>
-              ) : null}
-              {campaign.status !== "closed" && campaign.status !== "draft" ? (
-                <button
-                  type="button"
-                  className="admin-btn admin-btn--ghost"
-                  disabled={pending}
-                  onClick={() => setConfirm("close")}
-                >
-                  Close
-                </button>
-              ) : null}
-              {campaign.status === "closed" ? (
-                <button
-                  type="button"
-                  className="admin-btn admin-btn--primary"
-                  disabled={pending}
-                  onClick={() =>
-                    run(
-                      () => setCampaignStatus(campaign.id, "live"),
-                      "Campaign reopened",
-                    )
-                  }
-                >
-                  Reopen
+                  {busyLabel === "Reopening…" ? "Reopening…" : "Reopen Campaign"}
                 </button>
               ) : null}
               {campaign.tiktok_sound_url ? (
                 <a
                   href={campaign.tiktok_sound_url}
                   target="_blank"
-                  rel="noreferrer"
+                  rel="noopener noreferrer"
                   className="text-sm text-acid-lime"
                 >
                   View Sound on TikTok ↗
@@ -238,158 +398,131 @@ export function CampaignEditor({
             </div>
           </div>
         </div>
-        <div className="flex flex-wrap gap-2">
-          {campaign.share_enabled && campaign.share_token ? (
-            <>
-              <Link
-                href={`/report/${campaign.share_token}`}
-                target="_blank"
-                className="admin-btn admin-btn--ghost"
-              >
-                Preview Report
-              </Link>
-              <button
-                type="button"
-                className="admin-btn admin-btn--primary"
-                onClick={copyLink}
-              >
-                {copied ? "Copied ✓" : "Copy Client Link"}
-              </button>
-            </>
-          ) : (
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="mr-2">
+            <p className="admin-label">Campaign Budget</p>
+            <p className="font-display text-xl font-semibold">
+              {formatGbp(Number(campaign.budget))}
+            </p>
+          </div>
+          <Link
+            href={`/admin/campaigns/${campaign.id}/preview`}
+            target="_blank"
+            className="admin-btn admin-btn--ghost"
+          >
+            Preview Report
+          </Link>
+          {campaign.share_token ? (
             <button
               type="button"
               className="admin-btn admin-btn--primary"
-              disabled={pending}
-              onClick={() => {
-                setBusyLabel("Publishing…");
-                run(
-                  () => publishCampaignReport(campaign.id),
-                  "Report published",
-                );
-              }}
+              onClick={copyLink}
             >
-              {busyLabel === "Publishing…" ? "Publishing…" : "Publish Report"}
+              {copied ? "Copied ✓" : "Copy Client Link"}
             </button>
-          )}
+          ) : null}
+          {campaign.status === "ended" ? (
+            <p className="self-center text-xs text-muted-grey">
+              Client access currently disabled
+            </p>
+          ) : null}
         </div>
       </div>
 
       {message ? (
-        <p className="mt-4 text-sm text-acid-lime" role="status">
+        <p className="mt-4 text-sm text-soft-grey" role="status">
           {message}
         </p>
       ) : null}
 
-      <div className="admin-tabs mt-6" role="tablist">
+      <div className="admin-tabs mt-6" role="tablist" aria-label="Campaign sections">
         {tabs.map((item) => (
           <button
             key={item}
+            id={`campaign-tab-${item}`}
             type="button"
             role="tab"
             className="admin-tab"
             aria-selected={tab === item}
-            onClick={() => setTab(item)}
+            aria-controls={`campaign-panel-${item}`}
+            tabIndex={tab === item ? 0 : -1}
+            onClick={() => selectTab(item)}
+            onKeyDown={(event) => handleTabKeyDown(event, item)}
           >
-            {item}
+            {tabLabels[item]}
           </button>
         ))}
       </div>
 
       {tab === "overview" ? (
-        <div className="mt-6 space-y-6">
-          <div className="admin-panel grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4">
+        <div
+          id="campaign-panel-overview"
+          className="mt-6 space-y-6"
+          role="tabpanel"
+          aria-labelledby="campaign-tab-overview"
+          tabIndex={0}
+        >
+          <div className="admin-panel flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="admin-metric__label">Budget</p>
-              <p className="admin-metric__value text-[1.4rem]">
-                {formatGbp(Number(campaign.budget))}
-              </p>
-            </div>
-            <div>
-              <p className="admin-metric__label">Sound Usage</p>
-              <p className="admin-metric__value text-[1.4rem]">
-                {campaign.sound_usage_count != null
-                  ? formatCompactNumber(Number(campaign.sound_usage_count))
-                  : "—"}
-              </p>
-              <p className="mt-1 text-[0.68rem] text-muted-grey">
-                TikTok posts using this sound
-              </p>
-            </div>
-            <div>
-              <p className="admin-metric__label">Tracked Campaign Posts</p>
-              <p className="admin-metric__value text-[1.4rem]">
-                {metrics.posts}
-              </p>
-              <p className="mt-1 text-[0.68rem] text-muted-grey">
-                Katalyst placements only
-              </p>
-            </div>
-            <div>
-              <p className="admin-metric__label">Last Synced</p>
-              <p className="mt-2 text-sm text-off-white">
+              <h2 className="font-display text-lg font-semibold tracking-[-0.03em]">
+                Refresh campaign data
+              </h2>
+              <p className="mt-1 text-sm text-soft-grey">
+                TikTok sound and all tracked posts
                 {campaign.last_synced_at
-                  ? formatDateTime(campaign.last_synced_at)
-                  : "Not synced yet"}
+                  ? ` · Last refreshed ${formatRelativeUpdated(campaign.last_synced_at)}`
+                  : " · Not refreshed yet"}
               </p>
+              {refreshProgress ? (
+                <p className="mt-2 text-xs text-acid-lime">{refreshProgress}</p>
+              ) : null}
+            </div>
+            <div className="flex flex-wrap gap-2">
               <button
                 type="button"
-                className="admin-btn admin-btn--primary mt-3"
-                disabled={pending || posts.length === 0}
-                title={
-                  posts.length === 0
-                    ? "Add TikTok posts before refreshing"
-                    : "Refresh all tracked post metrics"
-                }
+                className="admin-btn admin-btn--primary"
+                disabled={pending}
                 onClick={() =>
                   run(async () => {
                     setFailedPostIds([]);
-                    setRefreshProgress(
-                      `Refreshing campaign data… 0 / ${posts.length}`,
-                    );
-                    const result = await refreshCampaignPosts(campaign.id);
+                    setRefreshProgress("Refreshing TikTok data…");
+                    const result = await refreshCampaignData(campaign.id);
                     setRefreshProgress(null);
-                    setFailedPostIds(result.failedPostIds);
-                    const msg = `Campaign updated · ${result.updated}/${result.total} posts refreshed · Views ${formatCompactNumber(result.before.views)} → ${formatCompactNumber(result.after.views)}${result.failed ? ` · ${result.failed} failed` : ""}`;
-                    setMessage(msg);
+                    setFailedPostIds(result.posts.failedPostIds);
+                    const parts = [
+                      `${result.posts.updated}/${result.posts.total} posts refreshed`,
+                      `Views ${formatCompactNumber(result.posts.before.views)} → ${formatCompactNumber(result.posts.after.views)}`,
+                    ];
+                    if (!result.sound.ok) parts.push("Sound refresh failed");
+                    if (result.posts.failed) {
+                      parts.push(`${result.posts.failed} posts failed`);
+                    }
+                    setMessage(parts.join(" · "));
                     toast(
-                      result.failed
-                        ? `${result.updated}/${result.total} updated`
+                      result.posts.failed || !result.sound.ok
+                        ? "Refresh completed with issues"
                         : "✓ Campaign refreshed",
-                      result.failed ? "warn" : "ok",
+                      result.posts.failed || !result.sound.ok ? "warn" : "ok",
                     );
                   }, "")
                 }
               >
                 {refreshProgress ? "Refreshing…" : "Refresh Data"}
               </button>
-              {refreshProgress ? (
-                <p className="mt-2 text-xs text-acid-lime">{refreshProgress}</p>
-              ) : null}
               {failedPostIds.length > 0 ? (
                 <button
                   type="button"
-                  className="admin-btn admin-btn--ghost mt-2"
+                  className="admin-btn admin-btn--ghost"
                   disabled={pending}
                   onClick={() =>
                     run(async () => {
-                      setRefreshProgress(
-                        `Retrying failed posts… 0 / ${failedPostIds.length}`,
-                      );
                       const result = await refreshFailedCampaignPosts(
                         campaign.id,
                         failedPostIds,
                       );
-                      setRefreshProgress(null);
                       setFailedPostIds(result.failedPostIds);
                       setMessage(
                         `Retry complete · ${result.updated}/${result.total} updated${result.failed ? ` · ${result.failed} still failing` : ""}`,
-                      );
-                      toast(
-                        result.failed
-                          ? `${result.failed} still failing`
-                          : "✓ Failed posts refreshed",
-                        result.failed ? "warn" : "ok",
                       );
                     }, "")
                   }
@@ -400,23 +533,163 @@ export function CampaignEditor({
             </div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-            {[
-              ["Views", formatCompactNumber(metrics.views)],
-              ["Likes", formatCompactNumber(metrics.likes)],
-              ["Comments", formatCompactNumber(metrics.comments)],
-              ["Shares", formatCompactNumber(metrics.shares)],
-              ["Eng. Rate", formatEngagementRate(metrics.engagementRate)],
-              ["Posts", String(metrics.posts)],
-            ].map(([label, value]) => (
-              <div key={label} className="admin-panel admin-metric">
-                <p className="admin-metric__label">{label}</p>
-                <p className="admin-metric__value">{value}</p>
+          <div className="admin-panel space-y-3 p-5">
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <h2 className="font-display text-lg font-semibold tracking-[-0.03em]">
+                  TikTok Sound
+                </h2>
+                <p className="mt-1 text-xs text-muted-grey">
+                  Exact sound only · may include organic / non-Katalyst posts
+                </p>
               </div>
-            ))}
+              {campaign.tiktok_sound_url ? (
+                <a
+                  href={campaign.tiktok_sound_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-acid-lime"
+                >
+                  View Sound on TikTok ↗
+                </a>
+              ) : null}
+            </div>
+            {campaign.sound_usage_count != null ? (
+              <div>
+                <p className="admin-metric__value text-[1.8rem]">
+                  {formatFullNumber(Number(campaign.sound_usage_count))}
+                </p>
+                <p className="admin-metric__label mt-1">TikTok Creations</p>
+                {soundWeeklyLabel ? (
+                  <p className="mt-2 text-sm text-acid-lime">{soundWeeklyLabel}</p>
+                ) : (
+                  <p className="mt-2 text-xs text-muted-grey">
+                    Weekly change appears after enough historical snapshots
+                  </p>
+                )}
+              </div>
+            ) : campaign.tiktok_sound_url ? (
+              <div className="flex flex-wrap items-center gap-3">
+                <p className="text-sm text-muted-grey">
+                  TikTok Creations unavailable
+                </p>
+                <button
+                  type="button"
+                  className="admin-btn admin-btn--ghost"
+                  disabled={pending}
+                  onClick={() =>
+                    run(async () => {
+                      const result = await refreshCampaignSound(campaign.id);
+                      toast(
+                        result.usageRetrieved
+                          ? "✓ TikTok Creations updated"
+                          : "Sound refreshed — creations still unavailable",
+                        result.usageRetrieved ? "ok" : "warn",
+                      );
+                    }, "")
+                  }
+                >
+                  Retry Sound
+                </button>
+              </div>
+            ) : (
+              <div className="max-w-xl space-y-2">
+                <p className="text-sm text-[#ffd27a]">
+                  Sound URL missing — paste the TikTok sound link to restore View
+                  Sound and TikTok Creations.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <input
+                    className="admin-input min-w-[16rem] flex-1"
+                    value={soundAttachUrl}
+                    onChange={(e) => setSoundAttachUrl(e.target.value)}
+                    placeholder="https://www.tiktok.com/music/…"
+                    aria-label="TikTok sound URL"
+                  />
+                  <button
+                    type="button"
+                    className="admin-btn admin-btn--primary"
+                    disabled={pending || !soundAttachUrl.trim()}
+                    onClick={() =>
+                      run(async () => {
+                        setBusyLabel("Working…");
+                        const result = await attachCampaignSound(
+                          campaign.id,
+                          soundAttachUrl,
+                        );
+                        setSoundAttachUrl("");
+                        toast(
+                          result.usageRetrieved
+                            ? "✓ Sound attached"
+                            : "✓ Sound attached · creations unavailable",
+                        );
+                      }, "Sound attached ✓")
+                    }
+                  >
+                    Attach Sound
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
-          <ViewsCharts daily={chartData} />
+          <div>
+            <h2 className="font-display text-lg font-semibold tracking-[-0.03em]">
+              Katalyst Campaign
+            </h2>
+            <p className="mt-1 text-xs text-muted-grey">
+              Calculated only from tracked TikTok post URLs
+            </p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+              {[
+                ["Campaign Posts", postsVsTarget],
+                ["Campaign Views", formatFullNumber(metrics.views)],
+                ["Likes", formatFullNumber(metrics.likes)],
+                ["Comments", formatFullNumber(metrics.comments)],
+                ["Shares", formatFullNumber(metrics.shares)],
+                ["Engagement Rate", formatEngagementRate(metrics.engagementRate)],
+              ].map(([label, value]) => (
+                <div key={label} className="admin-panel admin-metric">
+                  <p className="admin-metric__label">{label}</p>
+                  <p className="admin-metric__value">{value}</p>
+                  {label === "Campaign Views" && viewsWeeklyLabel ? (
+                    <p className="mt-1 text-xs text-acid-lime">
+                      {viewsWeeklyLabel}
+                    </p>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {posts.length === 0 ? (
+            <div className="admin-empty">
+              <p className="font-display text-lg font-semibold">
+                No TikTok posts are being tracked yet
+              </p>
+              <p className="mt-2 text-sm text-soft-grey">
+                Paste the campaign TikTok URLs to start tracking performance.
+              </p>
+              <button
+                type="button"
+                className="admin-btn admin-btn--primary mt-4"
+                onClick={() => selectTab("content")}
+              >
+                Add Posts
+              </button>
+            </div>
+          ) : (
+            <ViewsCharts
+              creations={creationsSeries}
+              views={viewsSeries}
+              creationsTotal={
+                campaign.sound_usage_count != null
+                  ? Number(campaign.sound_usage_count)
+                  : null
+              }
+              viewsTotal={metrics.views}
+            />
+          )}
 
           <form
             className="admin-panel space-y-3 p-5"
@@ -427,10 +700,29 @@ export function CampaignEditor({
             <h2 className="font-display text-lg font-semibold tracking-[-0.03em]">
               Campaign settings
             </h2>
+            <div>
+              <label className="admin-label" htmlFor="campaign-display-title">
+                Display title (optional)
+              </label>
+              <input
+                id="campaign-display-title"
+                name="display_title"
+                className="admin-input"
+                defaultValue={campaign.display_title ?? ""}
+                placeholder={campaign.sound_title || "Campaign display title"}
+                maxLength={160}
+              />
+              <p className="mt-1 text-xs text-muted-grey">
+                Leave blank to use the TikTok sound title.
+              </p>
+            </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
-                <label className="admin-label">Budget (GBP)</label>
+                <label className="admin-label" htmlFor="campaign-budget">
+                  Budget (GBP)
+                </label>
                 <input
+                  id="campaign-budget"
                   name="budget"
                   type="number"
                   min="0"
@@ -441,39 +733,49 @@ export function CampaignEditor({
                 />
               </div>
               <div>
-                <label className="admin-label">Sound usage (optional)</label>
+                <label className="admin-label" htmlFor="campaign-target-posts">
+                  Target Posts
+                </label>
                 <input
-                  name="sound_usage_count"
+                  id="campaign-target-posts"
+                  name="target_posts"
                   type="number"
-                  min="0"
+                  min="1"
+                  step="1"
                   className="admin-input"
-                  defaultValue={campaign.sound_usage_count ?? ""}
-                  placeholder="TikTok creations using this sound"
+                  defaultValue={campaign.target_posts}
+                  placeholder="e.g. 30"
+                  required
                 />
+                <p className="mt-1 text-xs text-muted-grey">
+                  Changing target does not affect tracked metrics.
+                </p>
               </div>
             </div>
+            <details className="rounded-[8px] border border-white/8 p-3">
+              <summary className="cursor-pointer text-sm text-muted-grey">
+                Artwork override
+              </summary>
+              <div className="mt-3">
+                <label className="admin-label" htmlFor="campaign-artwork-url">
+                  Artwork URL
+                </label>
+                <input
+                  id="campaign-artwork-url"
+                  name="artwork_url"
+                  className="admin-input"
+                  defaultValue={campaign.artwork_url ?? ""}
+                  placeholder="Optional — overrides sound artwork"
+                />
+              </div>
+            </details>
             <div>
-              <label className="admin-label">Artwork override URL</label>
-              <input
-                name="artwork_url"
-                className="admin-input"
-                defaultValue={campaign.artwork_url ?? ""}
-                placeholder="Optional — overrides sound artwork"
-              />
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <button type="submit" className="admin-btn admin-btn--primary" disabled={pending}>
-                Save settings
-              </button>
               <button
-                type="button"
-                className="admin-btn admin-btn--ghost"
-                disabled={pending || !campaign.tiktok_sound_url}
-                onClick={() =>
-                  run(() => refreshCampaignSound(campaign.id), "Sound data refreshed.")
-                }
+                type="submit"
+                className="admin-btn admin-btn--primary"
+                disabled={pending}
               >
-                Refresh Sound Data
+                {pending ? "Saving…" : "Save Changes"}
               </button>
             </div>
           </form>
@@ -481,139 +783,113 @@ export function CampaignEditor({
       ) : null}
 
       {tab === "content" ? (
-        <div className="mt-6 space-y-5">
+        <div
+          id="campaign-panel-content"
+          className="mt-6 space-y-5"
+          role="tabpanel"
+          aria-labelledby="campaign-tab-content"
+          tabIndex={0}
+        >
           <div className="admin-panel space-y-4 p-5">
-            <h2 className="font-display text-lg font-semibold tracking-[-0.03em]">
-              Add TikTok Post
-            </h2>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <input
-                className="admin-input flex-1"
-                placeholder="https://www.tiktok.com/@creator/video/…"
-                value={postUrl}
-                onChange={(e) => setPostUrl(e.target.value)}
-              />
-              <button
-                type="button"
-                className="admin-btn admin-btn--primary"
-                disabled={pending || !postUrl.trim()}
-                onClick={() => {
-                  setBusyLabel("Fetching TikTok…");
-                  run(async () => {
-                    setPreviewPost(null);
-                    setMessage("Fetching TikTok post…");
-                    const result = await addTikTokPostByUrl(
-                      campaign.id,
-                      postUrl,
-                    );
-                    if (result.status === "added") {
-                      setPreviewPost(result);
-                      setPostUrl("");
-                      setMessage(
-                        result.metricsComplete
-                          ? "✓ TikTok post added"
-                          : "Post added — metrics incomplete, edit if needed.",
-                      );
-                      toast(
-                        result.metricsComplete
-                          ? "✓ TikTok post added"
-                          : "Post added — check metrics",
-                        result.metricsComplete ? "ok" : "warn",
-                      );
-                    } else if (result.status === "duplicate") {
-                      setMessage("This TikTok post is already in the campaign.");
-                      toast("Duplicate post skipped", "warn");
-                    } else {
-                      setShowManual(true);
-                      const msg = toUserError(
-                        result.error,
-                        "We couldn't retrieve this TikTok post.",
-                      );
-                      setMessage(msg);
-                      toast(msg, "error");
-                    }
-                  }, "");
-                }}
-              >
-                {busyLabel === "Fetching TikTok…" ? "Fetching TikTok…" : "Add Post"}
-              </button>
-            </div>
-
-            {previewPost ? (
-              <div className="flex gap-3 rounded-[8px] border border-white/10 p-3">
-                <div className="h-24 w-16 overflow-hidden rounded bg-graphite">
-                  {previewPost.thumbnailUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={previewPost.thumbnailUrl}
-                      alt=""
-                      className="size-full object-cover"
-                    />
-                  ) : null}
-                </div>
-                <div className="text-sm">
-                  <p className="font-semibold">{previewPost.creatorHandle}</p>
-                  <p className="mt-1 text-soft-grey">
-                    {formatFullNumber(previewPost.views)} views ·{" "}
-                    {formatFullNumber(previewPost.likes)} likes ·{" "}
-                    {formatFullNumber(previewPost.comments)} comments ·{" "}
-                    {formatFullNumber(previewPost.shares)} shares
-                  </p>
-                  {previewPost.postedAt ? (
-                    <p className="mt-1 text-xs text-muted-grey">
-                      Posted {formatShortDate(previewPost.postedAt)}
-                    </p>
-                  ) : null}
-                </div>
+            {posts.length === 0 ? (
+              <div className="rounded-[8px] border border-acid-lime/25 bg-acid-lime/5 px-4 py-3">
+                <p className="font-display text-base font-semibold">
+                  Campaign created.
+                </p>
+                <p className="mt-1 text-sm text-soft-grey">
+                  Now add the TikTok posts being tracked.
+                </p>
               </div>
             ) : null}
-
+            <h2 className="font-display text-lg font-semibold tracking-[-0.03em]">
+              Add TikTok Posts
+            </h2>
+            <p className="text-sm text-soft-grey">
+              Paste one URL or a batch. Each post is added independently, so one
+              failure will not block the others.
+            </p>
             <div>
-              <label className="admin-label">Bulk add posts</label>
+              <label className="admin-label" htmlFor="tiktok-post-urls">
+                TikTok post URLs
+              </label>
               <textarea
-                className="admin-input min-h-[7rem]"
-                placeholder={"Paste multiple TikTok URLs, one per line"}
+                id="tiktok-post-urls"
+                className="admin-input min-h-[9rem]"
+                placeholder={
+                  "Paste TikTok post URLs — one per line. Blank lines and duplicates are cleaned automatically."
+                }
                 value={bulkPaste}
                 onChange={(e) => setBulkPaste(e.target.value)}
-              />
-              <button
-                type="button"
-                className="admin-btn admin-btn--ghost mt-2"
-                disabled={pending || !bulkPaste.trim()}
-                onClick={() => {
-                  setBusyLabel("Importing…");
-                  run(async () => {
-                    setMessage("Importing posts…");
-                    const results = await importTikTokPostsByUrls(
-                      campaign.id,
-                      bulkPaste,
-                    );
-                    setImportResults(results);
-                    setBulkPaste("");
-                    const added = results.filter((r) => r.status === "added").length;
-                    const duplicates = results.filter(
-                      (r) => r.status === "duplicate",
-                    ).length;
-                    const failed = results.filter(
-                      (r) => r.status === "failed" || r.status === "invalid",
-                    ).length;
-                    const summary = `✓ ${added} Added · ${duplicates} Duplicates · ${failed} Failed`;
-                    setMessage(summary);
-                    toast(summary, failed ? "warn" : "ok");
-                  }, "");
+                onKeyDown={(e) => {
+                  if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && bulkPaste.trim()) {
+                    e.preventDefault();
+                    document
+                      .querySelector<HTMLButtonElement>("button[data-import]")
+                      ?.click();
+                  }
                 }}
-              >
-                {busyLabel === "Importing…" ? "Importing…" : "Import Posts"}
-              </button>
+              />
+              <div className="mt-2 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  className="admin-btn admin-btn--ghost"
+                  disabled={pending}
+                  onClick={async () => {
+                    try {
+                      const text = await navigator.clipboard.readText();
+                      if (text.trim()) {
+                        setBulkPaste((prev) => (prev ? `${prev}\n${text}` : text));
+                      }
+                    } catch {
+                      toast(
+                        "Clipboard unavailable — paste normally into the box.",
+                        "error",
+                      );
+                    }
+                  }}
+                >
+                  Paste from Clipboard
+                </button>
+                <button
+                  type="button"
+                  data-import
+                  className="admin-btn admin-btn--primary"
+                  disabled={pending || !bulkPaste.trim()}
+                  onClick={() => {
+                    setBusyLabel("Importing…");
+                    run(async () => {
+                      setMessage("Importing posts…");
+                      const outcome = await importTikTokPostsByUrls(
+                        campaign.id,
+                        bulkPaste,
+                      );
+                      setImportResults(outcome.results);
+                      setBulkPaste("");
+                      const summary = `Import complete · ${outcome.summary.added} added · ${outcome.summary.alreadyTracked} already tracked · ${outcome.summary.pasteDuplicates} paste duplicates · ${outcome.summary.failed} failed`;
+                      setImportSummary(summary);
+                      setMessage(summary);
+                      toast(summary, outcome.summary.failed ? "warn" : "ok");
+                    }, "");
+                  }}
+                >
+                  {busyLabel === "Importing…" ? "Adding Posts…" : "Add Posts"}
+                </button>
+              </div>
+              {importSummary ? (
+                <p className="mt-2 text-sm text-soft-grey">{importSummary}</p>
+              ) : null}
               {importResults ? (
                 <div className="mt-3 space-y-2">
                   <ul className="space-y-1 text-sm">
                     {importResults.map((result, index) => (
-                      <li key={`${result.url}-${index}`} className="text-soft-grey">
+                      <li
+                        key={`${result.url}-${index}`}
+                        className="text-soft-grey"
+                      >
                         {result.status === "added"
                           ? `✓ Added ${result.creatorHandle}`
                           : result.status === "duplicate"
-                            ? `• Duplicate skipped`
+                            ? `• Already tracked`
                             : `⚠ ${toUserError(result.error, "Could not import")}`}
                       </li>
                     ))}
@@ -634,7 +910,9 @@ export function CampaignEditor({
                           .map((r) => r.url)
                           .join("\n");
                         setBulkPaste(failedUrls);
-                        setMessage("Failed URLs ready to retry — Import Posts again.");
+                        setMessage(
+                          "Failed URLs ready to retry — Import Posts again.",
+                        );
                       }}
                     >
                       Retry Failed
@@ -647,6 +925,8 @@ export function CampaignEditor({
             <button
               type="button"
               className="text-sm text-muted-grey underline"
+              aria-expanded={showManual}
+              aria-controls="manual-post-form"
               onClick={() => setShowManual((v) => !v)}
             >
               {showManual ? "Hide manual entry" : "Enter details manually"}
@@ -654,42 +934,55 @@ export function CampaignEditor({
 
             {showManual ? (
               <form
+                id="manual-post-form"
                 className="grid gap-3 border-t border-white/8 pt-4 sm:grid-cols-2"
                 action={(formData) =>
                   run(() => createTikTokPostManual(campaign.id, formData), "Post saved.")
                 }
               >
                 <div className="sm:col-span-2">
-                  <label className="admin-label">TikTok URL *</label>
-                  <input name="post_url" className="admin-input" required defaultValue={postUrl} />
+                  <label className="admin-label" htmlFor="manual-post-url">
+                    TikTok URL *
+                  </label>
+                  <input
+                    id="manual-post-url"
+                    name="post_url"
+                    className="admin-input"
+                    required
+                    placeholder="Full TikTok post URL"
+                  />
                 </div>
                 <div>
-                  <label className="admin-label">Creator *</label>
-                  <input name="creator_handle" className="admin-input" required placeholder="@handle" />
+                  <label className="admin-label" htmlFor="manual-post-creator">
+                    Creator *
+                  </label>
+                  <input id="manual-post-creator" name="creator_handle" className="admin-input" required placeholder="@handle" />
                 </div>
                 <div>
-                  <label className="admin-label">Posted at</label>
-                  <input name="posted_at" type="datetime-local" className="admin-input" />
+                  <label className="admin-label" htmlFor="manual-post-date">
+                    Posted at
+                  </label>
+                  <input id="manual-post-date" name="posted_at" type="datetime-local" className="admin-input" />
                 </div>
                 <div>
-                  <label className="admin-label">Views</label>
-                  <input name="views" type="number" min="0" className="admin-input" defaultValue={0} />
+                  <label className="admin-label" htmlFor="manual-post-views">Views</label>
+                  <input id="manual-post-views" name="views" type="number" min="0" className="admin-input" defaultValue={0} />
                 </div>
                 <div>
-                  <label className="admin-label">Likes</label>
-                  <input name="likes" type="number" min="0" className="admin-input" defaultValue={0} />
+                  <label className="admin-label" htmlFor="manual-post-likes">Likes</label>
+                  <input id="manual-post-likes" name="likes" type="number" min="0" className="admin-input" defaultValue={0} />
                 </div>
                 <div>
-                  <label className="admin-label">Comments</label>
-                  <input name="comments" type="number" min="0" className="admin-input" defaultValue={0} />
+                  <label className="admin-label" htmlFor="manual-post-comments">Comments</label>
+                  <input id="manual-post-comments" name="comments" type="number" min="0" className="admin-input" defaultValue={0} />
                 </div>
                 <div>
-                  <label className="admin-label">Shares</label>
-                  <input name="shares" type="number" min="0" className="admin-input" defaultValue={0} />
+                  <label className="admin-label" htmlFor="manual-post-shares">Shares</label>
+                  <input id="manual-post-shares" name="shares" type="number" min="0" className="admin-input" defaultValue={0} />
                 </div>
                 <div className="sm:col-span-2">
-                  <label className="admin-label">Thumbnail URL</label>
-                  <input name="thumbnail_url" className="admin-input" />
+                  <label className="admin-label" htmlFor="manual-post-thumbnail">Thumbnail URL</label>
+                  <input id="manual-post-thumbnail" name="thumbnail_url" className="admin-input" />
                 </div>
                 <div className="sm:col-span-2">
                   <button type="submit" className="admin-btn admin-btn--primary" disabled={pending}>
@@ -703,20 +996,56 @@ export function CampaignEditor({
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="font-display text-lg font-semibold tracking-[-0.03em]">
               TikTok Posts ({posts.length})
+              {failedCount > 0 ? (
+                <span className="ml-2 text-sm font-normal text-[#ffd27a]">
+                  · {failedCount} need attention
+                </span>
+              ) : null}
             </h2>
             <div className="flex flex-wrap gap-2">
+              <div className="flex gap-1 rounded-full border border-white/10 p-0.5">
+                {(
+                  [
+                    ["all", "All"],
+                    ["attention", "Needs Attention"],
+                  ] as const
+                ).map(([key, label]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                      postFilter === key
+                        ? "bg-acid-lime/15 text-acid-lime"
+                        : "text-muted-grey hover:text-off-white"
+                    }`}
+                    onClick={() => setPostFilter(key)}
+                  >
+                    {label}
+                    {key === "attention" ? ` (${failedCount})` : ""}
+                  </button>
+                ))}
+              </div>
               <input
                 className="admin-input min-w-[12rem]"
                 placeholder="Search…"
+                aria-label="Search posts"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
               />
+              {query ? (
+                <button
+                  type="button"
+                  className="text-xs text-muted-grey underline"
+                  onClick={() => setQuery("")}
+                >
+                  Clear Search
+                </button>
+              ) : null}
               <select
                 className="admin-select w-auto"
+                aria-label="Sort posts"
                 value={sort}
-                onChange={(e) =>
-                  setSort(e.target.value as typeof sort)
-                }
+                onChange={(e) => setSort(e.target.value as typeof sort)}
               >
                 <option value="views">Most Views</option>
                 <option value="likes">Most Likes</option>
@@ -726,10 +1055,108 @@ export function CampaignEditor({
             </div>
           </div>
 
+          {selected.length > 0 ? (
+            <div className="flex flex-wrap items-center gap-2 rounded-[8px] border border-acid-lime/25 bg-acid-lime/5 px-3 py-2 text-sm">
+              <span className="font-semibold text-acid-lime">
+                {selected.length} selected
+              </span>
+              <button
+                type="button"
+                className="admin-btn admin-btn--ghost"
+                disabled={pending}
+                onClick={() =>
+                  run(async () => {
+                    const result = await refreshSelectedCampaignPosts(
+                      campaign.id,
+                      selected,
+                    );
+                    setSelected([]);
+                    setMessage(
+                      `Refresh complete · ${result.updated} updated · ${result.failed} failed`,
+                    );
+                    toast(
+                      result.failed
+                        ? `${result.failed} failed`
+                        : "✓ Selected posts refreshed",
+                      result.failed ? "warn" : "ok",
+                    );
+                  }, "")
+                }
+              >
+                Refresh Selected
+              </button>
+              {selected.some((id) => {
+                const post = posts.find((p) => p.id === id);
+                return post && isPostFailed(post);
+              }) ? (
+                <button
+                  type="button"
+                  className="admin-btn admin-btn--ghost"
+                  disabled={pending}
+                  onClick={() =>
+                    run(async () => {
+                      const failedIds = selected.filter((id) => {
+                        const post = posts.find((p) => p.id === id);
+                        return post && isPostFailed(post);
+                      });
+                      const result = await refreshSelectedCampaignPosts(
+                        campaign.id,
+                        failedIds,
+                      );
+                      setSelected([]);
+                      toast(
+                        result.failed
+                          ? `${result.failed} still failing`
+                          : "✓ Retry complete",
+                        result.failed ? "warn" : "ok",
+                      );
+                    }, "")
+                  }
+                >
+                  Retry Selected
+                </button>
+              ) : null}
+              <button
+                type="button"
+                className="admin-btn admin-btn--ghost text-[#ff8f8f]"
+                disabled={pending}
+                onClick={() => setBulkRemoveConfirm(true)}
+              >
+                Remove Selected
+              </button>
+              <button
+                type="button"
+                className="text-xs text-muted-grey underline"
+                disabled={pending}
+                onClick={() => setSelected([])}
+              >
+                Clear
+              </button>
+            </div>
+          ) : null}
+
           <div className="admin-panel overflow-x-auto">
             <table className="admin-table">
               <thead>
                 <tr>
+                  <th className="w-10">
+                    <input
+                      type="checkbox"
+                      aria-label="Select all visible posts"
+                      disabled={pending}
+                      checked={
+                        sortedPosts.length > 0 &&
+                        sortedPosts.every((p) => selected.includes(p.id))
+                      }
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelected(sortedPosts.map((p) => p.id));
+                        } else {
+                          setSelected([]);
+                        }
+                      }}
+                    />
+                  </th>
                   <th>Post</th>
                   <th>Creator</th>
                   <th>Views</th>
@@ -737,96 +1164,136 @@ export function CampaignEditor({
                   <th>Comments</th>
                   <th>Shares</th>
                   <th>Posted</th>
-                  <th>Synced</th>
+                  <th>Refreshed</th>
                   <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {sortedPosts.map((post) => (
-                  <tr key={post.id}>
-                    <td>
-                      <div className="flex items-center gap-3">
-                        <div className="h-14 w-10 overflow-hidden rounded bg-graphite">
-                          {post.thumbnail_url ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={post.thumbnail_url}
-                              alt=""
-                              className="size-full object-cover"
-                            />
-                          ) : null}
-                        </div>
-                        <div className="max-w-[12rem] truncate text-xs text-muted-grey">
-                          {post.title || post.post_url}
-                        </div>
-                      </div>
-                    </td>
-                    <td>{post.creator_handle}</td>
-                    <td>{formatCompactNumber(post.views)}</td>
-                    <td>{formatCompactNumber(post.likes)}</td>
-                    <td>{formatCompactNumber(post.comments)}</td>
-                    <td>{formatCompactNumber(post.shares)}</td>
-                    <td>
-                      {post.posted_at
-                        ? formatShortDate(post.posted_at)
-                        : "—"}
-                    </td>
-                    <td className="text-xs text-muted-grey">
-                      {post.last_synced_at
-                        ? formatRelativeUpdated(post.last_synced_at)
-                        : "—"}
-                    </td>
-                    <td>
-                      <div className="flex flex-wrap gap-2">
-                        <a
-                          href={post.post_url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-xs text-acid-lime"
-                        >
-                          Open
-                        </a>
-                        <button
-                          type="button"
-                          className="text-xs text-soft-grey"
+                {sortedPosts.map((post) => {
+                  const failed = isPostFailed(post);
+                  return (
+                    <tr
+                      key={post.id}
+                      className={failed ? "bg-[#ff8f8f]/5" : undefined}
+                    >
+                      <td>
+                        <input
+                          type="checkbox"
+                          aria-label={`Select ${post.creator_handle}`}
                           disabled={pending}
-                          onClick={() =>
-                            run(
-                              () => refreshTikTokPost(post.id, campaign.id),
-                              "Post refreshed.",
-                            )
-                          }
-                        >
-                          Refresh
-                        </button>
-                        <button
-                          type="button"
-                          className="text-xs text-soft-grey"
-                          onClick={() => setEditingPost(post)}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          type="button"
-                          className="text-xs text-[#ff8f8f]"
-                          disabled={pending}
-                          onClick={() => setDeletePostId(post.id)}
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                          checked={selected.includes(post.id)}
+                          onChange={(e) => {
+                            setSelected((prev) =>
+                              e.target.checked
+                                ? [...prev, post.id]
+                                : prev.filter((id) => id !== post.id),
+                            );
+                          }}
+                        />
+                      </td>
+                      <td>
+                        <div className="flex items-center gap-3">
+                          <div className="h-14 w-10 overflow-hidden rounded bg-graphite">
+                            {post.thumbnail_url ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={post.thumbnail_url}
+                                alt=""
+                                className="size-full object-cover"
+                              />
+                            ) : null}
+                          </div>
+                          <div className="max-w-[12rem]">
+                            <div className="truncate text-xs text-muted-grey">
+                              {post.title || post.post_url}
+                            </div>
+                            {failed ? (
+                              <p className="mt-1 text-[0.65rem] text-[#ff8f8f]">
+                                Failed to refresh
+                                {post.last_sync_error
+                                  ? ` — ${post.last_sync_error}`
+                                  : ""}
+                              </p>
+                            ) : null}
+                          </div>
+                        </div>
+                      </td>
+                      <td>{post.creator_handle}</td>
+                      <td>{formatCompactNumber(post.views)}</td>
+                      <td>{formatCompactNumber(post.likes)}</td>
+                      <td>{formatCompactNumber(post.comments)}</td>
+                      <td>{formatCompactNumber(post.shares)}</td>
+                      <td>
+                        {post.posted_at
+                          ? formatShortDate(post.posted_at)
+                          : "—"}
+                      </td>
+                      <td className="text-xs text-muted-grey">
+                        {post.last_synced_at
+                          ? formatRelativeUpdated(post.last_synced_at)
+                          : "—"}
+                      </td>
+                      <td>
+                        <div className="flex flex-wrap gap-2">
+                          <a
+                            href={post.post_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-acid-lime"
+                          >
+                            Open
+                          </a>
+                          <button
+                            type="button"
+                            className="text-xs text-soft-grey"
+                            disabled={pending}
+                            onClick={() =>
+                              run(
+                                () => refreshTikTokPost(post.id, campaign.id),
+                                failed ? "Retry complete." : "Post refreshed.",
+                              )
+                            }
+                          >
+                            {failed ? "Retry" : "Refresh"}
+                          </button>
+                          <button
+                            type="button"
+                            className="text-xs text-soft-grey"
+                            disabled={pending}
+                            onClick={() => setEditingPost(post)}
+                          >
+                            {failed ? "Enter manually" : "Edit"}
+                          </button>
+                          <button
+                            type="button"
+                            className="text-xs text-[#ff8f8f]"
+                            disabled={pending}
+                            onClick={() => setDeletePostId(post.id)}
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
             {sortedPosts.length === 0 ? (
               <div className="admin-empty border-0">
                 <p className="font-display text-base font-semibold">
-                  No TikTok posts tracked yet
+                  {query.trim()
+                    ? "No matching posts"
+                    : postFilter === "attention"
+                    ? "No posts need attention"
+                    : "No TikTok posts tracked yet"}
                 </p>
                 <p className="mt-2 text-sm text-soft-grey">
-                  Paste TikTok URLs above to begin tracking campaign performance.
+                  {query.trim()
+                    ? "Try another creator or post search."
+                    : postFilter === "attention"
+                    ? "All tracked posts look healthy."
+                    : "Paste TikTok URLs above to begin tracking campaign performance."}
                 </p>
               </div>
             ) : null}
@@ -850,8 +1317,9 @@ export function CampaignEditor({
                 Edit / correct data
               </h3>
               <div className="sm:col-span-2">
-                <label className="admin-label">URL</label>
+                <label className="admin-label" htmlFor="edit-post-url">URL</label>
                 <input
+                  id="edit-post-url"
                   name="post_url"
                   className="admin-input"
                   defaultValue={editingPost.post_url}
@@ -859,8 +1327,9 @@ export function CampaignEditor({
                 />
               </div>
               <div>
-                <label className="admin-label">Creator</label>
+                <label className="admin-label" htmlFor="edit-post-creator">Creator</label>
                 <input
+                  id="edit-post-creator"
                   name="creator_handle"
                   className="admin-input"
                   defaultValue={editingPost.creator_handle}
@@ -868,65 +1337,80 @@ export function CampaignEditor({
                 />
               </div>
               <div>
-                <label className="admin-label">Posted at</label>
+                <label className="admin-label" htmlFor="edit-post-date">Posted at</label>
                 <input
+                  id="edit-post-date"
                   name="posted_at"
+                  type="datetime-local"
                   className="admin-input"
-                  defaultValue={editingPost.posted_at ?? ""}
-                  placeholder="ISO date"
+                  defaultValue={toDateTimeLocal(editingPost.posted_at)}
                 />
               </div>
               <div>
-                <label className="admin-label">Views</label>
+                <label className="admin-label" htmlFor="edit-post-views">Views</label>
                 <input
+                  id="edit-post-views"
                   name="views"
                   type="number"
+                  min="0"
                   className="admin-input"
                   defaultValue={editingPost.views}
                 />
               </div>
               <div>
-                <label className="admin-label">Likes</label>
+                <label className="admin-label" htmlFor="edit-post-likes">Likes</label>
                 <input
+                  id="edit-post-likes"
                   name="likes"
                   type="number"
+                  min="0"
                   className="admin-input"
                   defaultValue={editingPost.likes}
                 />
               </div>
               <div>
-                <label className="admin-label">Comments</label>
+                <label className="admin-label" htmlFor="edit-post-comments">Comments</label>
                 <input
+                  id="edit-post-comments"
                   name="comments"
                   type="number"
+                  min="0"
                   className="admin-input"
                   defaultValue={editingPost.comments}
                 />
               </div>
               <div>
-                <label className="admin-label">Shares</label>
+                <label className="admin-label" htmlFor="edit-post-shares">Shares</label>
                 <input
+                  id="edit-post-shares"
                   name="shares"
                   type="number"
+                  min="0"
                   className="admin-input"
                   defaultValue={editingPost.shares}
                 />
               </div>
               <div className="sm:col-span-2">
-                <label className="admin-label">Thumbnail URL</label>
+                <label className="admin-label" htmlFor="edit-post-thumbnail">Thumbnail URL</label>
                 <input
+                  id="edit-post-thumbnail"
                   name="thumbnail_url"
                   className="admin-input"
                   defaultValue={editingPost.thumbnail_url ?? ""}
                 />
               </div>
               <div className="flex gap-2 sm:col-span-2">
-                <button type="submit" className="admin-btn admin-btn--primary">
+                <button
+                  type="submit"
+                  className="admin-btn admin-btn--primary"
+                  disabled={pending}
+                >
                   Save corrections
                 </button>
                 <button
                   type="button"
                   className="admin-btn admin-btn--ghost"
+                  disabled={pending}
                   onClick={() => setEditingPost(null)}
                 >
                   Cancel
@@ -938,32 +1422,30 @@ export function CampaignEditor({
       ) : null}
 
       {tab === "sharing" ? (
-        <div className="admin-panel mt-6 max-w-2xl space-y-4 p-5">
+        <div
+          id="campaign-panel-sharing"
+          className="admin-panel mt-6 max-w-2xl space-y-4 p-5"
+          role="tabpanel"
+          aria-labelledby="campaign-tab-sharing"
+          tabIndex={0}
+        >
           <h2 className="font-display text-lg font-semibold tracking-[-0.03em]">
             Client Report
           </h2>
-          {!campaign.share_enabled || !campaign.share_token ? (
+          <p className="text-sm text-soft-grey">
+            This campaign has one permanent client link. Saved changes appear on
+            the report automatically.
+          </p>
+          <p className="text-sm">
+            Access:{" "}
+            {campaign.status === "active" ? (
+              <span className="text-acid-lime">Active</span>
+            ) : (
+              <span className="text-muted-grey">Ended · client access disabled</span>
+            )}
+          </p>
+          {campaign.share_token ? (
             <>
-              <p className="text-sm text-soft-grey">Not published yet.</p>
-              <button
-                type="button"
-                className="admin-btn admin-btn--primary"
-                disabled={pending}
-                onClick={() =>
-                  run(
-                    () => publishCampaignReport(campaign.id),
-                    "Report published.",
-                  )
-                }
-              >
-                Publish Report
-              </button>
-            </>
-          ) : (
-            <>
-              <p className="text-sm">
-                Status: <span className="text-acid-lime">Active</span>
-              </p>
               <div>
                 <p className="admin-label">Secure Client Link</p>
                 <p className="break-all rounded-[8px] border border-white/10 bg-black/30 px-3 py-2 text-sm">
@@ -976,74 +1458,134 @@ export function CampaignEditor({
                   className="admin-btn admin-btn--primary"
                   onClick={copyLink}
                 >
-                  {copied ? "Copied ✓" : "Copy Link"}
+                  {copied ? "Copied ✓" : "Copy Client Link"}
                 </button>
                 <Link
-                  href={`/report/${campaign.share_token}`}
+                  href={`/admin/campaigns/${campaign.id}/preview`}
                   target="_blank"
+                  rel="noopener noreferrer"
                   className="admin-btn admin-btn--ghost"
                 >
-                  Preview
+                  Preview Report
                 </Link>
-                <button
-                  type="button"
-                  className="admin-btn admin-btn--ghost"
-                  disabled={pending}
-                  onClick={() =>
-                    run(
-                      () => disableCampaignShare(campaign.id),
-                      "Link disabled.",
-                    )
-                  }
-                >
-                  Disable Link
-                </button>
-                <button
-                  type="button"
-                  className="admin-btn admin-btn--ghost"
-                  disabled={pending}
-                  onClick={() =>
-                    run(
-                      () => regenerateCampaignShare(campaign.id),
-                      "Link regenerated. Old link is invalid.",
-                    )
-                  }
-                >
-                  Regenerate Link
-                </button>
               </div>
             </>
+          ) : (
+            <p className="text-sm text-muted-grey">
+              Client link missing. Reopen or recreate the campaign if needed.
+            </p>
           )}
         </div>
       ) : null}
 
+      {moveOpen && typeof document !== "undefined"
+        ? createPortal(
+            <div
+              className="admin-modal-root"
+              role="presentation"
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                type="button"
+                className="admin-modal-backdrop"
+                aria-label="Close"
+                onClick={closeMove}
+              />
+              <div
+                ref={moveDialogRef}
+                className="admin-modal max-w-md"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="move-campaign-title"
+              >
+                <h2
+                  id="move-campaign-title"
+                  className="font-display text-xl font-semibold"
+                >
+                  Move Campaign
+                </h2>
+                <p className="mt-2 text-sm text-soft-grey">
+                  Move this campaign (and all posts/metrics/report data) to
+                  another client.
+                </p>
+                <label className="admin-label mt-4" htmlFor="move-client">
+                  Destination client
+                </label>
+                <select
+                  ref={moveSelectRef}
+                  id="move-client"
+                  className="admin-select"
+                  value={moveClientId}
+                  onChange={(e) => setMoveClientId(e.target.value)}
+                >
+                  {clients.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                      {c.handle ? ` (${c.handle})` : ""}
+                    </option>
+                  ))}
+                </select>
+                <div className="mt-4 flex gap-2">
+                  <button
+                    type="button"
+                    className="admin-btn admin-btn--primary"
+                    disabled={pending || moveClientId === campaign.client_id}
+                    onClick={() =>
+                      run(async () => {
+                        await moveCampaign(campaign.id, moveClientId);
+                        closeMove();
+                      }, "Campaign moved.")
+                    }
+                  >
+                    Confirm Move
+                  </button>
+                  <button
+                    type="button"
+                    className="admin-btn admin-btn--ghost"
+                    disabled={pending}
+                    onClick={closeMove}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
+
       <ConfirmDialog
-        open={confirm === "pause"}
-        title="Pause Campaign?"
-        body="The campaign will leave Live campaigns. You can resume anytime. Data and the client report stay available."
-        confirmLabel="Pause"
-        pending={pending}
-        onCancel={() => setConfirm(null)}
-        onConfirm={() =>
-          run(async () => {
-            await setCampaignStatus(campaign.id, "paused");
-            setConfirm(null);
-          }, "Campaign paused")
-        }
-      />
-      <ConfirmDialog
-        open={confirm === "close"}
-        title="Close Campaign?"
-        body="This will move the campaign to Closed / Previous. Historical data and the client report remain available unless you disable the share link."
-        confirmLabel="Close Campaign"
+        open={confirm === "end"}
+        title="End Campaign?"
+        body="This will mark the campaign as finished and disable access to the client report. All campaign data, TikTok posts, analytics and history will remain saved. You can reopen the campaign later."
+        confirmLabel="End Campaign"
+        pendingLabel="Ending…"
         danger
         pending={pending}
         onCancel={() => setConfirm(null)}
         onConfirm={() =>
           run(async () => {
-            await setCampaignStatus(campaign.id, "closed");
+            setBusyLabel("Ending…");
+            await endCampaign(campaign.id);
             setConfirm(null);
-          }, "Campaign closed")
+          }, "Campaign Ended ✓")
+        }
+      />
+      <ConfirmDialog
+        open={confirm === "reopen"}
+        title="Reopen Campaign?"
+        body="The campaign will become active again and the existing client report link will become accessible."
+        confirmLabel="Reopen Campaign"
+        pendingLabel="Reopening…"
+        pending={pending}
+        onCancel={() => setConfirm(null)}
+        onConfirm={() =>
+          run(async () => {
+            setBusyLabel("Reopening…");
+            await reopenCampaign(campaign.id);
+            setConfirm(null);
+          }, "Campaign Active ✓")
         }
       />
       <ConfirmDialog
@@ -1051,6 +1593,7 @@ export function CampaignEditor({
         title="Remove this post?"
         body="This removes the TikTok post from the campaign. Historical snapshots for this post will also be removed."
         confirmLabel="Remove"
+        pendingLabel="Removing…"
         danger
         pending={pending}
         onCancel={() => setDeletePostId(null)}
@@ -1061,6 +1604,23 @@ export function CampaignEditor({
             setDeletePostId(null);
           }, "Post removed");
         }}
+      />
+      <ConfirmDialog
+        open={bulkRemoveConfirm}
+        title={`Remove ${selected.length} selected posts?`}
+        body="Selected posts and their snapshots will be removed from this campaign."
+        confirmLabel="Remove Selected"
+        pendingLabel="Removing…"
+        danger
+        pending={pending}
+        onCancel={() => setBulkRemoveConfirm(false)}
+        onConfirm={() =>
+          run(async () => {
+            await deleteSelectedTikTokPosts(campaign.id, selected);
+            setSelected([]);
+            setBulkRemoveConfirm(false);
+          }, "Selected posts removed")
+        }
       />
     </div>
   );

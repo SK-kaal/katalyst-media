@@ -5,7 +5,7 @@ import {
 } from "@/lib/admin-auth/session";
 import { updateSession } from "@/lib/supabase/middleware";
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (!pathname.startsWith("/admin")) {
@@ -30,7 +30,7 @@ export async function middleware(request: NextRequest) {
     url.pathname = "/admin/login";
     url.search = "";
     if (pathname !== "/admin") {
-      url.searchParams.set("next", pathname);
+      url.searchParams.set("next", `${pathname}${request.nextUrl.search}`);
     }
     return withNoStore(NextResponse.redirect(url));
   }
@@ -42,7 +42,9 @@ export async function middleware(request: NextRequest) {
     return withNoStore(NextResponse.redirect(url));
   }
 
-  const { supabaseResponse } = await updateSession(request);
+  const { supabaseResponse } = await updateSession(request, {
+    ensureBridge: hasSession,
+  });
   return withNoStore(supabaseResponse);
 }
 

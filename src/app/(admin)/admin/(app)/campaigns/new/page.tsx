@@ -12,12 +12,17 @@ export default async function NewCampaignPage({
   const { data: clients } = await supabase
     .from("clients")
     .select("id, name, handle")
+    .is("archived_at", null)
     .order("name");
+  const clientList = clients ?? [];
+  const validClientId = clientList.some((client) => client.id === clientId)
+    ? clientId
+    : undefined;
 
   return (
     <div className="mx-auto max-w-2xl">
-      <Link href="/admin" className="text-sm text-soft-grey hover:text-off-white">
-        ← Back to Campaign Library
+      <Link href={validClientId ? `/admin/clients/${validClientId}` : "/admin"} className="text-sm text-soft-grey hover:text-off-white">
+        ← {validClientId ? "Back to Client" : "Back to Campaign Library"}
       </Link>
       <p className="admin-page-eyebrow mt-5">Create New Campaign</p>
       <h1 className="admin-page-title">Create New Campaign</h1>
@@ -26,8 +31,8 @@ export default async function NewCampaignPage({
       </p>
 
       <NewCampaignForm
-        clients={clients ?? []}
-        defaultClientId={clientId}
+        clients={clientList}
+        defaultClientId={validClientId}
       />
     </div>
   );

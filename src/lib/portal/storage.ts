@@ -64,11 +64,3 @@ function loadImage(src: string): Promise<HTMLImageElement> {
     img.src = src;
   });
 }
-
-export function clientAvatarPath(clientId: string) {
-  return `clients/${clientId}/avatar.jpg`;
-}
-
-export function postThumbPath(campaignId: string, postId: string) {
-  return `campaigns/${campaignId}/posts/${postId}.jpg`;
-}

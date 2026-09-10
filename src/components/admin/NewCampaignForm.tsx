@@ -7,7 +7,7 @@ import {
   previewTikTokSound,
 } from "@/lib/portal/actions";
 import { toUserError } from "@/lib/portal/errors";
-import { formatCompactNumber } from "@/lib/portal/metrics";
+import { formatFullNumber } from "@/lib/portal/metrics";
 import type { Client } from "@/lib/supabase/database.types";
 import type { TikTokSoundData } from "@/lib/tiktok/provider";
 import { useAdminToast } from "@/components/admin/AdminToast";
@@ -23,18 +23,24 @@ export function NewCampaignForm({
   const [pending, startTransition] = useTransition();
   const [creating, setCreating] = useState(false);
   const [soundUrl, setSoundUrl] = useState("");
+  const [budget, setBudget] = useState("");
+  const [targetPosts, setTargetPosts] = useState("");
   const [preview, setPreview] = useState<TikTokSoundData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [fetching, setFetching] = useState(false);
+  const clientLocked = Boolean(defaultClientId);
+  const selectedClient = clients.find((c) => c.id === defaultClientId);
 
-  const fetchSound = () => {
+  const fetchSound = (url = soundUrl) => {
+    const trimmed = url.trim();
+    if (!trimmed) return;
     setError(null);
     setPreview(null);
     setFetching(true);
     startTransition(async () => {
       try {
-        const result = await previewTikTokSound(soundUrl);
+        const result = await previewTikTokSound(trimmed);
         if (!result.ok) {
           const msg = toUserError(result.error, "TikTok sound unavailable.");
           setError(msg);
@@ -67,9 +73,15 @@ export function NewCampaignForm({
         if (!soundUrl.trim()) {
           nextErrors.tiktok_sound_url = "TikTok sound URL is required.";
         }
-        const budget = Number(formData.get("budget"));
-        if (!Number.isFinite(budget) || budget < 0) {
+        const budgetRaw = String(formData.get("budget") || "").trim();
+        const budgetValue = Number(budgetRaw);
+        if (!budgetRaw || !Number.isFinite(budgetValue) || budgetValue < 0) {
           nextErrors.budget = "Enter a valid budget.";
+        }
+        const targetRaw = String(formData.get("target_posts") || "").trim();
+        const targetValue = Number(targetRaw);
+        if (!targetRaw || !Number.isInteger(targetValue) || targetValue < 1) {
+          nextErrors.target_posts = "Enter a whole number of target posts.";
         }
         setFieldErrors(nextErrors);
         if (Object.keys(nextErrors).length > 0) {
@@ -93,7 +105,10 @@ export function NewCampaignForm({
             ) {
               throw err;
             }
-            const msg = toUserError(err, "Something went wrong while creating the campaign.");
+            const msg = toUserError(
+              err,
+              "Something went wrong while creating the campaign.",
+            );
             setError(msg);
             toast(msg, "error");
             setCreating(false);
@@ -105,32 +120,51 @@ export function NewCampaignForm({
         <label className="admin-label" htmlFor="client_id">
           Client / Artist *
         </label>
-        <select
-          id="client_id"
-          name="client_id"
-          className="admin-select"
-          defaultValue={defaultClientId || ""}
-          required
-        >
-          <option value="" disabled>
-            Select a client…
-          </option>
-          {clients.map((client) => (
-            <option key={client.id} value={client.id}>
-              {client.name}
-              {client.handle ? ` (${client.handle})` : ""}
+        {clientLocked && selectedClient ? (
+          <>
+            <input type="hidden" name="client_id" value={selectedClient.id} />
+            <p className="rounded-[8px] border border-white/10 bg-black/25 px-3 py-2 text-sm font-semibold">
+              {selectedClient.name}
+              {selectedClient.handle ? (
+                <span className="ml-2 font-normal text-muted-grey">
+                  {selectedClient.handle}
+                </span>
+              ) : null}
+            </p>
+          </>
+        ) : (
+          <select
+            id="client_id"
+            name="client_id"
+            className="admin-select"
+            defaultValue={defaultClientId || ""}
+            required
+          >
+            <option value="" disabled>
+              Select a client…
             </option>
-          ))}
-        </select>
+            {clients.map((client) => (
+              <option key={client.id} value={client.id}>
+                {client.name}
+                {client.handle ? ` (${client.handle})` : ""}
+              </option>
+            ))}
+          </select>
+        )}
         {fieldErrors.client_id ? (
           <p className="admin-field-error">{fieldErrors.client_id}</p>
         ) : null}
-        <p className="mt-2 text-xs text-muted-grey">
-          Need a new artist?{" "}
-          <Link href="/admin/clients?new=1#add-client" className="text-acid-lime">
-            Create client first
-          </Link>
-        </p>
+        {!clientLocked ? (
+          <p className="mt-2 text-xs text-muted-grey">
+            Need a new artist?{" "}
+            <Link
+              href="/admin/clients?new=1#add-client"
+              className="text-acid-lime"
+            >
+              Create client first
+            </Link>
+          </p>
+        ) : null}
       </div>
 
       <div>
@@ -154,10 +188,32 @@ export function NewCampaignForm({
           <button
             type="button"
             className="admin-btn admin-btn--ghost"
-            disabled={pending || fetching || creating || !soundUrl.trim()}
-            onClick={fetchSound}
+            disabled={pending || fetching || creating}
+            onClick={async () => {
+              try {
+                const text = await navigator.clipboard.readText();
+                if (text.trim()) {
+                  setSoundUrl(text.trim());
+                  setPreview(null);
+                  fetchSound(text.trim());
+                }
+              } catch {
+                toast(
+                  "Clipboard unavailable — paste into the URL field.",
+                  "error",
+                );
+              }
+            }}
           >
-            {fetching ? "Fetching…" : "Fetch Sound"}
+            Paste from Clipboard
+          </button>
+          <button
+            type="button"
+            className="admin-btn admin-btn--ghost"
+            disabled={pending || fetching || creating || !soundUrl.trim()}
+            onClick={() => fetchSound()}
+          >
+            {fetching ? "Checking…" : "Check Sound"}
           </button>
         </div>
         {fieldErrors.tiktok_sound_url ? (
@@ -199,22 +255,27 @@ export function NewCampaignForm({
                 {preview.title}
               </p>
               <p className="mt-1 text-sm text-soft-grey">
-                {preview.artist || "Unknown artist"}
+                {preview.artist ||
+                  selectedClient?.name ||
+                  "Unknown artist"}
               </p>
+              {preview.usageCount != null ? (
+                <p className="mt-2 text-sm text-off-white">
+                  {formatFullNumber(preview.usageCount)} TikTok Creations
+                </p>
+              ) : (
+                <p className="mt-2 text-xs text-muted-grey">
+                  TikTok Creations unavailable from TikTok for this sound
+                </p>
+              )}
               <a
                 href={preview.soundUrl}
                 target="_blank"
-                rel="noreferrer"
+                rel="noopener noreferrer"
                 className="mt-2 inline-flex text-sm text-acid-lime"
               >
                 View Sound on TikTok ↗
               </a>
-              <p className="mt-2 text-xs text-muted-grey">
-                Sound usage:{" "}
-                {preview.usageCount != null
-                  ? `${formatCompactNumber(preview.usageCount)} TikTok posts`
-                  : "Not available from TikTok — optional override below"}
-              </p>
             </div>
           </div>
         </div>
@@ -233,41 +294,44 @@ export function NewCampaignForm({
           className="admin-input"
           required
           placeholder="2500"
+          value={budget}
+          onChange={(e) => setBudget(e.target.value)}
         />
         {fieldErrors.budget ? (
           <p className="admin-field-error">{fieldErrors.budget}</p>
         ) : null}
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div>
-          <label className="admin-label" htmlFor="artwork_url">
-            Artwork override (optional URL)
-          </label>
-          <input
-            id="artwork_url"
-            name="artwork_url"
-            className="admin-input"
-            placeholder="https://… (if TikTok cover missing)"
-          />
-        </div>
-        <div>
-          <label className="admin-label" htmlFor="sound_usage_count">
-            Sound usage override (optional)
-          </label>
-          <input
-            id="sound_usage_count"
-            name="sound_usage_count"
-            type="number"
-            min="0"
-            className="admin-input"
-            placeholder="e.g. 180102"
-          />
-        </div>
+      <div>
+        <label className="admin-label" htmlFor="target_posts">
+          Target Posts *
+        </label>
+        <input
+          id="target_posts"
+          name="target_posts"
+          type="number"
+          min="1"
+          step="1"
+          className="admin-input"
+          required
+          placeholder="30"
+          value={targetPosts}
+          onChange={(e) => setTargetPosts(e.target.value)}
+        />
+        <p className="mt-1 text-xs text-muted-grey">
+          Number of campaign posts Katalyst intends to deliver. Separate from
+          TikTok Creations.
+        </p>
+        {fieldErrors.target_posts ? (
+          <p className="admin-field-error">{fieldErrors.target_posts}</p>
+        ) : null}
       </div>
 
       <div className="flex flex-wrap justify-end gap-2 pt-2">
-        <Link href="/admin" className="admin-btn admin-btn--ghost">
+        <Link
+          href={defaultClientId ? `/admin/clients/${defaultClientId}` : "/admin"}
+          className="admin-btn admin-btn--ghost"
+        >
           Cancel
         </Link>
         <button

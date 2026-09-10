@@ -13,6 +13,7 @@ import {
   verifyAccessCode,
 } from "@/lib/admin-auth/session";
 import { createClient } from "@/lib/supabase/server";
+import { ensureSupabaseBridge } from "@/lib/admin-auth/bridge";
 
 export type AccessCodeState = {
   ok: boolean;
@@ -22,23 +23,8 @@ export type AccessCodeState = {
 };
 
 async function establishSupabaseBridge() {
-  const email = process.env.ADMIN_SUPABASE_EMAIL;
-  const password = process.env.ADMIN_SUPABASE_PASSWORD;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (serviceKey) return;
-
-  if (!email || !password) {
-    throw new Error(
-      "Configure SUPABASE_SERVICE_ROLE_KEY or ADMIN_SUPABASE_EMAIL + ADMIN_SUPABASE_PASSWORD",
-    );
-  }
-
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) {
-    throw new Error("Portal data bridge unavailable");
-  }
+  await ensureSupabaseBridge(supabase);
 }
 
 export async function submitAccessCodeAction(
@@ -58,6 +44,14 @@ export async function submitAccessCodeAction(
   }
 
   const trimmed = String(formData.get("code") ?? "").trim();
+  const requestedNext = String(formData.get("next") ?? "/admin");
+  const nextPath =
+    requestedNext.startsWith("/admin") &&
+    !requestedNext.startsWith("//") &&
+    !requestedNext.startsWith("/admin/login") &&
+    !requestedNext.includes("\\")
+      ? requestedNext
+      : "/admin";
   if (!trimmed) {
     return { ok: false, error: "Incorrect access code.\nTry again." };
   }
@@ -93,7 +87,7 @@ export async function submitAccessCodeAction(
   store.set(ADMIN_RATE_COOKIE, "", { ...adminCookieOptions(0), maxAge: 0 });
 
   // Immediate server redirect into the portal (cookie is set on this response).
-  redirect("/admin");
+  redirect(nextPath);
 }
 
 export async function logoutAdmin() {

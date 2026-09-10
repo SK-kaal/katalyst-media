@@ -55,6 +55,11 @@ export function toUserError(error: unknown, fallback = "Something went wrong. Pl
     lower.includes("permission denied") ||
     lower.includes("row-level") ||
     lower.includes("pgrst") ||
+    lower.includes("invalid input syntax") ||
+    lower.includes("null value in column") ||
+    lower.includes("foreign key constraint") ||
+    lower.includes("check constraint") ||
+    lower.includes("schema cache") ||
     lower.includes("json") ||
     /column .* does not exist/i.test(message)
   ) {

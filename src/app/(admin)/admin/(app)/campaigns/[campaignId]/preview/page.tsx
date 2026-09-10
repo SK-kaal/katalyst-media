@@ -1,21 +1,18 @@
-import { notFound } from "next/navigation";
-import { CampaignEditor } from "@/components/admin/CampaignEditor";
+import { redirect, notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/admin-auth/client";
+import { CampaignReportView } from "@/components/report/CampaignReportView";
 import type {
   CampaignMetricSnapshot,
   PostMetricSnapshot,
   SoundMetricSnapshot,
 } from "@/lib/supabase/database.types";
 
-export default async function CampaignEditorPage({
+export default async function CampaignReportPreviewPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ campaignId: string }>;
-  searchParams: Promise<{ tab?: string; move?: string }>;
 }) {
   const { campaignId } = await params;
-  const sp = await searchParams;
   const supabase = await createAdminClient();
 
   const { data: campaign } = await supabase
@@ -24,12 +21,16 @@ export default async function CampaignEditorPage({
     .eq("id", campaignId)
     .maybeSingle();
 
-  if (!campaign) notFound();
+  if (!campaign || campaign.trashed_at) notFound();
+
+  // Active campaigns use the real client URL so preview matches client view.
+  if (campaign.status === "active" && campaign.share_token) {
+    redirect(`/report/${campaign.share_token}`);
+  }
 
   const [
     { data: client },
     { data: posts },
-    { data: clients },
     { data: soundSnapshots },
     { data: campaignSnapshots },
   ] = await Promise.all([
@@ -39,11 +40,6 @@ export default async function CampaignEditorPage({
       .select("*")
       .eq("campaign_id", campaignId)
       .order("views", { ascending: false }),
-    supabase
-      .from("clients")
-      .select("id, name, handle, archived_at")
-      .is("archived_at", null)
-      .order("name"),
     supabase
       .from("sound_metric_snapshots")
       .select("*")
@@ -69,25 +65,20 @@ export default async function CampaignEditorPage({
     snapshots = data ?? [];
   }
 
-  const tab =
-    sp.tab === "content" || sp.tab === "sharing" || sp.tab === "overview"
-      ? sp.tab
-      : posts && posts.length === 0
-        ? "content"
-        : "overview";
-
   return (
-    <CampaignEditor
-      key={`${campaign.id}-${sp.move === "1" ? "move" : "closed"}`}
-      campaign={campaign}
-      client={client}
-      posts={posts ?? []}
-      snapshots={snapshots}
-      soundSnapshots={(soundSnapshots ?? []) as SoundMetricSnapshot[]}
-      campaignSnapshots={(campaignSnapshots ?? []) as CampaignMetricSnapshot[]}
-      clients={clients ?? []}
-      initialTab={tab}
-      openMove={sp.move === "1"}
-    />
+    <div>
+      <div className="border-b border-white/10 bg-black/40 px-4 py-2 text-center text-xs text-muted-grey">
+        Admin preview · Client access is currently disabled for this ended campaign
+      </div>
+      <CampaignReportView
+        campaign={campaign}
+        client={client}
+        posts={posts ?? []}
+        snapshots={snapshots}
+        soundSnapshots={(soundSnapshots ?? []) as SoundMetricSnapshot[]}
+        campaignSnapshots={(campaignSnapshots ?? []) as CampaignMetricSnapshot[]}
+        adminPreview
+      />
+    </div>
   );
 }

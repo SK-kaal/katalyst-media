@@ -1,12 +1,8 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { ImageCropModal, useImagePicker } from "@/components/admin/ImageCropModal";
 import { useAdminToast } from "@/components/admin/AdminToast";
-import {
-  clientAvatarPath,
-} from "@/lib/portal/storage";
-import { removePortalAssetAction } from "@/lib/portal/actions";
 import { toUserError } from "@/lib/portal/errors";
 import type { Client, ClientType } from "@/lib/supabase/database.types";
 
@@ -17,7 +13,9 @@ export function ClientForm({
 }: {
   mode: "create" | "edit";
   client?: Client;
-  onSubmit: (formData: FormData) => Promise<void>;
+  onSubmit: (
+    formData: FormData,
+  ) => Promise<{ profileImageUrl: string | null } | void>;
 }) {
   const { toast } = useAdminToast();
   const [pending, startTransition] = useTransition();
@@ -25,10 +23,14 @@ export function ClientForm({
   const picker = useImagePicker();
   const [cropOpen, setCropOpen] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState(client?.profile_image_url ?? "");
+  const [pendingAvatar, setPendingAvatar] = useState<Blob | null>(null);
   const [tempId] = useState(() => crypto.randomUUID());
   const [error, setError] = useState<string | null>(null);
 
-  const storageId = client?.id ?? tempId;
+  useEffect(() => {
+    if (!avatarUrl.startsWith("blob:")) return;
+    return () => URL.revokeObjectURL(avatarUrl);
+  }, [avatarUrl]);
 
   return (
     <>
@@ -36,20 +38,25 @@ export function ClientForm({
         className="admin-panel space-y-4 p-5"
         onSubmit={(event) => {
           event.preventDefault();
-          if (mode === "create" && !avatarUrl) {
-            setError("Profile picture is required.");
-            return;
-          }
           const form = event.currentTarget;
           const formData = new FormData(form);
-          formData.set("profile_image_url", avatarUrl);
+          if (pendingAvatar) {
+            formData.set("profile_image_file", pendingAvatar, "avatar.jpg");
+          }
+          if (!avatarUrl && client?.profile_image_url) {
+            formData.set("remove_profile_image", "1");
+          }
           if (mode === "create") {
             formData.set("temp_client_id", tempId);
           }
           setError(null);
           startTransition(async () => {
             try {
-              await onSubmit(formData);
+              const result = await onSubmit(formData);
+              if (result) {
+                setAvatarUrl(result.profileImageUrl ?? "");
+                setPendingAvatar(null);
+              }
               toast(mode === "create" ? "✓ Client created" : "✓ Changes saved");
             } catch (err) {
               // Server action redirects throw — let Next handle them.
@@ -69,11 +76,12 @@ export function ClientForm({
         }}
       >
         <div>
-          <p className="admin-label">Profile picture *</p>
+          <p className="admin-label">Profile picture (optional)</p>
           <div className="mt-2 flex items-center gap-4">
             <button
               type="button"
               className="admin-avatar-btn"
+              disabled={pending}
               onClick={() => fileRef.current?.click()}
               aria-label="Upload profile picture"
             >
@@ -88,6 +96,7 @@ export function ClientForm({
               <button
                 type="button"
                 className="admin-btn admin-btn--ghost"
+                disabled={pending}
                 onClick={() => fileRef.current?.click()}
               >
                 {avatarUrl ? "Change photo" : "Upload photo"}
@@ -97,6 +106,7 @@ export function ClientForm({
                   <button
                     type="button"
                     className="text-xs text-soft-grey underline"
+                    disabled={pending}
                     onClick={() => setCropOpen(true)}
                   >
                     Reposition
@@ -104,10 +114,11 @@ export function ClientForm({
                   <button
                     type="button"
                     className="text-xs text-[#ff8f8f] underline"
-                    onClick={async () => {
-                      await removePortalAssetAction(avatarUrl);
+                    disabled={pending}
+                    onClick={() => {
                       setAvatarUrl("");
-                      toast("Profile image removed");
+                      setPendingAvatar(null);
+                      toast("Profile image will be removed when you save");
                     }}
                   >
                     Remove
@@ -124,6 +135,7 @@ export function ClientForm({
             type="file"
             accept="image/jpeg,image/png,image/webp"
             className="sr-only"
+            disabled={pending}
             onChange={(e) => {
               const file = e.target.files?.[0] ?? null;
               try {
@@ -136,7 +148,6 @@ export function ClientForm({
               e.target.value = "";
             }}
           />
-          <input type="hidden" name="profile_image_url" value={avatarUrl} />
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2">
@@ -235,18 +246,19 @@ export function ClientForm({
       </form>
 
       <ImageCropModal
+        key={picker.localUrl || avatarUrl || "empty"}
         open={cropOpen}
         sourceUrl={picker.localUrl || (cropOpen && avatarUrl ? avatarUrl : null)}
-        storagePath={clientAvatarPath(storageId)}
         onCancel={() => {
           setCropOpen(false);
           picker.clear();
         }}
-        onSaved={(url) => {
-          setAvatarUrl(url);
+        onSaved={(blob) => {
+          setPendingAvatar(blob);
+          setAvatarUrl(URL.createObjectURL(blob));
           setCropOpen(false);
           picker.clear();
-          toast("Profile image updated");
+          toast("Photo ready · Save changes to apply it");
         }}
       />
     </>

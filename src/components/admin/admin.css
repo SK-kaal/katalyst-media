@@ -8,7 +8,14 @@
 
 .admin-shell__frame {
   display: flex;
+  flex-direction: column;
   min-height: 100svh;
+}
+
+@media (min-width: 1024px) {
+  .admin-shell__frame {
+    flex-direction: row;
+  }
 }
 
 .admin-sidebar {
@@ -97,6 +104,7 @@
 
 .admin-main {
   flex: 1;
+  width: 100%;
   min-width: 0;
   padding: 1.25rem 1rem 2.5rem;
 }
@@ -118,7 +126,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  margin: -1.25rem -1rem 1.25rem;
+  margin: 0;
   padding: 0.85rem 1rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   background: var(--color-carbon);
@@ -293,29 +301,15 @@
   text-transform: uppercase;
 }
 
-.admin-status--live {
+.admin-status--active {
   background: rgba(198, 255, 0, 0.12);
   color: var(--color-acid-lime);
 }
 
-.admin-status--paused {
-  border: 1px solid rgba(255, 186, 73, 0.45);
-  color: #ffba49;
-}
-
-.admin-status--closed {
+.admin-status--ended {
   border: 1px solid rgba(255, 255, 255, 0.14);
   color: var(--color-muted-grey);
-}
-
-.admin-status--draft {
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  color: var(--color-soft-grey);
-}
-
-.admin-status--in_progress {
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  color: var(--color-soft-grey);
+  background: transparent;
 }
 
 .admin-metric-grid {
@@ -379,7 +373,7 @@
   gap: 0.9rem;
   padding: 0.85rem;
   cursor: default;
-  transition: border-color 0.15s ease, background 0.15s ease, transform 0.12s ease;
+  transition: border-color 0.15s ease, background 0.15s ease;
 }
 
 .admin-campaign-card:hover {
@@ -394,7 +388,8 @@ a.admin-campaign-card,
 
 a.admin-campaign-card:active,
 .admin-campaign-card--clickable:active {
-  transform: scale(0.995);
+  /* Avoid transform — it breaks nested fixed UI (menus/dialogs). */
+  background: rgba(24, 24, 27, 1);
 }
 
 .admin-input:focus-visible,
@@ -540,10 +535,11 @@ a.admin-campaign-card:active,
 .admin-modal-root {
   position: fixed;
   inset: 0;
-  z-index: 80;
+  z-index: 200;
   display: grid;
   place-items: center;
   padding: 1rem;
+  isolation: isolate;
 }
 
 .admin-modal-backdrop {
@@ -551,16 +547,21 @@ a.admin-campaign-card:active,
   inset: 0;
   border: 0;
   background: rgba(0, 0, 0, 0.72);
+  cursor: pointer;
 }
 
 .admin-modal {
   position: relative;
   z-index: 1;
   width: min(100%, 28rem);
+  max-height: min(90vh, 40rem);
+  overflow: auto;
   padding: 1.35rem 1.25rem;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 14px;
   background: #121215;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
+  transform: none;
 }
 
 .admin-modal--crop {

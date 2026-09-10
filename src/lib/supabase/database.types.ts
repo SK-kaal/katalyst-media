@@ -1,4 +1,4 @@
-export type CampaignStatus = "draft" | "live" | "paused" | "closed";
+export type CampaignStatus = "active" | "ended";
 export type ClientType = "artist" | "manager" | "label";
 
 export type Json =
@@ -22,6 +22,7 @@ export type Database = {
           email: string | null;
           client_type: ClientType;
           internal_notes: string | null;
+          archived_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -34,6 +35,7 @@ export type Database = {
           email?: string | null;
           client_type?: ClientType;
           internal_notes?: string | null;
+          archived_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -46,6 +48,7 @@ export type Database = {
           email?: string | null;
           client_type?: ClientType;
           internal_notes?: string | null;
+          archived_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -55,16 +58,13 @@ export type Database = {
         Row: {
           id: string;
           client_id: string;
-          campaign_name: string;
-          release_title: string;
+          display_title: string | null;
           artwork_url: string | null;
           status: CampaignStatus;
-          start_date: string | null;
-          end_date: string | null;
           budget: number;
-          amount_spent: number;
-          share_token: string | null;
-          share_enabled: boolean;
+          /** Manual Katalyst delivery goal — not TikTok Creations */
+          target_posts: number;
+          share_token: string;
           tiktok_sound_url: string | null;
           tiktok_sound_id: string | null;
           sound_title: string | null;
@@ -72,22 +72,20 @@ export type Database = {
           sound_artwork_url: string | null;
           sound_usage_count: number | null;
           last_synced_at: string | null;
+          trashed_at: string | null;
+          ended_at: string | null;
           created_at: string;
           updated_at: string;
         };
         Insert: {
           id?: string;
           client_id: string;
-          campaign_name: string;
-          release_title: string;
+          display_title?: string | null;
           artwork_url?: string | null;
           status?: CampaignStatus;
-          start_date?: string | null;
-          end_date?: string | null;
           budget?: number;
-          amount_spent?: number;
-          share_token?: string | null;
-          share_enabled?: boolean;
+          target_posts: number;
+          share_token: string;
           tiktok_sound_url?: string | null;
           tiktok_sound_id?: string | null;
           sound_title?: string | null;
@@ -95,22 +93,20 @@ export type Database = {
           sound_artwork_url?: string | null;
           sound_usage_count?: number | null;
           last_synced_at?: string | null;
+          trashed_at?: string | null;
+          ended_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
         Update: {
           id?: string;
           client_id?: string;
-          campaign_name?: string;
-          release_title?: string;
+          display_title?: string | null;
           artwork_url?: string | null;
           status?: CampaignStatus;
-          start_date?: string | null;
-          end_date?: string | null;
           budget?: number;
-          amount_spent?: number;
-          share_token?: string | null;
-          share_enabled?: boolean;
+          target_posts?: number;
+          share_token?: string;
           tiktok_sound_url?: string | null;
           tiktok_sound_id?: string | null;
           sound_title?: string | null;
@@ -118,6 +114,8 @@ export type Database = {
           sound_artwork_url?: string | null;
           sound_usage_count?: number | null;
           last_synced_at?: string | null;
+          trashed_at?: string | null;
+          ended_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -147,6 +145,8 @@ export type Database = {
           tiktok_post_id: string | null;
           creator_display_name: string | null;
           last_synced_at: string | null;
+          last_sync_error: string | null;
+          last_sync_status: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -165,6 +165,8 @@ export type Database = {
           tiktok_post_id?: string | null;
           creator_display_name?: string | null;
           last_synced_at?: string | null;
+          last_sync_error?: string | null;
+          last_sync_status?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -183,6 +185,8 @@ export type Database = {
           tiktok_post_id?: string | null;
           creator_display_name?: string | null;
           last_synced_at?: string | null;
+          last_sync_error?: string | null;
+          last_sync_status?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -234,31 +238,75 @@ export type Database = {
           },
         ];
       };
-      campaign_daily_performance: {
+      sound_metric_snapshots: {
         Row: {
           id: string;
           campaign_id: string;
-          date: string;
-          views: number;
-          created_at: string;
+          sound_id: string | null;
+          creation_count: number;
+          captured_at: string;
         };
         Insert: {
           id?: string;
           campaign_id: string;
-          date: string;
-          views?: number;
-          created_at?: string;
+          sound_id?: string | null;
+          creation_count: number;
+          captured_at?: string;
         };
         Update: {
           id?: string;
           campaign_id?: string;
-          date?: string;
-          views?: number;
-          created_at?: string;
+          sound_id?: string | null;
+          creation_count?: number;
+          captured_at?: string;
         };
         Relationships: [
           {
-            foreignKeyName: "campaign_daily_performance_campaign_id_fkey";
+            foreignKeyName: "sound_metric_snapshots_campaign_id_fkey";
+            columns: ["campaign_id"];
+            isOneToOne: false;
+            referencedRelation: "campaigns";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      campaign_metric_snapshots: {
+        Row: {
+          id: string;
+          campaign_id: string;
+          tracked_posts: number;
+          views: number;
+          likes: number;
+          comments: number;
+          shares: number;
+          engagement_rate: number;
+          captured_at: string;
+        };
+        Insert: {
+          id?: string;
+          campaign_id: string;
+          tracked_posts?: number;
+          views?: number;
+          likes?: number;
+          comments?: number;
+          shares?: number;
+          engagement_rate?: number;
+          captured_at?: string;
+        };
+        Update: {
+          id?: string;
+          campaign_id?: string;
+          tracked_posts?: number;
+          views?: number;
+          likes?: number;
+          comments?: number;
+          shares?: number;
+          engagement_rate?: number;
+          captured_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "campaign_metric_snapshots_campaign_id_fkey";
             columns: ["campaign_id"];
             isOneToOne: false;
             referencedRelation: "campaigns";
@@ -286,5 +334,7 @@ export type Campaign = Database["public"]["Tables"]["campaigns"]["Row"];
 export type TikTokPost = Database["public"]["Tables"]["tiktok_posts"]["Row"];
 export type PostMetricSnapshot =
   Database["public"]["Tables"]["post_metric_snapshots"]["Row"];
-export type DailyPerformance =
-  Database["public"]["Tables"]["campaign_daily_performance"]["Row"];
+export type SoundMetricSnapshot =
+  Database["public"]["Tables"]["sound_metric_snapshots"]["Row"];
+export type CampaignMetricSnapshot =
+  Database["public"]["Tables"]["campaign_metric_snapshots"]["Row"];

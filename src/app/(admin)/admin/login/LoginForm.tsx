@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 import { DirectionalLineBackground } from "@/components/brand/DirectionalLineBackground";
 import { Wordmark } from "@/components/ui/Wordmark";
@@ -11,6 +12,8 @@ import {
 
 export default function LoginForm() {
   const [showCode, setShowCode] = useState(false);
+  const searchParams = useSearchParams();
+  const nextPath = searchParams.get("next") || "/admin";
   const [state, formAction, pending] = useActionState<AccessCodeState | null, FormData>(
     submitAccessCodeAction,
     null,
@@ -44,6 +47,7 @@ export default function LoginForm() {
         </p>
 
         <form className="mt-7 space-y-4" action={formAction} noValidate>
+          <input type="hidden" name="next" value={nextPath} />
           <div>
             <label className="admin-label" htmlFor="access-code">
               Access code
