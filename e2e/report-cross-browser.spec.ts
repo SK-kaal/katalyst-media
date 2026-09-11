@@ -46,6 +46,11 @@ test.describe("client report cross-browser quality", () => {
               () => document.documentElement.scrollWidth <= window.innerWidth,
             ),
           ).toBe(true);
+          expect(
+            await page.locator(".report-metric-card").evaluateAll((cards) =>
+              cards.every((card) => card.scrollWidth <= card.clientWidth),
+            ),
+          ).toBe(true);
 
           const topCards = page.locator(".report-top-grid .report-vcard");
           if ((await topCards.count()) > 1) {
@@ -62,8 +67,74 @@ test.describe("client report cross-browser quality", () => {
           }
         }
 
+        await page.setViewportSize({ width: 1440, height: 900 });
+        await page.goto(reportUrl!, { waitUntil: "networkidle" });
+        expect(
+          await page.locator(".report-overview").evaluate(
+            (element) => getComputedStyle(element).display,
+          ),
+        ).toBe("grid");
+        const overviewCards = page.locator(".report-overview-card");
+        const overviewBoxes = await overviewCards.evaluateAll((cards) =>
+          cards.map((card) => {
+            const rect = card.getBoundingClientRect();
+            return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+          }),
+        );
+        expect(overviewBoxes).toHaveLength(2);
+        expect(Math.round(overviewBoxes[0].y)).toBe(Math.round(overviewBoxes[1].y));
+        expect(overviewBoxes[0].width).toBeGreaterThan(overviewBoxes[1].width);
+        await expect(page.locator(".report-metric-card__icon")).toHaveCount(0);
+
+        const soundLink = page.getByRole("link", { name: "View sound" });
+        if ((await soundLink.count()) > 0) {
+          await expect(soundLink).toHaveAttribute("href", /^https:\/\/www\.tiktok\.com\//);
+          await expect(soundLink).toHaveAttribute("target", "_blank");
+          await expect(soundLink).toHaveAttribute("rel", /noopener/);
+          expect(Math.round((await soundLink.boundingBox())?.width ?? 0)).toBe(38);
+          await soundLink.hover();
+          await expect(page.locator(".report-summary__sound-tooltip")).toHaveCSS(
+            "opacity",
+            "1",
+          );
+          await soundLink.focus();
+          expect(
+            await soundLink.evaluate(
+              (element) => getComputedStyle(element).outlineStyle !== "none",
+            ),
+          ).toBe(true);
+        }
+
+        const decorationDuration = await page
+          .locator(".report-overview-card")
+          .first()
+          .evaluate(
+            (element) =>
+              getComputedStyle(element, "::before").animationDuration,
+          );
+        expect(Number.parseFloat(decorationDuration)).toBeGreaterThanOrEqual(18);
+        expect(
+          await page.locator(".report-results__live-dot").evaluate(
+            (element) =>
+              getComputedStyle(element, "::after").animationDuration,
+          ),
+        ).toBe("2s");
+
         await page.setViewportSize({ width: 390, height: 900 });
         await page.goto(reportUrl!, { waitUntil: "networkidle" });
+        if ((await soundLink.count()) > 0) {
+          expect((await soundLink.boundingBox())?.width).toBeGreaterThanOrEqual(44);
+          expect((await soundLink.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+        }
+        await page.locator(".report-summary__title").evaluate((element) => {
+          element.textContent =
+            "A deliberately long campaign title that must wrap without crowding the sound link";
+        });
+        expect(
+          await page.evaluate(
+            () => document.documentElement.scrollWidth <= window.innerWidth,
+          ),
+        ).toBe(true);
 
         const resourceCount = await page.evaluate(
           () => performance.getEntriesByType("resource").length,
@@ -125,7 +196,7 @@ test.describe("client report cross-browser quality", () => {
         }
 
         const externalLinks = page.locator(
-          ".report-vcard[href], .report-summary__sound[href]",
+          ".report-vcard[href], .report-summary__sound-icon[href]",
         );
         for (let index = 0; index < (await externalLinks.count()); index += 1) {
           await expect(externalLinks.nth(index)).toHaveAttribute("target", "_blank");
@@ -151,6 +222,23 @@ test.describe("client report cross-browser quality", () => {
             quality.renderedWidth * 2,
           );
         }
+
+        await page.emulateMedia({ reducedMotion: "reduce" });
+        await page.reload({ waitUntil: "networkidle" });
+        expect(
+          await page
+            .locator(".report-overview-card")
+            .first()
+            .evaluate(
+              (element) =>
+                getComputedStyle(element, "::before").animationName,
+            ),
+        ).toBe("none");
+        expect(
+          await page.locator(".report-results__live-dot").evaluate(
+            (element) => getComputedStyle(element, "::after").animationName,
+          ),
+        ).toBe("none");
 
         expect(errors).toEqual([]);
       } finally {

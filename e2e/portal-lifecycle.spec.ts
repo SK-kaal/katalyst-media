@@ -276,7 +276,7 @@ test.describe.serial("Disposable real-world portal lifecycle", () => {
     await expect(page.getByText("17.00%")).toBeVisible();
     await reportPage.reload();
     await expect(
-      reportPage.locator(".report-metric-card").filter({ hasText: "Campaign Views" }),
+      reportPage.locator(".report-results__featured"),
     ).toContainText("100");
     await expect(reportPage.getByText("17.00%")).toBeVisible();
 

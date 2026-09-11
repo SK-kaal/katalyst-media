@@ -1,11 +1,7 @@
 import {
-  BarChart3,
-  Eye,
-  Heart,
+  ExternalLink,
   ImageOff,
-  MessageCircle,
   Music2,
-  Share2,
 } from "lucide-react";
 import { Wordmark } from "@/components/ui/Wordmark";
 import { AllContentGrid } from "@/components/report/AllContentGrid";
@@ -24,6 +20,7 @@ import {
   formatPostsVsTargetLabel,
   formatShortDate,
   sortReportPosts,
+  type ReportChartPoint,
 } from "@/lib/portal/metrics";
 import type {
   ReportCampaign,
@@ -60,6 +57,85 @@ function resolveTitles(
   const artistLine = artist.toLowerCase() !== title.toLowerCase() ? artist : null;
 
   return { title, artist: artistLine };
+}
+
+function FeaturedViewsChart({ series }: { series: ReportChartPoint[] }) {
+  const width = 640;
+  const height = 150;
+  const values = series.map((point) => Math.max(0, point.cumulative));
+  const max = Math.max(...values, 1);
+  const points = series.map((point, index) => {
+    const x =
+      series.length === 1 ? width - 10 : (index / (series.length - 1)) * width;
+    const y = height - 10 - (Math.max(0, point.cumulative) / max) * (height - 24);
+    return `${x},${y}`;
+  });
+  const line = points.join(" ");
+  const area = line ? `0,${height} ${line} ${width},${height}` : "";
+
+  return (
+    <div className="report-results__featured-chart">
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        preserveAspectRatio="none"
+        role="img"
+        aria-label="Cumulative campaign views trend"
+      >
+        <defs>
+          <linearGradient
+            id="report-featured-views-fill"
+            x1="0"
+            y1="0"
+            x2="0"
+            y2="1"
+          >
+            <stop offset="0%" stopColor="rgba(198,255,0,0.32)" />
+            <stop offset="100%" stopColor="rgba(198,255,0,0)" />
+          </linearGradient>
+        </defs>
+        {series.length >= 2 ? (
+          <>
+            <polygon points={area} fill="url(#report-featured-views-fill)" />
+            <polyline
+              points={line}
+              fill="none"
+              stroke="#c6ff00"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              vectorEffect="non-scaling-stroke"
+            />
+          </>
+        ) : (
+          <line
+            x1="0"
+            x2={width}
+            y1={height - 10}
+            y2={height - 10}
+            stroke="rgba(198,255,0,0.28)"
+            vectorEffect="non-scaling-stroke"
+          />
+        )}
+      </svg>
+    </div>
+  );
+}
+
+function MetricSparkline({ variant }: { variant: 1 | 2 | 3 | 4 }) {
+  const paths = {
+    1: "M2 27 C14 25 19 18 31 21 S48 25 59 17 S77 18 94 10",
+    2: "M2 27 C13 24 18 25 28 20 S45 16 57 19 S72 22 94 12",
+    3: "M2 27 C14 26 25 22 36 23 S49 12 62 20 S76 14 94 13",
+    4: "M2 28 C16 27 24 24 34 25 S48 13 60 20 S72 22 94 11",
+  };
+
+  return (
+    <span className="report-metric-card__sparkline" aria-hidden="true">
+      <svg viewBox="0 0 96 34" preserveAspectRatio="none">
+        <path d={paths[variant]} />
+      </svg>
+    </span>
+  );
 }
 
 export function CampaignReportView({
@@ -142,30 +218,11 @@ export function CampaignReportView({
       </header>
 
       <main className="report-main">
-        <section className="report-summary" aria-label="Campaign summary">
-          {soundUrl ? (
-            <a
-              href={soundUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="report-summary__art report-summary__art--link"
-              aria-label="Open TikTok sound"
-            >
-              {artwork ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={artwork}
-                  alt=""
-                  decoding="async"
-                  fetchPriority="high"
-                />
-              ) : (
-                <span className="report-summary__art-placeholder">
-                  <Music2 aria-hidden="true" />
-                </span>
-              )}
-            </a>
-          ) : (
+        <section className="report-overview" aria-label="Campaign overview">
+          <article
+            className="report-overview-card report-summary"
+            aria-label="Campaign information"
+          >
             <div className="report-summary__art">
               {artwork ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -181,92 +238,87 @@ export function CampaignReportView({
                 </span>
               )}
             </div>
-          )}
 
-          <div className="report-summary__identity">
-            <p className="report-summary__label">Campaign</p>
-            <h1 className="report-summary__title">
-              {soundUrl ? (
+            <div className="report-summary__identity">
+              <p className="report-summary__label">Campaign</p>
+              <div className="report-summary__title-row">
+                <h1 className="report-summary__title">{title}</h1>
+                {soundUrl ? (
                 <a
                   href={soundUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="report-summary__title-link"
+                    className="report-summary__sound-icon"
+                    aria-label="View sound"
                 >
-                  {title}
+                    <ExternalLink aria-hidden="true" />
+                    <span
+                      className="report-summary__sound-tooltip"
+                      aria-hidden="true"
+                    >
+                      View sound
+                    </span>
                 </a>
-              ) : (
-                title
-              )}
-            </h1>
-            {artist ? <p className="report-summary__artist">{artist}</p> : null}
-            {soundUrl ? (
-              <a
-                href={soundUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="report-summary__sound"
-              >
-                View Sound
-                <span className="report-summary__sound-arrow" aria-hidden="true">
-                  ↗
-                </span>
-              </a>
-            ) : null}
-          </div>
+                ) : null}
+              </div>
+              {artist ? <p className="report-summary__artist">{artist}</p> : null}
+            </div>
 
-          <div className="report-summary__meta">
             <span className={statusClass(campaign.status)}>
               <span className="report-status__dot" aria-hidden="true" />
               {statusLabelUi(campaign.status)}
             </span>
-            <div className="report-summary__budget">
+          </article>
+
+          <section
+            className="report-overview-card report-delivery-card"
+            aria-label="Campaign budget and delivery"
+          >
+            <div className="report-delivery-card__budget">
               <p className="report-summary__budget-label">Campaign Budget</p>
               <p className="report-summary__budget-value">
                 {formatGbpExact(Number(campaign.budget))}
               </p>
             </div>
-          </div>
-        </section>
-
-        <section className="report-strip" aria-label="Campaign delivery">
-          <div className="report-card">
-            <div className="report-card__eyebrow">Campaign Delivery</div>
-            <div className="report-delivery__row">
-              <div>
-                <p className="report-card__value" style={{ marginTop: 0 }}>
-                  {campaign.target_posts != null
-                    ? `${metrics.posts} / ${Number(campaign.target_posts)}`
-                    : formatFullNumber(metrics.posts)}
-                </p>
-                <p className="report-delivery__label">Campaign Posts</p>
+            <div className="report-delivery-card__divider" aria-hidden="true" />
+            <div className="report-delivery-card__content">
+              <div className="report-card__eyebrow">Campaign Delivery</div>
+              <div className="report-delivery__row">
+                <div>
+                  <p className="report-card__value">
+                    {campaign.target_posts != null
+                      ? `${metrics.posts} / ${Number(campaign.target_posts)}`
+                      : formatFullNumber(metrics.posts)}
+                  </p>
+                  <p className="report-delivery__label">Campaign Posts</p>
+                </div>
+                {campaign.target_posts != null ? (
+                  <p className="report-delivery__pct">{deliveryPct}% complete</p>
+                ) : null}
               </div>
               {campaign.target_posts != null ? (
-                <p className="report-delivery__pct">{deliveryPct}% complete</p>
-              ) : null}
-            </div>
-            {campaign.target_posts != null ? (
-              <div
-                className="report-progress"
-                role="progressbar"
-                aria-valuenow={deliveryPct}
-                aria-valuemin={0}
-                aria-valuemax={Math.max(100, deliveryPct)}
-                aria-valuetext={`${metrics.posts} of ${Number(
-                  campaign.target_posts,
-                )} campaign posts, ${deliveryPct}% complete`}
-              >
                 <div
-                  className="report-progress__fill"
-                  style={{ width: `${deliveryBarPct}%` }}
-                />
-              </div>
-            ) : (
-              <p className="report-card__hint">
-                Tracked posts delivered in this campaign.
-              </p>
-            )}
-          </div>
+                  className="report-progress"
+                  role="progressbar"
+                  aria-valuenow={deliveryPct}
+                  aria-valuemin={0}
+                  aria-valuemax={Math.max(100, deliveryPct)}
+                  aria-valuetext={`${metrics.posts} of ${Number(
+                    campaign.target_posts,
+                  )} campaign posts, ${deliveryPct}% complete`}
+                >
+                  <div
+                    className="report-progress__fill"
+                    style={{ width: `${deliveryBarPct}%` }}
+                  />
+                </div>
+              ) : (
+                <p className="report-card__hint">
+                  Tracked posts delivered in this campaign.
+                </p>
+              )}
+            </div>
+          </section>
         </section>
 
         <section className="report-results" aria-label="Katalyst campaign results">
@@ -275,56 +327,62 @@ export function CampaignReportView({
               <p className="report-results__eyebrow">Campaign Results</p>
               <h2 className="report-results__title">Katalyst Campaign Results</h2>
             </div>
-            <p className="report-results__live">
+            <p
+              className={`report-results__live${
+                campaign.status === "active"
+                  ? " report-results__live--active"
+                  : ""
+              }`}
+            >
               <span className="report-results__live-dot" aria-hidden="true" />
               {campaign.status === "active" ? "Live results" : "Final results"}
             </p>
           </div>
-          <div className="report-results__grid">
-            <div className="report-metric-card">
-              <span className="report-metric-card__icon" aria-hidden="true">
-                <Eye />
-              </span>
+          <div className="report-results__layout">
+            <div className="report-results__featured">
               <p className="report-metric-card__label">Campaign Views</p>
-              <p className="report-metric-card__value">
+              <p className="report-results__featured-value">
                 {formatFullNumber(metrics.views)}
               </p>
+              <FeaturedViewsChart series={viewsSeries} />
             </div>
-            <div className="report-metric-card">
-              <span className="report-metric-card__icon" aria-hidden="true">
-                <Heart />
-              </span>
-              <p className="report-metric-card__label">Likes</p>
-              <p className="report-metric-card__value">
-                {formatFullNumber(metrics.likes)}
-              </p>
-            </div>
-            <div className="report-metric-card">
-              <span className="report-metric-card__icon" aria-hidden="true">
-                <MessageCircle />
-              </span>
-              <p className="report-metric-card__label">Comments</p>
-              <p className="report-metric-card__value">
-                {formatFullNumber(metrics.comments)}
-              </p>
-            </div>
-            <div className="report-metric-card">
-              <span className="report-metric-card__icon" aria-hidden="true">
-                <Share2 />
-              </span>
-              <p className="report-metric-card__label">Shares</p>
-              <p className="report-metric-card__value">
-                {formatFullNumber(metrics.shares)}
-              </p>
-            </div>
-            <div className="report-metric-card">
-              <span className="report-metric-card__icon" aria-hidden="true">
-                <BarChart3 />
-              </span>
-              <p className="report-metric-card__label">Engagement Rate</p>
-              <p className="report-metric-card__value">
-                {formatEngagementRate(metrics.engagementRate)}
-              </p>
+            <div className="report-results__grid">
+              <div className="report-metric-card">
+                <div>
+                  <p className="report-metric-card__label">Likes</p>
+                  <p className="report-metric-card__value">
+                    {formatFullNumber(metrics.likes)}
+                  </p>
+                </div>
+                <MetricSparkline variant={1} />
+              </div>
+              <div className="report-metric-card">
+                <div>
+                  <p className="report-metric-card__label">Comments</p>
+                  <p className="report-metric-card__value">
+                    {formatFullNumber(metrics.comments)}
+                  </p>
+                </div>
+                <MetricSparkline variant={2} />
+              </div>
+              <div className="report-metric-card">
+                <div>
+                  <p className="report-metric-card__label">Shares</p>
+                  <p className="report-metric-card__value">
+                    {formatFullNumber(metrics.shares)}
+                  </p>
+                </div>
+                <MetricSparkline variant={3} />
+              </div>
+              <div className="report-metric-card">
+                <div>
+                  <p className="report-metric-card__label">Engagement Rate</p>
+                  <p className="report-metric-card__value">
+                    {formatEngagementRate(metrics.engagementRate)}
+                  </p>
+                </div>
+                <MetricSparkline variant={4} />
+              </div>
             </div>
           </div>
         </section>

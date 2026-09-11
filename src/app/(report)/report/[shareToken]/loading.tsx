@@ -20,8 +20,10 @@ export default function ReportLoading() {
         </p>
       </header>
       <main className="report-main report-loading">
-        <div className="report-loading__block report-loading__summary" />
-        <div className="report-loading__block report-loading__delivery" />
+        <div className="report-loading__overview">
+          <div className="report-loading__block report-loading__summary" />
+          <div className="report-loading__block report-loading__delivery" />
+        </div>
         <div className="report-loading__block report-loading__results" />
         <div className="report-loading__charts">
           <div className="report-loading__block report-loading__chart" />

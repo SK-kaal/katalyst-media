@@ -2,11 +2,7 @@
 
 import { useMemo, useState } from "react";
 import {
-  Eye,
-  Heart,
   ImageOff,
-  MessageCircle,
-  Share2,
   Download,
   LayoutGrid,
   List,
@@ -181,28 +177,28 @@ export function AllContentGrid({ posts }: { posts: ReportPost[] }) {
                     className="report-vcard__metric"
                     title={`${formatFullNumber(post.views)} views`}
                   >
-                    <Eye aria-hidden="true" />
+                    <span className="report-vcard__metric-label">Views</span>
                     {formatCompactNumber(post.views)}
                   </span>
                   <span
                     className="report-vcard__metric"
                     title={`${formatFullNumber(post.likes)} likes`}
                   >
-                    <Heart aria-hidden="true" />
+                    <span className="report-vcard__metric-label">Likes</span>
                     {formatCompactNumber(post.likes)}
                   </span>
                   <span
                     className="report-vcard__metric"
                     title={`${formatFullNumber(post.comments)} comments`}
                   >
-                    <MessageCircle aria-hidden="true" />
+                    <span className="report-vcard__metric-label">Comments</span>
                     {formatCompactNumber(post.comments)}
                   </span>
                   <span
                     className="report-vcard__metric"
                     title={`${formatFullNumber(post.shares)} shares`}
                   >
-                    <Share2 aria-hidden="true" />
+                    <span className="report-vcard__metric-label">Shares</span>
                     {formatCompactNumber(post.shares)}
                   </span>
                 </div>
@@ -248,28 +244,28 @@ export function AllContentGrid({ posts }: { posts: ReportPost[] }) {
                     className="report-vcard__metric"
                     title={`${formatFullNumber(post.views)} views`}
                   >
-                    <Eye aria-hidden="true" />
+                    <span className="report-vcard__metric-label">Views</span>
                     {formatCompactNumber(post.views)}
                   </span>
                   <span
                     className="report-vcard__metric"
                     title={`${formatFullNumber(post.likes)} likes`}
                   >
-                    <Heart aria-hidden="true" />
+                    <span className="report-vcard__metric-label">Likes</span>
                     {formatCompactNumber(post.likes)}
                   </span>
                   <span
                     className="report-vcard__metric"
                     title={`${formatFullNumber(post.comments)} comments`}
                   >
-                    <MessageCircle aria-hidden="true" />
+                    <span className="report-vcard__metric-label">Comments</span>
                     {formatCompactNumber(post.comments)}
                   </span>
                   <span
                     className="report-vcard__metric"
                     title={`${formatFullNumber(post.shares)} shares`}
                   >
-                    <Share2 aria-hidden="true" />
+                    <span className="report-vcard__metric-label">Shares</span>
                     {formatCompactNumber(post.shares)}
                   </span>
                 </div>

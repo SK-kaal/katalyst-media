@@ -73,11 +73,11 @@ function ChartCard({
   const span = Math.max(max - min, 1);
 
   const w = 640;
-  const h = 260;
+  const h = 220;
   const padL = 48;
   const padR = 18;
-  const padT = 22;
-  const padB = 36;
+  const padT = 18;
+  const padB = 32;
   const plotW = w - padL - padR;
   const plotH = h - padT - padB;
 
@@ -184,7 +184,6 @@ function ChartCard({
       ) : (
         <div
           className="report-chart-plot"
-          onMouseLeave={() => setHover(null)}
           onPointerLeave={(event) => {
             if (event.pointerType !== "touch") setHover(null);
           }}

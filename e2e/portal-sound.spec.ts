@@ -350,7 +350,7 @@ test.describe.serial("TikTok sound management", () => {
     await expect(reportPage.getByText(/shared report · view only/i)).toBeVisible();
     await expect(reportPage.getByText("TikTok Creations")).toHaveCount(0);
     await expect(
-      reportPage.locator(".report-metric-card").filter({ hasText: "Campaign Views" }),
+      reportPage.locator(".report-results__featured"),
     ).toContainText("321");
 
     // Case G: sound can be added again without rotating the report URL.
