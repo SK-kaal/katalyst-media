@@ -14,11 +14,9 @@
 .report-motion-root--paused .report-progress__fill,
 .report-motion-root--paused .report-progress__fill::after,
 .report-motion-root--paused .report-status__dot,
-.report-motion-root--paused .report-status__dot::after,
 .report-motion-root--paused .report-results__live-dot,
 .report-motion-root--paused .report-results::before,
 .report-motion-root--paused .report-results__featured::before,
-.report-motion-root--paused .report-results__live-dot::after,
 .report-motion-root--paused .report-chart-card::before,
 .report-motion-root--paused .report-chart-line,
 .report-motion-root--paused .report-chart-area,
@@ -686,17 +684,7 @@
 }
 
 .report-status:not(.report-status--ended) .report-status__dot {
-  animation: report-status-breathe 3.1s ease-in-out infinite alternate;
-}
-
-.report-status:not(.report-status--ended) .report-status__dot::after {
-  content: "";
-  position: absolute;
-  inset: -0.24rem;
-  border: 1px solid rgba(191, 255, 0, 0.5);
-  border-radius: inherit;
-  opacity: 0;
-  animation: report-status-signal 4.6s ease-out infinite;
+  animation: report-status-breathe 4.8s ease-in-out infinite alternate;
 }
 
 .report-status--ended {
@@ -899,30 +887,14 @@
   }
 }
 
-@keyframes report-status-signal {
-  0%,
-  52% {
-    opacity: 0;
-    transform: scale(0.55);
-  }
-  58% {
-    opacity: 0.7;
-    transform: scale(0.62);
-  }
-  92%,
-  100% {
-    opacity: 0;
-    transform: scale(2.1);
-  }
-}
-
+/* A slow light-up and fade back — no expanding ring. */
 @keyframes report-status-breathe {
   from {
     box-shadow: 0 0 0 rgba(191, 255, 0, 0);
-    filter: brightness(0.82);
+    filter: brightness(0.68);
   }
   to {
-    box-shadow: 0 0 7px rgba(191, 255, 0, 0.55);
+    box-shadow: 0 0 8px rgba(191, 255, 0, 0.5);
     filter: brightness(1.15);
   }
 }
@@ -1118,17 +1090,7 @@
 
 .report-results__live--active .report-results__live-dot {
   background: var(--color-acid-lime);
-  animation: report-status-breathe 2.7s ease-in-out 0.4s infinite alternate;
-}
-
-.report-results__live--active .report-results__live-dot::after {
-  content: "";
-  position: absolute;
-  inset: -0.25rem;
-  border: 1px solid rgba(191, 255, 0, 0.5);
-  border-radius: inherit;
-  opacity: 0;
-  animation: report-status-signal 3.9s ease-out 0.8s infinite;
+  animation: report-status-breathe 5.4s ease-in-out 0.6s infinite alternate;
 }
 
 .report-results__layout {
@@ -2399,12 +2361,10 @@ a.report-vcard:hover {
   .report-progress__fill,
   .report-progress__fill::after,
   .report-status:not(.report-status--ended) .report-status__dot,
-  .report-status:not(.report-status--ended) .report-status__dot::after,
   .report-delivery-card.is-entering,
   .report-results::before,
   .report-results__featured::before,
   .report-results__live--active .report-results__live-dot,
-  .report-results__live--active .report-results__live-dot::after,
   .report-chart-card::before,
   .report-chart-svg,
   .report-chart-line,

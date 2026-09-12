@@ -184,17 +184,21 @@ test.describe("client report cross-browser quality", () => {
               getComputedStyle(element, "::before").animationDuration,
           );
         expect(Number.parseFloat(budgetGlowDuration)).toBeGreaterThanOrEqual(8);
+        // The live dots glow in and out; they must not carry a ring pulse.
         for (const selector of [
           ".report-status__dot",
           ".report-results__live-dot",
         ]) {
-          const duration = await page
-            .locator(selector)
-            .evaluate(
-              (element) =>
-                getComputedStyle(element, "::after").animationDuration,
-            );
-          expect(Number.parseFloat(duration)).toBeGreaterThanOrEqual(3);
+          const dot = await page.locator(selector).evaluate((element) => ({
+            name: getComputedStyle(element).animationName,
+            duration: getComputedStyle(element).animationDuration,
+            ring: getComputedStyle(element, "::after").animationName,
+            ringContent: getComputedStyle(element, "::after").content,
+          }));
+          expect(dot.name).toBe("report-status-breathe");
+          expect(Number.parseFloat(dot.duration)).toBeGreaterThanOrEqual(4);
+          expect(dot.ring).toBe("none");
+          expect(dot.ringContent).not.toBe('""');
         }
 
         // Ambient motion must keep running without scroll, hover or clicks.
@@ -399,11 +403,10 @@ test.describe("client report cross-browser quality", () => {
                 getComputedStyle(element, "::before").animationName,
             ),
         ).toBe("none");
-        expect(
-          await page.locator(".report-results__live-dot").evaluate(
-            (element) => getComputedStyle(element, "::after").animationName,
-          ),
-        ).toBe("none");
+        await expect(page.locator(".report-results__live-dot")).toHaveCSS(
+          "animation-name",
+          "none",
+        );
         await expect(
           page.locator(".report-summary__waveform-flow").first(),
         ).toHaveCSS("animation-name", "none");
