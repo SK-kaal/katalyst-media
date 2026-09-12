@@ -1,4 +1,3 @@
-import type { CSSProperties } from "react";
 import {
   ExternalLink,
   ImageOff,
@@ -102,118 +101,19 @@ function buildMetricHistory(
 
 const WAVEFORM_WIDTH = 680;
 
-type WaveformHump = { readonly span: number; readonly amplitude: number };
-
 /**
- * Builds an irregular wave from a repeating group of humps. Hump spans are
- * fractions of `period` and always sum to 1 across an even number of humps, so
- * the curve keeps its phase when a band is translated by exactly one period —
- * it loops seamlessly while still looking hand-drawn rather than sinusoidal.
+ * Long, low-amplitude contour lines stretched across the card — two bezier
+ * segments each, so they read as smooth signal trails rather than waves.
  */
-function waveformPath(
-  baseline: number,
-  humps: readonly WaveformHump[],
-  period: number,
-): string {
-  const segments = [`M${-period} ${baseline}`];
-  let x = -period;
-  let index = 0;
-  let crest = true;
-
-  while (x < WAVEFORM_WIDTH + period) {
-    const hump = humps[index % humps.length];
-    const width = hump.span * period;
-    const control = hump.amplitude * (4 / 3) * (crest ? -1 : 1);
-    segments.push(
-      `C${x + width / 3} ${baseline + control} ${x + (width * 2) / 3} ${
-        baseline + control
-      } ${x + width} ${baseline}`,
-    );
-    x += width;
-    index += 1;
-    crest = !crest;
-  }
-
-  return segments.join(" ");
+function waveformPath(index: number): string {
+  const y = 50 + index * 10;
+  return `M-30 ${y} C80 ${18 + index * 7}, 155 ${132 - index * 3}, 270 ${
+    72 + index * 5
+  } S470 ${38 + index * 8}, 710 ${88 + index * 4}`;
 }
 
-const WAVEFORM_BANDS = [
-  {
-    period: 268,
-    duration: 34,
-    bright: false,
-    lines: [
-      {
-        baseline: 58,
-        humps: [
-          { span: 0.3, amplitude: 15 },
-          { span: 0.18, amplitude: 7 },
-          { span: 0.26, amplitude: 18 },
-          { span: 0.26, amplitude: 9 },
-        ],
-      },
-      {
-        baseline: 74,
-        humps: [
-          { span: 0.22, amplitude: 9 },
-          { span: 0.34, amplitude: 16 },
-          { span: 0.2, amplitude: 6 },
-          { span: 0.24, amplitude: 12 },
-        ],
-      },
-    ],
-  },
-  {
-    period: 232,
-    duration: 26,
-    bright: true,
-    lines: [
-      {
-        baseline: 94,
-        humps: [
-          { span: 0.26, amplitude: 17 },
-          { span: 0.2, amplitude: 8 },
-          { span: 0.32, amplitude: 20 },
-          { span: 0.22, amplitude: 11 },
-        ],
-      },
-      {
-        baseline: 110,
-        humps: [
-          { span: 0.34, amplitude: 11 },
-          { span: 0.16, amplitude: 19 },
-          { span: 0.28, amplitude: 8 },
-          { span: 0.22, amplitude: 14 },
-        ],
-      },
-    ],
-  },
-  {
-    period: 318,
-    duration: 43,
-    bright: false,
-    lines: [
-      {
-        baseline: 130,
-        humps: [
-          { span: 0.24, amplitude: 13 },
-          { span: 0.3, amplitude: 8 },
-          { span: 0.2, amplitude: 19 },
-          { span: 0.26, amplitude: 10 },
-        ],
-      },
-      {
-        baseline: 146,
-        humps: [
-          { span: 0.32, amplitude: 10 },
-          { span: 0.2, amplitude: 17 },
-          { span: 0.26, amplitude: 6 },
-          { span: 0.22, amplitude: 13 },
-        ],
-      },
-    ],
-  },
-] as const;
+const WAVEFORM_LINE_COUNT = 9;
+const WAVEFORM_PULSE_INDEX = 4;
 
 function CampaignWaveform() {
   return (
@@ -223,38 +123,27 @@ function CampaignWaveform() {
         viewBox={`0 0 ${WAVEFORM_WIDTH} 190`}
         preserveAspectRatio="none"
       >
-        {WAVEFORM_BANDS.map((band) => (
-          <g
-            key={band.period}
-            className="report-summary__waveform-band"
-            style={
-              {
-                "--wave-shift": `${-band.period}px`,
-                "--wave-duration": `${band.duration}s`,
-              } as CSSProperties
-            }
-          >
-            {band.lines.map((line) => (
+        <g className="report-summary__waveform-flow">
+          {Array.from({ length: WAVEFORM_LINE_COUNT }, (_, index) => {
+            const bright = index >= 3 && index <= 5;
+            return (
               <path
-                key={line.baseline}
-                className={`report-summary__waveform-path${
-                  band.bright ? " report-summary__waveform-path--bright" : ""
-                }`}
-                d={waveformPath(line.baseline, line.humps, band.period)}
+                key={index}
+                className={
+                  bright
+                    ? "report-summary__waveform-path report-summary__waveform-path--bright"
+                    : "report-summary__waveform-path"
+                }
+                d={waveformPath(index)}
               />
-            ))}
-            {band.bright ? (
-              <path
-                className="report-summary__waveform-pulse"
-                d={waveformPath(
-                  band.lines[0].baseline,
-                  band.lines[0].humps,
-                  band.period,
-                )}
-              />
-            ) : null}
-          </g>
-        ))}
+            );
+          })}
+          <path
+            className="report-summary__waveform-pulse"
+            d={waveformPath(WAVEFORM_PULSE_INDEX)}
+            pathLength={100}
+          />
+        </g>
       </svg>
     </div>
   );

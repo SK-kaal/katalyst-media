@@ -7,7 +7,7 @@
 .report-motion-root--paused .report-atmosphere__glow,
 .report-motion-root--paused .report-summary__waveform,
 .report-motion-root--paused .report-summary__waveform-glow,
-.report-motion-root--paused .report-summary__waveform-band,
+.report-motion-root--paused .report-summary__waveform-flow,
 .report-motion-root--paused .report-summary__waveform-pulse,
 .report-motion-root--paused .report-summary::after,
 .report-motion-root--paused .report-delivery-card::before,
@@ -349,33 +349,35 @@
 .report-summary__waveform {
   position: absolute;
   z-index: 0;
-  inset: 12% -4% 10% 40%;
+  inset: 10% -4% 8% 34%;
   overflow: hidden;
   pointer-events: none;
   transform-origin: center;
   -webkit-mask-image: linear-gradient(
     90deg,
     transparent 0%,
-    #000 34%,
-    #000 74%,
+    #000 28%,
+    #000 72%,
     transparent 100%
   );
   mask-image: linear-gradient(
     90deg,
     transparent 0%,
-    #000 34%,
-    #000 74%,
+    #000 28%,
+    #000 72%,
     transparent 100%
   );
+  animation: report-waveform-drift 28s ease-in-out infinite alternate;
+  will-change: transform;
 }
 
 .report-summary__waveform-glow {
   position: absolute;
   z-index: 0;
-  top: 16%;
-  left: 26%;
-  width: 48%;
-  height: 68%;
+  top: 18%;
+  left: 28%;
+  width: 44%;
+  height: 64%;
   border-radius: 50%;
   background: radial-gradient(
     circle,
@@ -385,8 +387,8 @@
   );
   filter: blur(18px);
   pointer-events: none;
-  animation: report-waveform-glow-breathe 13s ease-in-out infinite alternate;
-  will-change: transform, opacity;
+  animation: report-waveform-glow-breathe 26s ease-in-out infinite alternate;
+  will-change: opacity;
 }
 
 .report-summary__waveform svg {
@@ -396,68 +398,60 @@
   height: 100%;
 }
 
-/* Each band travels exactly one period, so the loop has no visible seam. */
-.report-summary__waveform-band {
-  animation: report-waveform-travel var(--wave-duration, 30s) linear infinite;
+/* The lines sway within their mask, so the composition never shifts. */
+.report-summary__waveform-flow {
+  animation: report-waveform-flow 38s ease-in-out infinite alternate;
   will-change: transform;
-}
-
-.report-summary__waveform-band:nth-child(2) {
-  animation-direction: reverse;
 }
 
 .report-summary__waveform-path {
   fill: none;
-  stroke: rgba(191, 255, 0, 0.075);
+  stroke: rgba(191, 255, 0, 0.07);
   stroke-width: 0.7;
   vector-effect: non-scaling-stroke;
 }
 
 .report-summary__waveform-path--bright {
-  stroke: rgba(191, 255, 0, 0.26);
+  stroke: rgba(191, 255, 0, 0.28);
   stroke-width: 0.85;
 }
 
 .report-summary__waveform-pulse {
   fill: none;
-  stroke: rgba(210, 255, 120, 0.8);
-  stroke-width: 1.3;
+  stroke: rgba(198, 255, 105, 0.5);
+  stroke-width: 1;
   stroke-linecap: round;
   vector-effect: non-scaling-stroke;
-  stroke-dasharray: 22 6000;
-  stroke-dashoffset: 0;
+  stroke-dasharray: 4 100;
+  stroke-dashoffset: 4;
   opacity: 0;
-  filter: drop-shadow(0 0 4px rgba(191, 255, 0, 0.45));
-  animation: report-waveform-signal 21s linear 6s infinite;
+  animation: report-waveform-signal 24s linear 9s infinite;
 }
 
-@keyframes report-waveform-travel {
+@keyframes report-waveform-flow {
   from {
-    transform: translate3d(0, 0, 0);
+    transform: translate3d(-11px, 0, 0);
   }
   to {
-    transform: translate3d(var(--wave-shift, -220px), 0, 0);
+    transform: translate3d(11px, 0, 0);
   }
 }
 
 @keyframes report-waveform-signal {
   0% {
     opacity: 0;
-    stroke-dashoffset: -40;
+    stroke-dashoffset: 4;
   }
   4% {
-    opacity: 0.7;
+    opacity: 0.55;
   }
-  24% {
-    opacity: 0.7;
+  22% {
+    opacity: 0.55;
   }
-  30% {
-    opacity: 0;
-    stroke-dashoffset: -1750;
-  }
+  28%,
   100% {
     opacity: 0;
-    stroke-dashoffset: -1750;
+    stroke-dashoffset: -100;
   }
 }
 
@@ -469,26 +463,22 @@
   pointer-events: none;
   background: radial-gradient(
     circle at 100% 0%,
-    rgba(191, 255, 0, 0.135) 0%,
-    rgba(191, 255, 0, 0.05) 15%,
-    rgba(191, 255, 0, 0) 44%
+    rgba(191, 255, 0, 0.14) 0%,
+    rgba(191, 255, 0, 0.05) 14%,
+    rgba(191, 255, 0, 0) 40%
   );
-  animation: report-delivery-glow 14s ease-in-out infinite alternate;
+  animation: report-delivery-glow 24s ease-in-out infinite alternate;
   will-change: transform, opacity;
 }
 
 @keyframes report-delivery-glow {
-  0% {
-    opacity: 0.68;
-    transform: translate3d(0, 0, 0) scale(0.96);
+  from {
+    opacity: 0.82;
+    transform: translate3d(0, 0, 0) scale(1);
   }
-  50% {
+  to {
     opacity: 1;
-    transform: translate3d(-4%, 3%, 0) scale(1.07);
-  }
-  100% {
-    opacity: 0.78;
-    transform: translate3d(-1%, 6%, 0) scale(1.01);
+    transform: translate3d(-1.5%, 1%, 0) scale(1.03);
   }
 }
 
@@ -507,12 +497,19 @@
 
 @keyframes report-waveform-glow-breathe {
   from {
-    opacity: 0.62;
-    transform: translate3d(-9%, 4%, 0) scale(0.92);
+    opacity: 0.78;
   }
   to {
     opacity: 1;
-    transform: translate3d(11%, -5%, 0) scale(1.08);
+  }
+}
+
+@keyframes report-waveform-drift {
+  from {
+    transform: translate3d(-1%, 0.4%, 0) scale(1);
+  }
+  to {
+    transform: translate3d(1.1%, -0.5%, 0) scale(1.012);
   }
 }
 
@@ -860,12 +857,12 @@
   background: linear-gradient(
     90deg,
     transparent,
-    rgba(255, 255, 255, 0.72),
+    rgba(255, 255, 255, 0.42),
     transparent
   );
   opacity: 0;
   transform: translate3d(-180%, 0, 0);
-  animation: report-progress-glint 11s ease-in-out 2s infinite;
+  animation: report-progress-glint 15s ease-in-out 3s infinite;
   will-change: transform, opacity;
 }
 
@@ -2395,7 +2392,7 @@ a.report-vcard:hover {
   .report-atmosphere__glow,
   .report-summary__waveform,
   .report-summary__waveform-glow,
-  .report-summary__waveform-band,
+  .report-summary__waveform-flow,
   .report-summary__waveform-pulse,
   .report-summary::after,
   .report-delivery-card::before,

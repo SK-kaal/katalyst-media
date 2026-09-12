@@ -173,7 +173,7 @@ test.describe("client report cross-browser quality", () => {
         }
 
         const waveformDuration = await page
-          .locator(".report-summary__waveform-band")
+          .locator(".report-summary__waveform-flow")
           .first()
           .evaluate((element) => getComputedStyle(element).animationDuration);
         expect(Number.parseFloat(waveformDuration)).toBeGreaterThanOrEqual(20);
@@ -200,18 +200,21 @@ test.describe("client report cross-browser quality", () => {
         // Ambient motion must keep running without scroll, hover or clicks.
         await expect(page.locator(".report-atmosphere")).toHaveCount(1);
         await expect(
-          page.locator(".report-summary__waveform-band"),
-        ).toHaveCount(3);
+          page.locator(".report-summary__waveform-flow"),
+        ).toHaveCount(1);
+        await expect(page.locator(".report-summary__waveform-path")).toHaveCount(
+          9,
+        );
         await expect(page.locator(".report-chart-pulse")).not.toHaveCount(0);
         const bandTransformBefore = await page
-          .locator(".report-summary__waveform-band")
+          .locator(".report-summary__waveform-flow")
           .first()
           .evaluate((element) => getComputedStyle(element).transform);
         await expect
           .poll(
             () =>
               page
-                .locator(".report-summary__waveform-band")
+                .locator(".report-summary__waveform-flow")
                 .first()
                 .evaluate((element) => getComputedStyle(element).transform),
             { timeout: 5000 },
@@ -402,7 +405,7 @@ test.describe("client report cross-browser quality", () => {
           ),
         ).toBe("none");
         await expect(
-          page.locator(".report-summary__waveform-band").first(),
+          page.locator(".report-summary__waveform-flow").first(),
         ).toHaveCSS("animation-name", "none");
         await expect(page.locator(".report-atmosphere__glow").first()).toHaveCSS(
           "animation-name",
