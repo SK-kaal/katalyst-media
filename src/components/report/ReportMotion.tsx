@@ -147,7 +147,12 @@ export function ReportMotion({ children }: { children: ReactNode }) {
 
       const media = gsap.matchMedia();
       media.add("(prefers-reduced-motion: no-preference)", () => {
-        const overview = root.querySelector(".report-overview");
+        const atmosphere = root.querySelector(".report-atmosphere");
+        const header = root.querySelector(".report-header");
+        const waveform = root.querySelector(".report-summary__waveform");
+        const liveIndicators = root.querySelectorAll(
+          ".report-status, .report-results__live",
+        );
         const overviewCards = root.querySelectorAll(".report-overview-card");
         const delivery = root.querySelector<HTMLElement>(".report-delivery-card");
         const results = root.querySelector(".report-results");
@@ -164,45 +169,90 @@ export function ReportMotion({ children }: { children: ReactNode }) {
           gsap.set(progress, { scaleX: 0, transformOrigin: "left center" });
         }
 
-        if (overview && overviewCards.length > 0) {
-          const overviewTimeline = gsap.timeline({
-            defaults: { ease: "power3.out" },
-            scrollTrigger: {
-              trigger: overview,
-              start: "top 96%",
-              once: true,
+        // Above-the-fold intro plays immediately: atmosphere, header, cards,
+        // waveform, then the live indicators. Interaction is never blocked.
+        const intro = gsap.timeline({ defaults: { ease: "power3.out" } });
+
+        if (atmosphere) {
+          intro.fromTo(
+            atmosphere,
+            { opacity: 0 },
+            { opacity: 1, duration: 0.8, clearProps: "opacity" },
+            0,
+          );
+        }
+
+        if (header) {
+          intro.fromTo(
+            header,
+            { opacity: 0, y: -6 },
+            {
+              opacity: 1,
+              y: 0,
+              duration: 0.42,
+              clearProps: "opacity,transform",
             },
-          });
+            0,
+          );
+        }
 
-          overviewTimeline.to(overviewCards, {
-            opacity: 1,
-            y: 0,
-            duration: 0.44,
-            stagger: 0.08,
-            clearProps: "opacity,transform",
-            onStart: () => delivery?.classList.add("is-entering"),
-          });
+        if (overviewCards.length > 0) {
+          intro.to(
+            overviewCards,
+            {
+              opacity: 1,
+              y: 0,
+              duration: 0.44,
+              stagger: 0.08,
+              clearProps: "opacity,transform",
+              onStart: () => delivery?.classList.add("is-entering"),
+            },
+            0.12,
+          );
+        }
 
-          if (progress) {
-            overviewTimeline.to(
-              progress,
-              {
-                scaleX: 1,
-                duration: 0.78,
-                ease: "power2.out",
-                clearProps: "transform,transform-origin",
-              },
-              0.14,
-            );
-          }
+        if (waveform) {
+          intro.fromTo(
+            waveform,
+            { opacity: 0 },
+            { opacity: 1, duration: 0.7, clearProps: "opacity" },
+            0.34,
+          );
+        }
 
-          if (delivery) {
-            overviewTimeline.call(
-              () => delivery.classList.remove("is-entering"),
-              [],
-              1.18,
-            );
-          }
+        if (progress) {
+          intro.to(
+            progress,
+            {
+              scaleX: 1,
+              duration: 0.78,
+              ease: "power2.out",
+              clearProps: "transform,transform-origin",
+            },
+            0.26,
+          );
+        }
+
+        if (liveIndicators.length > 0) {
+          intro.fromTo(
+            liveIndicators,
+            { autoAlpha: 0 },
+            {
+              autoAlpha: 1,
+              duration: 0.4,
+              stagger: 0.1,
+              clearProps: "opacity,visibility",
+            },
+            0.62,
+          );
+        }
+
+        if (delivery) {
+          intro.call(
+            () => delivery.classList.remove("is-entering"),
+            [],
+            1.24,
+          );
         }
 
         if (results) {

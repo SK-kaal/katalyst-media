@@ -215,6 +215,15 @@ export function ReportMetricChart({
           />
         )}
 
+        {points.length >= 2 ? (
+          <polyline
+            points={line}
+            className="report-metric-plot__pulse"
+            pathLength={100}
+            vectorEffect="non-scaling-stroke"
+          />
+        ) : null}
+
         {latest && points.length >= 2 ? (
           <>
             <circle

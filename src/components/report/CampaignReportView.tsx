@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import {
   ExternalLink,
   ImageOff,
@@ -99,30 +100,125 @@ function buildMetricHistory(
   return points;
 }
 
+const WAVEFORM_WIDTH = 680;
+
+/**
+ * Periodic sine-style path. The pattern repeats every `wavelength`, so a band
+ * can be translated by exactly one wavelength and loop without a visible seam.
+ */
+function waveformPath(
+  baseline: number,
+  amplitude: number,
+  wavelength: number,
+): string {
+  const half = wavelength / 2;
+  const segments = [`M${-wavelength} ${baseline}`];
+  let x = -wavelength;
+  let crest = true;
+
+  while (x < WAVEFORM_WIDTH + wavelength * 2) {
+    const control = amplitude * (4 / 3) * (crest ? -1 : 1);
+    segments.push(
+      `C${x + half / 3} ${baseline + control} ${x + (half * 2) / 3} ${
+        baseline + control
+      } ${x + half} ${baseline}`,
+    );
+    x += half;
+    crest = !crest;
+  }
+
+  return segments.join(" ");
+}
+
+const WAVEFORM_BANDS = [
+  {
+    wavelength: 240,
+    duration: 15,
+    bob: 9,
+    bright: false,
+    lines: [
+      { baseline: 44, amplitude: 15 },
+      { baseline: 58, amplitude: 11 },
+      { baseline: 71, amplitude: 8 },
+    ],
+  },
+  {
+    wavelength: 190,
+    duration: 21,
+    bob: 12,
+    bright: true,
+    lines: [
+      { baseline: 86, amplitude: 13 },
+      { baseline: 98, amplitude: 9 },
+      { baseline: 110, amplitude: 15 },
+    ],
+  },
+  {
+    wavelength: 310,
+    duration: 28,
+    bob: 16,
+    bright: false,
+    lines: [
+      { baseline: 124, amplitude: 12 },
+      { baseline: 138, amplitude: 15 },
+      { baseline: 151, amplitude: 9 },
+    ],
+  },
+] as const;
+
 function CampaignWaveform() {
   return (
     <div className="report-summary__waveform" aria-hidden="true">
       <div className="report-summary__waveform-glow" />
-      <svg viewBox="0 0 680 190" preserveAspectRatio="none">
-        {Array.from({ length: 9 }, (_, index) => {
-          const y = 50 + index * 10;
-          const bright = index >= 3 && index <= 5;
-          return (
-            <path
-              key={y}
-              className={
-                bright
-                  ? "report-summary__waveform-path report-summary__waveform-path--bright"
-                  : "report-summary__waveform-path"
+      <svg
+        viewBox={`0 0 ${WAVEFORM_WIDTH} 190`}
+        preserveAspectRatio="none"
+      >
+        {WAVEFORM_BANDS.map((band) => (
+          <g
+            key={band.wavelength}
+            className="report-summary__waveform-band"
+            style={
+              {
+                "--wave-shift": `${-band.wavelength}px`,
+                "--wave-duration": `${band.duration}s`,
+              } as CSSProperties
+            }
+          >
+            <g
+              className="report-summary__waveform-bob"
+              style={
+                { "--wave-bob": `${band.bob}s` } as CSSProperties
               }
-              d={`M-30 ${y} C80 ${18 + index * 7}, 155 ${
-                132 - index * 3
-              }, 270 ${72 + index * 5} S470 ${
-                38 + index * 8
-              }, 710 ${88 + index * 4}`}
-            />
-          );
-        })}
+            >
+              {band.lines.map((line) => (
+                <path
+                  key={line.baseline}
+                  className={`report-summary__waveform-path${
+                    band.bright
+                      ? " report-summary__waveform-path--bright"
+                      : ""
+                  }`}
+                  d={waveformPath(
+                    line.baseline,
+                    line.amplitude,
+                    band.wavelength,
+                  )}
+                />
+              ))}
+              {band.bright ? (
+                <path
+                  className="report-summary__waveform-pulse"
+                  d={waveformPath(
+                    band.lines[1].baseline,
+                    band.lines[1].amplitude,
+                    band.wavelength,
+                  )}
+                />
+              ) : null}
+            </g>
+          </g>
+        ))}
       </svg>
     </div>
   );
@@ -229,6 +325,12 @@ export function CampaignReportView({
   return (
     <ReportMotion>
       <div className="report-shell">
+      <div className="report-atmosphere" aria-hidden="true">
+        <div className="report-atmosphere__grid" />
+        <div className="report-atmosphere__scan" />
+        <div className="report-atmosphere__glow report-atmosphere__glow--one" />
+        <div className="report-atmosphere__glow report-atmosphere__glow--two" />
+      </div>
       <header className="report-header">
         <p className="report-header__side report-header__side--left">
           Campaign Report

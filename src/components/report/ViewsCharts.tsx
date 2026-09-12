@@ -365,6 +365,15 @@ function ChartCard({
               vectorEffect="non-scaling-stroke"
             />
 
+            {points.length >= 2 ? (
+              <polyline
+                points={line}
+                className="report-chart-pulse"
+                pathLength={100}
+                vectorEffect="non-scaling-stroke"
+              />
+            ) : null}
+
             {active ? (
               <>
                 <line

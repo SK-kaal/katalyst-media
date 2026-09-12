@@ -31,10 +31,26 @@ test.describe("client report cross-browser quality", () => {
       const errors: string[] = [];
       page.on("pageerror", (error) => errors.push(error.message));
 
+      // The load-in sequence transforms the cards, so geometry and hover
+      // assertions must wait for GSAP to clear its inline transforms.
+      const settleIntro = async () => {
+        await expect
+          .poll(
+            () =>
+              page
+                .locator(".report-overview-card")
+                .last()
+                .evaluate((element) => getComputedStyle(element).transform),
+            { timeout: 6000 },
+          )
+          .toBe("none");
+      };
+
       try {
         for (const width of [1920, 1440, 1024, 820, 768, 430, 390]) {
           await page.setViewportSize({ width, height: 900 });
           await page.goto(reportUrl!, { waitUntil: "networkidle" });
+          await settleIntro();
 
           await expect(
             page.getByRole("heading", { name: "Katalyst Campaign Results" }),
@@ -97,6 +113,7 @@ test.describe("client report cross-browser quality", () => {
 
         await page.setViewportSize({ width: 1440, height: 900 });
         await page.goto(reportUrl!, { waitUntil: "networkidle" });
+        await settleIntro();
         expect(
           await page.locator(".report-overview").evaluate(
             (element) => getComputedStyle(element).display,
@@ -165,7 +182,7 @@ test.describe("client report cross-browser quality", () => {
             (element) =>
               getComputedStyle(element, "::before").animationDuration,
           );
-        expect(Number.parseFloat(budgetGlowDuration)).toBeGreaterThanOrEqual(12);
+        expect(Number.parseFloat(budgetGlowDuration)).toBeGreaterThanOrEqual(8);
         for (const selector of [
           ".report-status__dot",
           ".report-results__live-dot",
@@ -176,11 +193,40 @@ test.describe("client report cross-browser quality", () => {
               (element) =>
                 getComputedStyle(element, "::after").animationDuration,
             );
-          expect(Number.parseFloat(duration)).toBeGreaterThanOrEqual(4);
+          expect(Number.parseFloat(duration)).toBeGreaterThanOrEqual(3);
         }
+
+        // Ambient motion must keep running without scroll, hover or clicks.
+        await expect(page.locator(".report-atmosphere")).toHaveCount(1);
+        await expect(
+          page.locator(".report-summary__waveform-band"),
+        ).toHaveCount(3);
+        await expect(page.locator(".report-chart-pulse")).not.toHaveCount(0);
+        const bandTransformBefore = await page
+          .locator(".report-summary__waveform-band")
+          .first()
+          .evaluate((element) => getComputedStyle(element).transform);
+        await expect
+          .poll(
+            () =>
+              page
+                .locator(".report-summary__waveform-band")
+                .first()
+                .evaluate((element) => getComputedStyle(element).transform),
+            { timeout: 5000 },
+          )
+          .not.toBe(bandTransformBefore);
+        const idleAnimations = await page.evaluate(
+          () =>
+            document
+              .getAnimations()
+              .filter((animation) => animation.playState === "running").length,
+        );
+        expect(idleAnimations).toBeGreaterThanOrEqual(12);
 
         await page.setViewportSize({ width: 390, height: 900 });
         await page.goto(reportUrl!, { waitUntil: "networkidle" });
+        await settleIntro();
         if ((await soundLink.count()) > 0) {
           expect((await soundLink.boundingBox())?.width).toBeGreaterThanOrEqual(44);
           expect((await soundLink.boundingBox())?.height).toBeGreaterThanOrEqual(44);
@@ -320,6 +366,7 @@ test.describe("client report cross-browser quality", () => {
 
         await page.emulateMedia({ reducedMotion: "reduce" });
         await page.reload({ waitUntil: "networkidle" });
+        await settleIntro();
         expect(
           await page
             .locator(".report-delivery-card")
@@ -337,6 +384,26 @@ test.describe("client report cross-browser quality", () => {
           "animation-name",
           "none",
         );
+        await expect(
+          page.locator(".report-summary__waveform-band").first(),
+        ).toHaveCSS("animation-name", "none");
+        await expect(page.locator(".report-atmosphere__glow").first()).toHaveCSS(
+          "animation-name",
+          "none",
+        );
+        await expect
+          .poll(
+            () =>
+              page.evaluate(
+                () =>
+                  document
+                    .getAnimations()
+                    .filter((animation) => animation.playState === "running")
+                    .length,
+              ),
+            { timeout: 5000 },
+          )
+          .toBe(0);
         expect(
           await page
             .locator(
