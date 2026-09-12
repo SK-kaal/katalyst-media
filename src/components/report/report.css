@@ -1550,16 +1550,28 @@
    */
   .report-charts--single .report-chart-card {
     display: grid;
-    grid-template-columns: minmax(10rem, 0.3fr) minmax(0, 1fr);
-    align-items: center;
-    gap: 1.75rem;
+    grid-template-columns: 24% minmax(0, 1fr);
+    /* The figure sits at the top of the card, level with the plot, rather
+       than floating in the middle of it. */
+    align-items: start;
+    gap: 1.5rem;
   }
 
   .report-charts--single .report-chart-card__head {
     flex-direction: column;
     align-items: flex-start;
-    gap: 1rem;
+    gap: 1.35rem;
     margin-bottom: 0;
+  }
+
+  /* Two charts share a row, so each keeps a compact plot. */
+  .report-chart-plot {
+    height: 13.5rem;
+  }
+
+  /* A chart on its own gets the depth to justify the space. */
+  .report-charts--single .report-chart-plot {
+    height: 22.5rem;
   }
 }
 
@@ -1738,6 +1750,12 @@
 
 .report-chart-plot {
   position: relative;
+  /*
+   * The chart is drawn 1:1 with this box, so its height belongs here rather
+   * than falling out of the drawing's own proportions. Phones get their own
+   * height instead of inheriting the desktop one.
+   */
+  height: clamp(13rem, 9rem + 13vw, 17rem);
   touch-action: pan-y;
 }
 
@@ -1808,6 +1826,7 @@
 }
 
 .report-chart-svg {
+  height: 100%;
   animation: report-chart-mode-in 0.32s ease-out both;
 }
 

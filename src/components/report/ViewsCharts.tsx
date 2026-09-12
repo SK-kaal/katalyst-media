@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { AnimatedValue } from "@/components/report/ReportMotion";
 import {
   formatCompactNumber,
@@ -53,6 +53,7 @@ function ChartCard({
   tracking?: boolean;
 }) {
   const rootRef = useRef<HTMLDivElement>(null);
+  const plotRef = useRef<HTMLDivElement>(null);
   const lineRef = useRef<SVGPolylineElement>(null);
   const areaRef = useRef<SVGPolygonElement>(null);
   const toggleRef = useRef<HTMLDivElement>(null);
@@ -85,8 +86,37 @@ function ChartCard({
   const min = Math.min(...values, 0);
   const span = Math.max(max - min, 1);
 
-  const w = 640;
-  const h = 220;
+  // The chart is drawn one user unit per pixel of its own box, so the plot's
+  // height is whatever the stylesheet gives it and nothing inside the drawing
+  // scales with the card. Previously the viewBox was fixed and stretched to
+  // the available width, which tied the height to the width and sized the
+  // axis labels and points along with it — about 5px on a phone and 19px on a
+  // wide card. The box has a fixed CSS height, so measuring it cannot feed
+  // back into its own size.
+  const [plotBox, setPlotBox] = useState<{ w: number; h: number } | null>(null);
+
+  useEffect(() => {
+    const plot = plotRef.current;
+    if (!plot) return;
+
+    const observer = new ResizeObserver((entries) => {
+      const rect = entries[0]?.contentRect;
+      if (!rect || rect.width === 0) return;
+      const next = { w: Math.round(rect.width), h: Math.round(rect.height) };
+      setPlotBox((current) =>
+        current && current.w === next.w && current.h === next.h
+          ? current
+          : next,
+      );
+    });
+    observer.observe(plot);
+    return () => observer.disconnect();
+  }, [showChart]);
+
+  // Close to the rendered proportions, so the first paint before the box is
+  // measured is not noticeably different.
+  const w = plotBox?.w ?? 640;
+  const h = plotBox?.h ?? 240;
   const padL = 48;
   const padR = 18;
   const padT = 18;
@@ -308,6 +338,7 @@ function ChartCard({
         </div>
       ) : (
         <div
+          ref={plotRef}
           className="report-chart-plot"
           onPointerLeave={(event) => {
             if (event.pointerType !== "touch") setHover(null);
@@ -321,10 +352,16 @@ function ChartCard({
             aria-label={`${title} ${mode} chart`}
           >
             <defs>
+              {/*
+                Stops are proportions of the filled area, so on a tall plot
+                they have to fall away sooner — held at the old positions the
+                light stops reading as a glow under the line and becomes a
+                field of green.
+              */}
               <linearGradient id={`fill-${gid}`} x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="rgba(191,255,0,0.1)" />
-                <stop offset="55%" stopColor="rgba(191,255,0,0.03)" />
-                <stop offset="100%" stopColor="rgba(191,255,0,0)" />
+                <stop offset="34%" stopColor="rgba(191,255,0,0.028)" />
+                <stop offset="78%" stopColor="rgba(191,255,0,0)" />
               </linearGradient>
             </defs>
 
@@ -349,13 +386,24 @@ function ChartCard({
               </g>
             ))}
 
-            {xLabels.map((label) => (
+            {/*
+              The first and last dates sit on the ends of the axis, so they
+              are anchored inward — centred on their point they hang over the
+              edge of the plot and get clipped.
+            */}
+            {xLabels.map((label, index) => (
               <text
                 key={`${label.x}-${label.label}`}
                 className="report-chart-axis"
                 x={label.x}
                 y={h - 10}
-                textAnchor="middle"
+                textAnchor={
+                  index === 0
+                    ? "start"
+                    : index === xLabels.length - 1
+                      ? "end"
+                      : "middle"
+                }
               >
                 {label.label}
               </text>
