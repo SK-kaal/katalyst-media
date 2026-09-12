@@ -153,7 +153,8 @@ export function ClientForm({
               className="admin-input"
               required
               defaultValue={client?.name ?? ""}
-              placeholder="Mellina Tey"
+              placeholder="Client or artist name"
+              autoComplete="off"
             />
           </div>
           <div>
@@ -180,7 +181,8 @@ export function ClientForm({
               name="handle"
               className="admin-input"
               defaultValue={client?.handle ?? ""}
-              placeholder="@mellinatey"
+              placeholder="@handle"
+              autoComplete="off"
             />
           </div>
           <div>
@@ -192,7 +194,8 @@ export function ClientForm({
               name="tiktok_profile_url"
               className="admin-input"
               defaultValue={client?.tiktok_profile_url ?? ""}
-              placeholder="https://www.tiktok.com/@mellinatey"
+              placeholder="https://www.tiktok.com/@handle"
+              autoComplete="off"
             />
           </div>
           <div className="sm:col-span-2">
@@ -205,6 +208,8 @@ export function ClientForm({
               type="email"
               className="admin-input"
               defaultValue={client?.email ?? ""}
+              placeholder="name@email.com"
+              autoComplete="off"
             />
           </div>
           <div className="sm:col-span-2">
@@ -216,6 +221,7 @@ export function ClientForm({
               name="internal_notes"
               className="admin-input min-h-[5rem]"
               defaultValue={client?.internal_notes ?? ""}
+              placeholder="Private notes for the Katalyst team"
             />
           </div>
         </div>
