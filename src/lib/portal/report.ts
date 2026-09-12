@@ -46,6 +46,15 @@ export type ReportSoundSnapshot = {
 export type ReportCampaignSnapshot = {
   captured_at: string;
   views: number;
+  likes?: number;
+  comments?: number;
+  shares?: number;
+  engagement_rate?: number;
+};
+
+export type ReportMetricHistoryPoint = {
+  capturedAt: string;
+  value: number;
 };
 
 export type SharedReport = {

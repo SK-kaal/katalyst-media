@@ -5,6 +5,11 @@ import {
 } from "lucide-react";
 import { Wordmark } from "@/components/ui/Wordmark";
 import { AllContentGrid } from "@/components/report/AllContentGrid";
+import { ReportMetricChart } from "@/components/report/ReportMetricCharts";
+import {
+  AnimatedValue,
+  ReportMotion,
+} from "@/components/report/ReportMotion";
 import { ViewsCharts } from "@/components/report/ViewsCharts";
 import {
   buildChartFromSnapshots,
@@ -14,18 +19,16 @@ import {
   campaignSoundArtist,
   campaignSoundTitle,
   formatCompactNumber,
-  formatEngagementRate,
   formatFullNumber,
-  formatGbpExact,
   formatPostsVsTargetLabel,
   formatShortDate,
   sortReportPosts,
-  type ReportChartPoint,
 } from "@/lib/portal/metrics";
 import type {
   ReportCampaign,
   ReportCampaignSnapshot,
   ReportClient,
+  ReportMetricHistoryPoint,
   ReportPost,
   ReportPostSnapshot,
   ReportSoundSnapshot,
@@ -59,82 +62,62 @@ function resolveTitles(
   return { title, artist: artistLine };
 }
 
-function FeaturedViewsChart({ series }: { series: ReportChartPoint[] }) {
-  const width = 640;
-  const height = 150;
-  const values = series.map((point) => Math.max(0, point.cumulative));
-  const max = Math.max(...values, 1);
-  const points = series.map((point, index) => {
-    const x =
-      series.length === 1 ? width - 10 : (index / (series.length - 1)) * width;
-    const y = height - 10 - (Math.max(0, point.cumulative) / max) * (height - 24);
-    return `${x},${y}`;
-  });
-  const line = points.join(" ");
-  const area = line ? `0,${height} ${line} ${width},${height}` : "";
+type SnapshotMetric =
+  | "views"
+  | "likes"
+  | "comments"
+  | "shares"
+  | "engagement_rate";
 
-  return (
-    <div className="report-results__featured-chart">
-      <svg
-        viewBox={`0 0 ${width} ${height}`}
-        preserveAspectRatio="none"
-        role="img"
-        aria-label="Cumulative campaign views trend"
-      >
-        <defs>
-          <linearGradient
-            id="report-featured-views-fill"
-            x1="0"
-            y1="0"
-            x2="0"
-            y2="1"
-          >
-            <stop offset="0%" stopColor="rgba(198,255,0,0.32)" />
-            <stop offset="100%" stopColor="rgba(198,255,0,0)" />
-          </linearGradient>
-        </defs>
-        {series.length >= 2 ? (
-          <>
-            <polygon points={area} fill="url(#report-featured-views-fill)" />
-            <polyline
-              points={line}
-              fill="none"
-              stroke="#c6ff00"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              vectorEffect="non-scaling-stroke"
-            />
-          </>
-        ) : (
-          <line
-            x1="0"
-            x2={width}
-            y1={height - 10}
-            y2={height - 10}
-            stroke="rgba(198,255,0,0.28)"
-            vectorEffect="non-scaling-stroke"
-          />
-        )}
-      </svg>
-    </div>
-  );
+function buildMetricHistory(
+  snapshots: ReportCampaignSnapshot[],
+  metric: SnapshotMetric,
+  currentValue: number,
+): ReportMetricHistoryPoint[] {
+  const points = snapshots
+    .map((snapshot) => ({
+      capturedAt: snapshot.captured_at,
+      value: Number(snapshot[metric]),
+    }))
+    .filter(
+      (point) =>
+        Number.isFinite(new Date(point.capturedAt).getTime()) &&
+        Number.isFinite(point.value) &&
+        point.value >= 0,
+    )
+    .sort(
+      (a, b) =>
+        new Date(a.capturedAt).getTime() - new Date(b.capturedAt).getTime(),
+    );
+
+  const current = Math.max(0, Number(currentValue) || 0);
+  const latest = points[points.length - 1];
+  if (!latest || latest.value !== current) {
+    points.push({ capturedAt: new Date().toISOString(), value: current });
+  }
+
+  return points;
 }
 
-function MetricSparkline({ variant }: { variant: 1 | 2 | 3 | 4 }) {
-  const paths = {
-    1: "M2 27 C14 25 19 18 31 21 S48 25 59 17 S77 18 94 10",
-    2: "M2 27 C13 24 18 25 28 20 S45 16 57 19 S72 22 94 12",
-    3: "M2 27 C14 26 25 22 36 23 S49 12 62 20 S76 14 94 13",
-    4: "M2 28 C16 27 24 24 34 25 S48 13 60 20 S72 22 94 11",
-  };
-
+function CampaignWaveform() {
   return (
-    <span className="report-metric-card__sparkline" aria-hidden="true">
-      <svg viewBox="0 0 96 34" preserveAspectRatio="none">
-        <path d={paths[variant]} />
+    <div className="report-summary__waveform" aria-hidden="true">
+      <svg viewBox="0 0 680 190" preserveAspectRatio="none">
+        {Array.from({ length: 9 }, (_, index) => {
+          const y = 50 + index * 10;
+          return (
+            <path
+              key={y}
+              d={`M-30 ${y} C80 ${18 + index * 7}, 155 ${
+                132 - index * 3
+              }, 270 ${72 + index * 5} S470 ${
+                38 + index * 8
+              }, 710 ${88 + index * 4}`}
+            />
+          );
+        })}
       </svg>
-    </span>
+    </div>
   );
 }
 
@@ -200,11 +183,45 @@ export function CampaignReportView({
       ? campaignSnapSeries
       : postSnapSeries;
 
+  const viewsHistory = buildMetricHistory(
+    campaignSnapshots,
+    "views",
+    metrics.views,
+  );
+  const featuredViewsHistory =
+    viewsHistory.length >= 2
+      ? viewsHistory
+      : viewsSeries.map((point) => ({
+          capturedAt: `${point.date}T12:00:00Z`,
+          value: point.cumulative,
+        }));
+  const likesHistory = buildMetricHistory(
+    campaignSnapshots,
+    "likes",
+    metrics.likes,
+  );
+  const commentsHistory = buildMetricHistory(
+    campaignSnapshots,
+    "comments",
+    metrics.comments,
+  );
+  const sharesHistory = buildMetricHistory(
+    campaignSnapshots,
+    "shares",
+    metrics.shares,
+  );
+  const engagementHistory = buildMetricHistory(
+    campaignSnapshots,
+    "engagement_rate",
+    metrics.engagementRate,
+  );
+
   const topPosts = sortReportPosts(postList, "views").slice(0, 3);
   const soundUrl = campaign.tiktok_sound_url?.trim() || null;
 
   return (
-    <div className="report-shell">
+    <ReportMotion>
+      <div className="report-shell">
       <header className="report-header">
         <p className="report-header__side report-header__side--left">
           Campaign Report
@@ -223,6 +240,7 @@ export function CampaignReportView({
             className="report-overview-card report-summary"
             aria-label="Campaign information"
           >
+            <CampaignWaveform />
             <div className="report-summary__art">
               {artwork ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -244,13 +262,13 @@ export function CampaignReportView({
               <div className="report-summary__title-row">
                 <h1 className="report-summary__title">{title}</h1>
                 {soundUrl ? (
-                <a
-                  href={soundUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  <a
+                    href={soundUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="report-summary__sound-icon"
                     aria-label="View sound"
-                >
+                  >
                     <ExternalLink aria-hidden="true" />
                     <span
                       className="report-summary__sound-tooltip"
@@ -258,7 +276,7 @@ export function CampaignReportView({
                     >
                       View sound
                     </span>
-                </a>
+                  </a>
                 ) : null}
               </div>
               {artist ? <p className="report-summary__artist">{artist}</p> : null}
@@ -277,7 +295,10 @@ export function CampaignReportView({
             <div className="report-delivery-card__budget">
               <p className="report-summary__budget-label">Campaign Budget</p>
               <p className="report-summary__budget-value">
-                {formatGbpExact(Number(campaign.budget))}
+                <AnimatedValue
+                  value={Number(campaign.budget)}
+                  kind="currency"
+                />
               </p>
             </div>
             <div className="report-delivery-card__divider" aria-hidden="true" />
@@ -340,48 +361,74 @@ export function CampaignReportView({
           </div>
           <div className="report-results__layout">
             <div className="report-results__featured">
-              <p className="report-metric-card__label">Campaign Views</p>
-              <p className="report-results__featured-value">
-                {formatFullNumber(metrics.views)}
-              </p>
-              <FeaturedViewsChart series={viewsSeries} />
+              <div className="report-results__featured-head">
+                <p className="report-metric-card__label">Campaign Views</p>
+                <p className="report-results__featured-value">
+                  <AnimatedValue value={metrics.views} />
+                </p>
+              </div>
+              <ReportMetricChart
+                label="Campaign views"
+                series={featuredViewsHistory}
+                featured
+              />
             </div>
             <div className="report-results__grid">
               <div className="report-metric-card">
-                <div>
+                <div className="report-metric-card__content">
                   <p className="report-metric-card__label">Likes</p>
                   <p className="report-metric-card__value">
-                    {formatFullNumber(metrics.likes)}
+                    <AnimatedValue value={metrics.likes} />
                   </p>
                 </div>
-                <MetricSparkline variant={1} />
+                <ReportMetricChart
+                  label="Likes"
+                  series={likesHistory}
+                  animationDelay={0.04}
+                />
               </div>
               <div className="report-metric-card">
-                <div>
+                <div className="report-metric-card__content">
                   <p className="report-metric-card__label">Comments</p>
                   <p className="report-metric-card__value">
-                    {formatFullNumber(metrics.comments)}
+                    <AnimatedValue value={metrics.comments} />
                   </p>
                 </div>
-                <MetricSparkline variant={2} />
+                <ReportMetricChart
+                  label="Comments"
+                  series={commentsHistory}
+                  animationDelay={0.1}
+                />
               </div>
               <div className="report-metric-card">
-                <div>
+                <div className="report-metric-card__content">
                   <p className="report-metric-card__label">Shares</p>
                   <p className="report-metric-card__value">
-                    {formatFullNumber(metrics.shares)}
+                    <AnimatedValue value={metrics.shares} />
                   </p>
                 </div>
-                <MetricSparkline variant={3} />
+                <ReportMetricChart
+                  label="Shares"
+                  series={sharesHistory}
+                  animationDelay={0.16}
+                />
               </div>
               <div className="report-metric-card">
-                <div>
+                <div className="report-metric-card__content">
                   <p className="report-metric-card__label">Engagement Rate</p>
                   <p className="report-metric-card__value">
-                    {formatEngagementRate(metrics.engagementRate)}
+                    <AnimatedValue
+                      value={metrics.engagementRate}
+                      kind="percent"
+                    />
                   </p>
                 </div>
-                <MetricSparkline variant={4} />
+                <ReportMetricChart
+                  label="Engagement rate"
+                  series={engagementHistory}
+                  format="percent"
+                  animationDelay={0.22}
+                />
               </div>
             </div>
           </div>
@@ -498,6 +545,7 @@ export function CampaignReportView({
 
         <AllContentGrid posts={postList} />
       </main>
-    </div>
+      </div>
+    </ReportMotion>
   );
 }

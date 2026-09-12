@@ -51,6 +51,34 @@ test.describe("client report cross-browser quality", () => {
               cards.every((card) => card.scrollWidth <= card.clientWidth),
             ),
           ).toBe(true);
+          expect(
+            await page.locator(".report-results__featured").evaluate((card) => {
+              const header = card.querySelector(
+                ".report-results__featured-head",
+              )?.getBoundingClientRect();
+              const plot = card.querySelector(
+                ".report-metric-plot",
+              )?.getBoundingClientRect();
+              return Boolean(header && plot && plot.top >= header.bottom - 1);
+            }),
+          ).toBe(true);
+          expect(
+            await page.locator(".report-metric-card").evaluateAll((cards) =>
+              cards.every((card) => {
+                const content = card
+                  .querySelector(".report-metric-card__content")
+                  ?.getBoundingClientRect();
+                const plot = card
+                  .querySelector(".report-metric-plot")
+                  ?.getBoundingClientRect();
+                if (!content || !plot) return false;
+                return (
+                  plot.left >= content.right - 1 ||
+                  plot.top >= content.bottom - 1
+                );
+              }),
+            ),
+          ).toBe(true);
 
           const topCards = page.locator(".report-top-grid .report-vcard");
           if ((await topCards.count()) > 1) {
@@ -85,6 +113,9 @@ test.describe("client report cross-browser quality", () => {
         expect(Math.round(overviewBoxes[0].y)).toBe(Math.round(overviewBoxes[1].y));
         expect(overviewBoxes[0].width).toBeGreaterThan(overviewBoxes[1].width);
         await expect(page.locator(".report-metric-card__icon")).toHaveCount(0);
+        await expect(
+          page.locator(".report-metric-card .report-metric-plot"),
+        ).toHaveCount(4);
 
         const soundLink = page.getByRole("link", { name: "View sound" });
         if ((await soundLink.count()) > 0) {
@@ -103,6 +134,21 @@ test.describe("client report cross-browser quality", () => {
               (element) => getComputedStyle(element).outlineStyle !== "none",
             ),
           ).toBe(true);
+        }
+
+        const firstMiniPoint = page
+          .locator(".report-metric-card .report-metric-plot")
+          .first()
+          .locator('circle[role="button"]')
+          .last();
+        if ((await firstMiniPoint.count()) > 0) {
+          await firstMiniPoint.tap();
+          await expect(
+            page
+              .locator(".report-metric-card")
+              .first()
+              .locator(".report-metric-plot__tooltip"),
+          ).toBeVisible();
         }
 
         const decorationDuration = await page
@@ -239,6 +285,22 @@ test.describe("client report cross-browser quality", () => {
             (element) => getComputedStyle(element, "::after").animationName,
           ),
         ).toBe("none");
+        await expect(page.locator(".report-summary__waveform")).toHaveCSS(
+          "animation-name",
+          "none",
+        );
+        expect(
+          await page
+            .locator(
+              ".report-summary, .report-delivery-card, .report-results, .report-metric-card, .report-chart-card",
+            )
+            .evaluateAll((elements) =>
+              elements.every((element) => {
+                const style = getComputedStyle(element);
+                return style.opacity === "1" && style.transform === "none";
+              }),
+            ),
+        ).toBe(true);
 
         expect(errors).toEqual([]);
       } finally {

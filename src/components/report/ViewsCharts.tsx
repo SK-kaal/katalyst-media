@@ -1,6 +1,7 @@
 "use client";
 
-import { useId, useMemo, useState } from "react";
+import { useId, useMemo, useRef, useState } from "react";
+import { AnimatedValue } from "@/components/report/ReportMotion";
 import {
   formatCompactNumber,
   formatFullNumber,
@@ -8,6 +9,7 @@ import {
   formatSignedFullNumber,
   type ReportChartPoint,
 } from "@/lib/portal/metrics";
+import { gsap, useGSAP } from "@/lib/motion";
 import "@/components/report/report.css";
 
 type Mode = "cumulative" | "daily";
@@ -45,6 +47,9 @@ function ChartCard({
   emptyHint: string;
   valueNoun: string;
 }) {
+  const rootRef = useRef<HTMLDivElement>(null);
+  const lineRef = useRef<SVGPolylineElement>(null);
+  const areaRef = useRef<SVGPolygonElement>(null);
   const [mode, setMode] = useState<Mode>("cumulative");
   const [hover, setHover] = useState<number | null>(null);
   const gid = useId().replace(/:/g, "");
@@ -140,15 +145,67 @@ function ChartCard({
       : formatSignedFullNumber(active.value)
     : "";
 
+  useGSAP(
+    () => {
+      const lineElement = lineRef.current;
+      if (!lineElement || !showChart) return;
+
+      const media = gsap.matchMedia();
+      media.add("(prefers-reduced-motion: no-preference)", () => {
+        const length = lineElement.getTotalLength();
+        const timeline = gsap.timeline({
+          scrollTrigger: {
+            trigger: rootRef.current,
+            start: "top 94%",
+            once: true,
+          },
+        });
+
+        timeline.fromTo(
+          lineElement,
+          {
+            strokeDasharray: length,
+            strokeDashoffset: length,
+          },
+          {
+            strokeDashoffset: 0,
+            duration: 0.72,
+            ease: "power2.out",
+            clearProps: "stroke-dasharray,stroke-dashoffset",
+          },
+        );
+        if (areaRef.current) {
+          timeline.fromTo(
+            areaRef.current,
+            { autoAlpha: 0 },
+            {
+              autoAlpha: 1,
+              duration: 0.42,
+              clearProps: "opacity,visibility",
+            },
+            0.16,
+          );
+        }
+      });
+
+      return () => media.revert();
+    },
+    {
+      scope: rootRef,
+      dependencies: [area, line, mode, showChart],
+      revertOnUpdate: true,
+    },
+  );
+
   return (
-    <div className="report-panel report-chart-card">
+    <div ref={rootRef} className="report-panel report-chart-card">
       <div className="report-panel__head report-chart-card__head">
         <div>
           <p className="report-chart-card__eyebrow">{title}</p>
           {displayTotal != null ? (
             <>
               <p className="report-chart-card__total">
-                {formatFullNumber(displayTotal)}
+                <AnimatedValue value={displayTotal} />
               </p>
               <p className="report-chart-card__total-label">{totalLabel}</p>
             </>
@@ -237,10 +294,15 @@ function ChartCard({
             ))}
 
             {mode === "cumulative" && area ? (
-              <polygon points={area} fill={`url(#fill-${gid})`} />
+              <polygon
+                ref={areaRef}
+                points={area}
+                fill={`url(#fill-${gid})`}
+              />
             ) : null}
 
             <polyline
+              ref={lineRef}
               points={line}
               fill="none"
               stroke="#c6ff00"
