@@ -4,45 +4,30 @@
   min-height: 100svh;
 }
 
-.report-motion-root--paused .report-atmosphere__grid,
-.report-motion-root--paused .report-atmosphere__scan,
 .report-motion-root--paused .report-atmosphere__glow,
 .report-motion-root--paused .report-summary__waveform,
-.report-motion-root--paused .report-summary__waveform::before,
-.report-motion-root--paused .report-summary__waveform::after,
 .report-motion-root--paused .report-summary__waveform-glow,
 .report-motion-root--paused .report-summary__waveform-band,
-.report-motion-root--paused .report-summary__waveform-bob,
 .report-motion-root--paused .report-summary__waveform-pulse,
 .report-motion-root--paused .report-summary::after,
 .report-motion-root--paused .report-delivery-card::before,
 .report-motion-root--paused .report-progress__fill,
 .report-motion-root--paused .report-progress__fill::after,
 .report-motion-root--paused .report-status__dot,
-.report-motion-root--paused .report-status__dot::before,
 .report-motion-root--paused .report-status__dot::after,
 .report-motion-root--paused .report-results__live-dot,
 .report-motion-root--paused .report-results::before,
-.report-motion-root--paused .report-results::after,
 .report-motion-root--paused .report-results__featured::before,
-.report-motion-root--paused .report-results__featured::after,
-.report-motion-root--paused .report-results__live-dot::before,
 .report-motion-root--paused .report-results__live-dot::after,
-.report-motion-root--paused .report-metric-card::before,
 .report-motion-root--paused .report-chart-card::before,
-.report-motion-root--paused .report-chart-card::after,
 .report-motion-root--paused .report-chart-line,
 .report-motion-root--paused .report-chart-area,
 .report-motion-root--paused .report-chart-latest-pulse,
-.report-motion-root--paused .report-chart-latest-point,
 .report-motion-root--paused .report-metric-plot__line,
 .report-motion-root--paused .report-metric-plot__area,
-.report-motion-root--paused .report-metric-plot__pulse,
 .report-motion-root--paused .report-metric-plot__latest-pulse,
-.report-motion-root--paused .report-metric-plot__latest-point,
 .report-motion-root--paused .report-chart-pulse,
 .report-motion-root--paused .report-empty--chart::before,
-.report-motion-root--paused .report-empty--chart::after,
 .report-motion-root--paused .report-loading__block {
   animation-play-state: paused;
 }
@@ -84,45 +69,6 @@
   contain: layout paint style;
 }
 
-.report-atmosphere__grid {
-  position: absolute;
-  inset: -30% -10%;
-  background-image:
-    linear-gradient(rgba(191, 255, 0, 0.028) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(191, 255, 0, 0.022) 1px, transparent 1px);
-  background-size: 78px 78px;
-  -webkit-mask-image: radial-gradient(
-    ellipse at 50% 35%,
-    #000 0%,
-    rgba(0, 0, 0, 0.35) 55%,
-    transparent 85%
-  );
-  mask-image: radial-gradient(
-    ellipse at 50% 35%,
-    #000 0%,
-    rgba(0, 0, 0, 0.35) 55%,
-    transparent 85%
-  );
-  animation: report-atmosphere-grid 46s linear infinite;
-  will-change: transform;
-}
-
-.report-atmosphere__scan {
-  position: absolute;
-  left: -20%;
-  width: 140%;
-  height: 34%;
-  background: linear-gradient(
-    180deg,
-    transparent,
-    rgba(191, 255, 0, 0.016) 45%,
-    rgba(191, 255, 0, 0.028) 52%,
-    transparent
-  );
-  animation: report-atmosphere-scan 26s ease-in-out infinite;
-  will-change: transform, opacity;
-}
-
 .report-atmosphere__glow {
   position: absolute;
   border-radius: 50%;
@@ -157,30 +103,6 @@
   animation: report-atmosphere-drift-b 41s ease-in-out infinite alternate;
 }
 
-@keyframes report-atmosphere-grid {
-  from {
-    transform: translate3d(0, 0, 0);
-  }
-  to {
-    transform: translate3d(-78px, -78px, 0);
-  }
-}
-
-@keyframes report-atmosphere-scan {
-  0% {
-    opacity: 0;
-    transform: translate3d(0, -40vh, 0);
-  }
-  12%,
-  72% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-    transform: translate3d(0, 115vh, 0);
-  }
-}
-
 @keyframes report-atmosphere-drift-a {
   from {
     opacity: 0.7;
@@ -188,18 +110,18 @@
   }
   to {
     opacity: 1;
-    transform: translate3d(14%, 9%, 0) scale(1.12);
+    transform: translate3d(9%, 6%, 0) scale(1.07);
   }
 }
 
 @keyframes report-atmosphere-drift-b {
   from {
     opacity: 1;
-    transform: translate3d(0, 0, 0) scale(1.08);
+    transform: translate3d(0, 0, 0) scale(1.06);
   }
   to {
     opacity: 0.62;
-    transform: translate3d(-12%, -10%, 0) scale(1);
+    transform: translate3d(-8%, -6%, 0) scale(1);
   }
 }
 
@@ -382,44 +304,25 @@
   content: none;
 }
 
-/* Faint highlight that travels along one edge of selected cards. */
-.report-summary::after,
-.report-results::after,
-.report-chart-card::after {
+/* One faint highlight, on the campaign header edge only. */
+.report-summary::after {
   content: "";
   position: absolute;
   z-index: 3;
   top: 0;
   left: 0;
-  width: 26%;
+  width: 24%;
   height: 1px;
   background: linear-gradient(
     90deg,
     rgba(191, 255, 0, 0),
-    rgba(191, 255, 0, 0.62),
+    rgba(191, 255, 0, 0.5),
     rgba(191, 255, 0, 0)
   );
   opacity: 0;
   pointer-events: none;
-  animation: report-border-trace 13s linear 4s infinite;
+  animation: report-border-trace 19s linear 6s infinite;
   will-change: transform, opacity;
-}
-
-.report-results::after {
-  animation-duration: 17s;
-  animation-delay: 9s;
-}
-
-.report-chart-card::after {
-  animation-duration: 15s;
-  animation-delay: 6.5s;
-}
-
-.report-chart-card:nth-child(even)::after {
-  top: auto;
-  bottom: 0;
-  animation-duration: 19s;
-  animation-delay: 12s;
 }
 
 @keyframes report-border-trace {
@@ -427,128 +330,62 @@
     opacity: 0;
     transform: translate3d(-110%, 0, 0);
   }
-  6% {
-    opacity: 0.55;
+  5% {
+    opacity: 0.45;
   }
-  28% {
-    opacity: 0.55;
+  20% {
+    opacity: 0.45;
   }
-  36% {
+  26% {
     opacity: 0;
-    transform: translate3d(420%, 0, 0);
+    transform: translate3d(440%, 0, 0);
   }
   100% {
     opacity: 0;
-    transform: translate3d(420%, 0, 0);
+    transform: translate3d(440%, 0, 0);
   }
 }
 
 .report-summary__waveform {
   position: absolute;
   z-index: 0;
-  inset: 10% -4% 8% 34%;
+  inset: 12% -4% 10% 40%;
   overflow: hidden;
   pointer-events: none;
   transform-origin: center;
   -webkit-mask-image: linear-gradient(
     90deg,
     transparent 0%,
-    #000 28%,
-    #000 72%,
+    #000 34%,
+    #000 74%,
     transparent 100%
   );
   mask-image: linear-gradient(
     90deg,
     transparent 0%,
-    #000 28%,
-    #000 72%,
+    #000 34%,
+    #000 74%,
     transparent 100%
   );
-  animation: report-waveform-drift 28s ease-in-out infinite alternate;
-  will-change: transform;
-}
-
-/* Two tiny signal particles drifting inside the header artwork area. */
-.report-summary__waveform::before,
-.report-summary__waveform::after {
-  content: "";
-  position: absolute;
-  z-index: 2;
-  width: 2px;
-  height: 2px;
-  border-radius: 999px;
-  background: rgba(191, 255, 0, 0.85);
-  box-shadow: 0 0 6px rgba(191, 255, 0, 0.5);
-  opacity: 0;
-  pointer-events: none;
-  will-change: transform, opacity;
-}
-
-.report-summary__waveform::before {
-  top: 62%;
-  left: 26%;
-  animation: report-particle-drift-a 17s linear 2s infinite;
-}
-
-.report-summary__waveform::after {
-  top: 30%;
-  left: 54%;
-  animation: report-particle-drift-b 23s linear 9s infinite;
-}
-
-@keyframes report-particle-drift-a {
-  0% {
-    opacity: 0;
-    transform: translate3d(0, 0, 0);
-  }
-  12% {
-    opacity: 0.5;
-  }
-  62% {
-    opacity: 0.34;
-  }
-  82%,
-  100% {
-    opacity: 0;
-    transform: translate3d(150px, -46px, 0);
-  }
-}
-
-@keyframes report-particle-drift-b {
-  0% {
-    opacity: 0;
-    transform: translate3d(0, 0, 0);
-  }
-  16% {
-    opacity: 0.42;
-  }
-  58% {
-    opacity: 0.28;
-  }
-  78%,
-  100% {
-    opacity: 0;
-    transform: translate3d(118px, 58px, 0);
-  }
 }
 
 .report-summary__waveform-glow {
   position: absolute;
   z-index: 0;
-  top: 18%;
-  left: 28%;
-  width: 44%;
-  height: 64%;
+  top: 16%;
+  left: 26%;
+  width: 48%;
+  height: 68%;
   border-radius: 50%;
   background: radial-gradient(
     circle,
-    rgba(191, 255, 0, 0.12) 0%,
-    rgba(191, 255, 0, 0.045) 32%,
+    rgba(191, 255, 0, 0.11) 0%,
+    rgba(191, 255, 0, 0.04) 32%,
     rgba(191, 255, 0, 0) 70%
   );
   filter: blur(18px);
   pointer-events: none;
-  animation: report-waveform-glow-breathe 9s ease-in-out infinite alternate;
+  animation: report-waveform-glow-breathe 13s ease-in-out infinite alternate;
   will-change: transform, opacity;
 }
 
@@ -559,9 +396,9 @@
   height: 100%;
 }
 
-/* Each band travels exactly one wavelength, so the loop has no visible seam. */
+/* Each band travels exactly one period, so the loop has no visible seam. */
 .report-summary__waveform-band {
-  animation: report-waveform-travel var(--wave-duration, 18s) linear infinite;
+  animation: report-waveform-travel var(--wave-duration, 30s) linear infinite;
   will-change: transform;
 }
 
@@ -569,39 +406,29 @@
   animation-direction: reverse;
 }
 
-.report-summary__waveform-bob {
-  animation: report-waveform-bob var(--wave-bob, 12s) ease-in-out infinite
-    alternate;
-  will-change: transform;
-}
-
-.report-summary__waveform-band:nth-child(2) .report-summary__waveform-bob {
-  animation-direction: alternate-reverse;
-}
-
 .report-summary__waveform-path {
   fill: none;
-  stroke: rgba(191, 255, 0, 0.085);
+  stroke: rgba(191, 255, 0, 0.075);
   stroke-width: 0.7;
   vector-effect: non-scaling-stroke;
 }
 
 .report-summary__waveform-path--bright {
-  stroke: rgba(191, 255, 0, 0.3);
-  stroke-width: 0.9;
+  stroke: rgba(191, 255, 0, 0.26);
+  stroke-width: 0.85;
 }
 
 .report-summary__waveform-pulse {
   fill: none;
-  stroke: rgba(215, 255, 110, 0.95);
-  stroke-width: 1.5;
+  stroke: rgba(210, 255, 120, 0.8);
+  stroke-width: 1.3;
   stroke-linecap: round;
   vector-effect: non-scaling-stroke;
-  stroke-dasharray: 26 6000;
+  stroke-dasharray: 22 6000;
   stroke-dashoffset: 0;
   opacity: 0;
-  filter: drop-shadow(0 0 4px rgba(191, 255, 0, 0.55));
-  animation: report-waveform-signal 13s linear 3s infinite;
+  filter: drop-shadow(0 0 4px rgba(191, 255, 0, 0.45));
+  animation: report-waveform-signal 21s linear 6s infinite;
 }
 
 @keyframes report-waveform-travel {
@@ -613,27 +440,18 @@
   }
 }
 
-@keyframes report-waveform-bob {
-  from {
-    transform: translate3d(0, -3px, 0);
-  }
-  to {
-    transform: translate3d(0, 5px, 0);
-  }
-}
-
 @keyframes report-waveform-signal {
   0% {
     opacity: 0;
     stroke-dashoffset: -40;
   }
-  5% {
-    opacity: 0.85;
+  4% {
+    opacity: 0.7;
   }
-  38% {
-    opacity: 0.85;
+  24% {
+    opacity: 0.7;
   }
-  46% {
+  30% {
     opacity: 0;
     stroke-dashoffset: -1750;
   }
@@ -655,22 +473,22 @@
     rgba(191, 255, 0, 0.05) 15%,
     rgba(191, 255, 0, 0) 44%
   );
-  animation: report-delivery-glow 11s ease-in-out infinite alternate;
+  animation: report-delivery-glow 14s ease-in-out infinite alternate;
   will-change: transform, opacity;
 }
 
 @keyframes report-delivery-glow {
   0% {
-    opacity: 0.55;
-    transform: translate3d(0, 0, 0) scale(0.94);
+    opacity: 0.68;
+    transform: translate3d(0, 0, 0) scale(0.96);
   }
   50% {
     opacity: 1;
-    transform: translate3d(-9%, 7%, 0) scale(1.14);
+    transform: translate3d(-4%, 3%, 0) scale(1.07);
   }
   100% {
-    opacity: 0.68;
-    transform: translate3d(-2%, 13%, 0) scale(1.02);
+    opacity: 0.78;
+    transform: translate3d(-1%, 6%, 0) scale(1.01);
   }
 }
 
@@ -687,23 +505,14 @@
   }
 }
 
-@keyframes report-waveform-drift {
-  from {
-    transform: translate3d(-1%, 0.4%, 0) scale(1);
-  }
-  to {
-    transform: translate3d(1.1%, -0.5%, 0) scale(1.012);
-  }
-}
-
 @keyframes report-waveform-glow-breathe {
   from {
-    opacity: 0.5;
-    transform: translate3d(-12%, 6%, 0) scale(0.88);
+    opacity: 0.62;
+    transform: translate3d(-9%, 4%, 0) scale(0.92);
   }
   to {
     opacity: 1;
-    transform: translate3d(16%, -8%, 0) scale(1.14);
+    transform: translate3d(11%, -5%, 0) scale(1.08);
   }
 }
 
@@ -883,19 +692,6 @@
   animation: report-status-breathe 3.1s ease-in-out infinite alternate;
 }
 
-.report-status:not(.report-status--ended) .report-status__dot::before {
-  content: "";
-  position: absolute;
-  inset: -0.3rem;
-  border-radius: inherit;
-  background: radial-gradient(
-    circle,
-    rgba(191, 255, 0, 0.4),
-    rgba(191, 255, 0, 0) 70%
-  );
-  animation: report-status-halo 4.3s ease-in-out infinite alternate;
-}
-
 .report-status:not(.report-status--ended) .report-status__dot::after {
   content: "";
   position: absolute;
@@ -1069,7 +865,7 @@
   );
   opacity: 0;
   transform: translate3d(-180%, 0, 0);
-  animation: report-progress-glint 8s ease-in-out 1.4s infinite;
+  animation: report-progress-glint 11s ease-in-out 2s infinite;
   will-change: transform, opacity;
 }
 
@@ -1131,17 +927,6 @@
   to {
     box-shadow: 0 0 7px rgba(191, 255, 0, 0.55);
     filter: brightness(1.15);
-  }
-}
-
-@keyframes report-status-halo {
-  from {
-    opacity: 0.35;
-    transform: scale(0.82);
-  }
-  to {
-    opacity: 0.9;
-    transform: scale(1.3);
   }
 }
 
@@ -1339,19 +1124,6 @@
   animation: report-status-breathe 2.7s ease-in-out 0.4s infinite alternate;
 }
 
-.report-results__live--active .report-results__live-dot::before {
-  content: "";
-  position: absolute;
-  inset: -0.32rem;
-  border-radius: inherit;
-  background: radial-gradient(
-    circle,
-    rgba(191, 255, 0, 0.45),
-    rgba(191, 255, 0, 0) 70%
-  );
-  animation: report-status-halo 3.7s ease-in-out infinite alternate;
-}
-
 .report-results__live--active .report-results__live-dot::after {
   content: "";
   position: absolute;
@@ -1396,24 +1168,6 @@
   );
   pointer-events: none;
   animation: report-ambient-light 10s ease-in-out 0.6s infinite alternate-reverse;
-  will-change: transform, opacity;
-}
-
-/* Single drifting signal particle inside the featured metric panel. */
-.report-results__featured::after {
-  content: "";
-  position: absolute;
-  z-index: 2;
-  top: 58%;
-  left: 12%;
-  width: 2px;
-  height: 2px;
-  border-radius: 999px;
-  background: rgba(191, 255, 0, 0.8);
-  box-shadow: 0 0 6px rgba(191, 255, 0, 0.45);
-  opacity: 0;
-  pointer-events: none;
-  animation: report-particle-drift-a 21s linear 6s infinite;
   will-change: transform, opacity;
 }
 
@@ -1482,38 +1236,6 @@
   transition: opacity 220ms ease, transform 220ms ease;
 }
 
-/* Staggered ambient glow so one result card lifts at a time. */
-.report-metric-card::before {
-  content: "";
-  position: absolute;
-  inset: auto 0 -70% 42%;
-  height: 110%;
-  border-radius: 50%;
-  background: radial-gradient(
-    circle,
-    rgba(191, 255, 0, 0.07),
-    rgba(191, 255, 0, 0) 68%
-  );
-  opacity: 0;
-  pointer-events: none;
-  animation: report-card-glow-cycle 18s ease-in-out infinite;
-  will-change: transform, opacity;
-}
-
-.report-metric-card:nth-child(2)::before {
-  animation-delay: 4.5s;
-}
-
-.report-metric-card:nth-child(3)::before {
-  animation-delay: 9s;
-  animation-duration: 21s;
-}
-
-.report-metric-card:nth-child(4)::before {
-  animation-delay: 13.5s;
-  animation-duration: 16s;
-}
-
 .report-metric-card > * {
   position: relative;
   z-index: 1;
@@ -1521,31 +1243,12 @@
 
 @keyframes report-ambient-light {
   from {
-    opacity: 0.5;
-    transform: translate3d(-9%, 5%, 0) scale(0.9);
+    opacity: 0.6;
+    transform: translate3d(-4%, 2%, 0) scale(0.95);
   }
   to {
-    opacity: 1;
-    transform: translate3d(11%, -7%, 0) scale(1.12);
-  }
-}
-
-@keyframes report-card-glow-cycle {
-  0% {
-    opacity: 0;
-    transform: translate3d(0, 0, 0) scale(0.92);
-  }
-  22% {
-    opacity: 0.6;
-    transform: translate3d(-4%, -3%, 0) scale(1.06);
-  }
-  46% {
-    opacity: 0.12;
-    transform: translate3d(2%, 1%, 0) scale(1);
-  }
-  100% {
-    opacity: 0;
-    transform: translate3d(0, 0, 0) scale(0.92);
+    opacity: 0.95;
+    transform: translate3d(5%, -3%, 0) scale(1.05);
   }
 }
 
@@ -1622,51 +1325,15 @@
   animation: report-chart-area-breathe 9.5s ease-in-out infinite alternate;
 }
 
-/* Travelling signal highlight; pathLength normalises the dash travel. */
-.report-metric-plot__pulse {
-  fill: none;
-  stroke: rgba(222, 255, 130, 0.9);
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-dasharray: 7 100;
-  stroke-dashoffset: 7;
+/* The dense result grid stays still; motion belongs to the larger panels. */
+.report-metric-card .report-metric-plot__line,
+.report-metric-card .report-metric-plot__area {
+  animation: none;
+}
+
+.report-metric-card .report-metric-plot__latest-pulse {
+  animation: none;
   opacity: 0;
-  pointer-events: none;
-  animation: report-plot-signal 12s linear 5s infinite;
-}
-
-.report-metric-plot--featured .report-metric-plot__pulse {
-  stroke-width: 2.6;
-  animation-duration: 9s;
-  animation-delay: 2.5s;
-}
-
-.report-metric-card:nth-child(2) .report-metric-plot__pulse {
-  animation-duration: 14s;
-  animation-delay: 8s;
-}
-
-.report-metric-card:nth-child(3) .report-metric-plot__pulse {
-  animation-duration: 16s;
-  animation-delay: 11.5s;
-}
-
-.report-metric-card:nth-child(4) .report-metric-plot__pulse {
-  animation-duration: 13s;
-  animation-delay: 15s;
-}
-
-.report-metric-card:nth-child(2) .report-metric-plot__line {
-  animation-duration: 7.5s;
-}
-
-.report-metric-card:nth-child(3) .report-metric-plot__line {
-  animation-duration: 9.5s;
-  animation-direction: alternate-reverse;
-}
-
-.report-metric-card:nth-child(4) .report-metric-plot__line {
-  animation-duration: 6s;
 }
 
 @keyframes report-plot-signal {
@@ -1689,9 +1356,6 @@
 
 .report-metric-plot__latest-point {
   fill: var(--report-neon);
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: report-chart-point-breathe 3.3s ease-in-out infinite alternate;
 }
 
 .report-metric-plot__latest-pulse {
@@ -1850,82 +1514,26 @@
   background-size: 100% 25%;
 }
 
+/* Thin tracking line that sweeps the waiting chart area. */
 .report-empty--chart::before {
   content: "";
   position: absolute;
   z-index: 0;
-  top: 4%;
-  bottom: 4%;
-  left: -34%;
-  width: 32%;
+  top: 10%;
+  bottom: 10%;
+  left: 0;
+  width: 16%;
   background: linear-gradient(
     90deg,
     transparent,
-    rgba(191, 255, 0, 0.055),
-    rgba(191, 255, 0, 0.1),
-    transparent
-  );
-  filter: blur(8px);
-  opacity: 0;
-  pointer-events: none;
-  animation: report-empty-scan 7s linear 1.2s infinite;
-  will-change: transform, opacity;
-}
-
-/* Occasional vertical tracking marker in the waiting chart area. */
-.report-empty--chart::after {
-  content: "";
-  position: absolute;
-  z-index: 0;
-  top: 12%;
-  bottom: 12%;
-  left: 22%;
-  width: 1px;
-  background: linear-gradient(
-    180deg,
-    rgba(191, 255, 0, 0),
-    rgba(191, 255, 0, 0.38),
-    rgba(191, 255, 0, 0)
+    rgba(191, 255, 0, 0.02),
+    rgba(191, 255, 0, 0.14),
+    transparent 97%
   );
   opacity: 0;
   pointer-events: none;
-  animation: report-empty-marker 11s ease-in-out 4s infinite;
+  animation: report-empty-scan 9s ease-in-out 1.4s infinite;
   will-change: transform, opacity;
-}
-
-@keyframes report-empty-marker {
-  0%,
-  8% {
-    opacity: 0;
-    transform: translate3d(0, 0, 0) scaleY(0.4);
-  }
-  16% {
-    opacity: 0.9;
-    transform: translate3d(0, 0, 0) scaleY(1);
-  }
-  30% {
-    opacity: 0.9;
-  }
-  40% {
-    opacity: 0;
-    transform: translate3d(0, 0, 0) scaleY(1);
-  }
-  55% {
-    opacity: 0;
-    transform: translate3d(180px, 0, 0) scaleY(0.4);
-  }
-  64% {
-    opacity: 0.75;
-    transform: translate3d(180px, 0, 0) scaleY(1);
-  }
-  78% {
-    opacity: 0.75;
-  }
-  88%,
-  100% {
-    opacity: 0;
-    transform: translate3d(180px, 0, 0) scaleY(1);
-  }
 }
 
 .report-empty--chart > * {
@@ -2092,24 +1700,18 @@
   opacity: 0;
   filter: drop-shadow(0 0 5px rgba(191, 255, 0, 0.6));
   pointer-events: none;
-  animation: report-plot-signal 10s linear 3.5s infinite;
+  animation: report-plot-signal 14s linear 4s infinite;
 }
 
 .report-chart-card:nth-child(even) .report-chart-pulse {
-  animation-duration: 13s;
-  animation-delay: 8s;
+  animation-duration: 19s;
+  animation-delay: 11s;
 }
 
 .report-chart-latest-pulse {
   transform-box: fill-box;
   transform-origin: center;
   animation: report-chart-point-pulse 3.6s ease-out infinite;
-}
-
-.report-chart-latest-point {
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: report-chart-point-breathe 2.9s ease-in-out infinite alternate;
 }
 
 @keyframes report-chart-mode-in {
@@ -2125,7 +1727,7 @@
 
 @keyframes report-chart-line-breathe {
   from {
-    stroke-opacity: 0.7;
+    stroke-opacity: 0.82;
   }
   to {
     stroke-opacity: 1;
@@ -2134,7 +1736,7 @@
 
 @keyframes report-chart-area-breathe {
   from {
-    opacity: 0.55;
+    opacity: 0.76;
   }
   to {
     opacity: 1;
@@ -2143,28 +1745,17 @@
 
 @keyframes report-chart-point-pulse {
   0%,
-  46% {
+  56% {
     opacity: 0;
     transform: scale(0.72);
   }
-  54% {
-    opacity: 0.62;
+  64% {
+    opacity: 0.5;
   }
   92%,
   100% {
     opacity: 0;
-    transform: scale(2);
-  }
-}
-
-@keyframes report-chart-point-breathe {
-  from {
-    opacity: 0.65;
-    transform: scale(0.9);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1.15);
+    transform: scale(1.85);
   }
 }
 
@@ -2173,16 +1764,16 @@
     opacity: 0;
     transform: translate3d(0, 0, 0);
   }
-  12% {
-    opacity: 0.9;
+  14% {
+    opacity: 0.85;
   }
-  76% {
-    opacity: 0.9;
+  72% {
+    opacity: 0.85;
   }
-  92%,
+  94%,
   100% {
     opacity: 0;
-    transform: translate3d(430%, 0, 0);
+    transform: translate3d(515%, 0, 0);
   }
 }
 
@@ -2244,19 +1835,8 @@
     filter: none;
   }
 
-  /* Trim the cheapest-to-lose layers on phones. */
-  .report-summary__waveform-bob,
-  .report-atmosphere__grid {
-    animation: none;
-  }
-
-  .report-summary__waveform::after,
-  .report-results__featured::after {
-    animation: none;
-    opacity: 0;
-  }
-
-  .report-metric-card:not(:first-child) .report-metric-plot__pulse {
+  /* Mini result charts stay still on phones. */
+  .report-metric-plot__latest-pulse {
     animation: none;
     opacity: 0;
   }
@@ -2584,12 +2164,14 @@ a.report-vcard:hover {
   margin-top: 0.75rem;
 }
 
+/* Sized so "Comments" still fits its quarter of the four-up metrics row. */
 .report-vcard__metric-label {
   color: var(--color-muted-grey);
-  font-size: 0.6rem;
+  font-size: 0.52rem;
   font-weight: 650;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.03em;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .report-vcard__metric-value {
@@ -2810,65 +2392,42 @@ a.report-vcard:hover {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .report-atmosphere__grid,
-  .report-atmosphere__scan,
   .report-atmosphere__glow,
   .report-summary__waveform,
-  .report-summary__waveform::before,
-  .report-summary__waveform::after,
   .report-summary__waveform-glow,
   .report-summary__waveform-band,
-  .report-summary__waveform-bob,
   .report-summary__waveform-pulse,
   .report-summary::after,
   .report-delivery-card::before,
   .report-progress__fill,
   .report-progress__fill::after,
   .report-status:not(.report-status--ended) .report-status__dot,
-  .report-status:not(.report-status--ended) .report-status__dot::before,
   .report-status:not(.report-status--ended) .report-status__dot::after,
   .report-delivery-card.is-entering,
   .report-results::before,
-  .report-results::after,
   .report-results__featured::before,
-  .report-results__featured::after,
   .report-results__live--active .report-results__live-dot,
-  .report-results__live--active .report-results__live-dot::before,
   .report-results__live--active .report-results__live-dot::after,
-  .report-metric-card::before,
   .report-chart-card::before,
-  .report-chart-card::after,
   .report-chart-svg,
   .report-chart-line,
   .report-chart-area,
   .report-chart-pulse,
   .report-chart-latest-pulse,
-  .report-chart-latest-point,
   .report-metric-plot__line,
   .report-metric-plot__area,
-  .report-metric-plot__pulse,
   .report-metric-plot__latest-pulse,
-  .report-metric-plot__latest-point,
   .report-empty--chart::before,
-  .report-empty--chart::after,
   .report-loading__block {
     animation: none;
     will-change: auto;
   }
 
-  .report-atmosphere__scan,
-  .report-summary__waveform::before,
-  .report-summary__waveform::after,
   .report-summary::after,
-  .report-results::after,
-  .report-results__featured::after,
-  .report-chart-card::after,
   .report-chart-pulse,
-  .report-metric-plot__pulse,
   .report-chart-latest-pulse,
   .report-metric-plot__latest-pulse,
-  .report-empty--chart::before,
-  .report-empty--chart::after {
+  .report-empty--chart::before {
     opacity: 0;
   }
 

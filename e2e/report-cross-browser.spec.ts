@@ -173,7 +173,8 @@ test.describe("client report cross-browser quality", () => {
         }
 
         const waveformDuration = await page
-          .locator(".report-summary__waveform")
+          .locator(".report-summary__waveform-band")
+          .first()
           .evaluate((element) => getComputedStyle(element).animationDuration);
         expect(Number.parseFloat(waveformDuration)).toBeGreaterThanOrEqual(20);
         const budgetGlowDuration = await page
@@ -216,13 +217,33 @@ test.describe("client report cross-browser quality", () => {
             { timeout: 5000 },
           )
           .not.toBe(bandTransformBefore);
+        // Alive but restrained: motion must run unprompted without the page
+        // turning into a light show.
         const idleAnimations = await page.evaluate(
           () =>
-            document
-              .getAnimations()
-              .filter((animation) => animation.playState === "running").length,
+            document.getAnimations().filter((animation) => {
+              const name = (animation as CSSAnimation).animationName;
+              return (
+                animation.playState === "running" &&
+                typeof name === "string" &&
+                name.startsWith("report-")
+              );
+            }).length,
         );
-        expect(idleAnimations).toBeGreaterThanOrEqual(12);
+        expect(idleAnimations).toBeGreaterThanOrEqual(8);
+        expect(idleAnimations).toBeLessThanOrEqual(32);
+        await expect(
+          page.locator(".report-metric-card .report-metric-plot__pulse"),
+        ).toHaveCount(0);
+        expect(
+          await page
+            .locator(".report-metric-card .report-metric-plot__line")
+            .evaluateAll((lines) =>
+              lines.every(
+                (line) => getComputedStyle(line).animationName === "none",
+              ),
+            ),
+        ).toBe(true);
 
         await page.setViewportSize({ width: 390, height: 900 });
         await page.goto(reportUrl!, { waitUntil: "networkidle" });
@@ -380,10 +401,6 @@ test.describe("client report cross-browser quality", () => {
             (element) => getComputedStyle(element, "::after").animationName,
           ),
         ).toBe("none");
-        await expect(page.locator(".report-summary__waveform")).toHaveCSS(
-          "animation-name",
-          "none",
-        );
         await expect(
           page.locator(".report-summary__waveform-band").first(),
         ).toHaveCSS("animation-name", "none");
@@ -396,10 +413,14 @@ test.describe("client report cross-browser quality", () => {
             () =>
               page.evaluate(
                 () =>
-                  document
-                    .getAnimations()
-                    .filter((animation) => animation.playState === "running")
-                    .length,
+                  document.getAnimations().filter((animation) => {
+                    const name = (animation as CSSAnimation).animationName;
+                    return (
+                      animation.playState === "running" &&
+                      typeof name === "string" &&
+                      name.startsWith("report-")
+                    );
+                  }).length,
               ),
             { timeout: 5000 },
           )

@@ -102,28 +102,35 @@ function buildMetricHistory(
 
 const WAVEFORM_WIDTH = 680;
 
+type WaveformHump = { readonly span: number; readonly amplitude: number };
+
 /**
- * Periodic sine-style path. The pattern repeats every `wavelength`, so a band
- * can be translated by exactly one wavelength and loop without a visible seam.
+ * Builds an irregular wave from a repeating group of humps. Hump spans are
+ * fractions of `period` and always sum to 1 across an even number of humps, so
+ * the curve keeps its phase when a band is translated by exactly one period —
+ * it loops seamlessly while still looking hand-drawn rather than sinusoidal.
  */
 function waveformPath(
   baseline: number,
-  amplitude: number,
-  wavelength: number,
+  humps: readonly WaveformHump[],
+  period: number,
 ): string {
-  const half = wavelength / 2;
-  const segments = [`M${-wavelength} ${baseline}`];
-  let x = -wavelength;
+  const segments = [`M${-period} ${baseline}`];
+  let x = -period;
+  let index = 0;
   let crest = true;
 
-  while (x < WAVEFORM_WIDTH + wavelength * 2) {
-    const control = amplitude * (4 / 3) * (crest ? -1 : 1);
+  while (x < WAVEFORM_WIDTH + period) {
+    const hump = humps[index % humps.length];
+    const width = hump.span * period;
+    const control = hump.amplitude * (4 / 3) * (crest ? -1 : 1);
     segments.push(
-      `C${x + half / 3} ${baseline + control} ${x + (half * 2) / 3} ${
+      `C${x + width / 3} ${baseline + control} ${x + (width * 2) / 3} ${
         baseline + control
-      } ${x + half} ${baseline}`,
+      } ${x + width} ${baseline}`,
     );
-    x += half;
+    x += width;
+    index += 1;
     crest = !crest;
   }
 
@@ -132,36 +139,78 @@ function waveformPath(
 
 const WAVEFORM_BANDS = [
   {
-    wavelength: 240,
-    duration: 15,
-    bob: 9,
+    period: 268,
+    duration: 34,
     bright: false,
     lines: [
-      { baseline: 44, amplitude: 15 },
-      { baseline: 58, amplitude: 11 },
-      { baseline: 71, amplitude: 8 },
+      {
+        baseline: 58,
+        humps: [
+          { span: 0.3, amplitude: 15 },
+          { span: 0.18, amplitude: 7 },
+          { span: 0.26, amplitude: 18 },
+          { span: 0.26, amplitude: 9 },
+        ],
+      },
+      {
+        baseline: 74,
+        humps: [
+          { span: 0.22, amplitude: 9 },
+          { span: 0.34, amplitude: 16 },
+          { span: 0.2, amplitude: 6 },
+          { span: 0.24, amplitude: 12 },
+        ],
+      },
     ],
   },
   {
-    wavelength: 190,
-    duration: 21,
-    bob: 12,
+    period: 232,
+    duration: 26,
     bright: true,
     lines: [
-      { baseline: 86, amplitude: 13 },
-      { baseline: 98, amplitude: 9 },
-      { baseline: 110, amplitude: 15 },
+      {
+        baseline: 94,
+        humps: [
+          { span: 0.26, amplitude: 17 },
+          { span: 0.2, amplitude: 8 },
+          { span: 0.32, amplitude: 20 },
+          { span: 0.22, amplitude: 11 },
+        ],
+      },
+      {
+        baseline: 110,
+        humps: [
+          { span: 0.34, amplitude: 11 },
+          { span: 0.16, amplitude: 19 },
+          { span: 0.28, amplitude: 8 },
+          { span: 0.22, amplitude: 14 },
+        ],
+      },
     ],
   },
   {
-    wavelength: 310,
-    duration: 28,
-    bob: 16,
+    period: 318,
+    duration: 43,
     bright: false,
     lines: [
-      { baseline: 124, amplitude: 12 },
-      { baseline: 138, amplitude: 15 },
-      { baseline: 151, amplitude: 9 },
+      {
+        baseline: 130,
+        humps: [
+          { span: 0.24, amplitude: 13 },
+          { span: 0.3, amplitude: 8 },
+          { span: 0.2, amplitude: 19 },
+          { span: 0.26, amplitude: 10 },
+        ],
+      },
+      {
+        baseline: 146,
+        humps: [
+          { span: 0.32, amplitude: 10 },
+          { span: 0.2, amplitude: 17 },
+          { span: 0.26, amplitude: 6 },
+          { span: 0.22, amplitude: 13 },
+        ],
+      },
     ],
   },
 ] as const;
@@ -176,47 +225,34 @@ function CampaignWaveform() {
       >
         {WAVEFORM_BANDS.map((band) => (
           <g
-            key={band.wavelength}
+            key={band.period}
             className="report-summary__waveform-band"
             style={
               {
-                "--wave-shift": `${-band.wavelength}px`,
+                "--wave-shift": `${-band.period}px`,
                 "--wave-duration": `${band.duration}s`,
               } as CSSProperties
             }
           >
-            <g
-              className="report-summary__waveform-bob"
-              style={
-                { "--wave-bob": `${band.bob}s` } as CSSProperties
-              }
-            >
-              {band.lines.map((line) => (
-                <path
-                  key={line.baseline}
-                  className={`report-summary__waveform-path${
-                    band.bright
-                      ? " report-summary__waveform-path--bright"
-                      : ""
-                  }`}
-                  d={waveformPath(
-                    line.baseline,
-                    line.amplitude,
-                    band.wavelength,
-                  )}
-                />
-              ))}
-              {band.bright ? (
-                <path
-                  className="report-summary__waveform-pulse"
-                  d={waveformPath(
-                    band.lines[1].baseline,
-                    band.lines[1].amplitude,
-                    band.wavelength,
-                  )}
-                />
-              ) : null}
-            </g>
+            {band.lines.map((line) => (
+              <path
+                key={line.baseline}
+                className={`report-summary__waveform-path${
+                  band.bright ? " report-summary__waveform-path--bright" : ""
+                }`}
+                d={waveformPath(line.baseline, line.humps, band.period)}
+              />
+            ))}
+            {band.bright ? (
+              <path
+                className="report-summary__waveform-pulse"
+                d={waveformPath(
+                  band.lines[0].baseline,
+                  band.lines[0].humps,
+                  band.period,
+                )}
+              />
+            ) : null}
           </g>
         ))}
       </svg>
@@ -326,8 +362,6 @@ export function CampaignReportView({
     <ReportMotion>
       <div className="report-shell">
       <div className="report-atmosphere" aria-hidden="true">
-        <div className="report-atmosphere__grid" />
-        <div className="report-atmosphere__scan" />
         <div className="report-atmosphere__glow report-atmosphere__glow--one" />
         <div className="report-atmosphere__glow report-atmosphere__glow--two" />
       </div>
