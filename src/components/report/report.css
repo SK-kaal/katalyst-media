@@ -1540,38 +1540,21 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
-  /*
-   * A chart on its own spans the row, so its figure and its control sit
-   * beside the plot instead of above it. The chart is drawn in fixed user
-   * units, so a full-bleed plot would scale the entire drawing — axis labels
-   * and points included — to roughly double size. This keeps the plot close
-   * to the width it had as one of a pair, and fills the row honestly rather
-   * than leaving a gap where the second card used to be.
-   */
-  .report-charts--single .report-chart-card {
-    display: grid;
-    grid-template-columns: 24% minmax(0, 1fr);
-    /* The figure sits at the top of the card, level with the plot, rather
-       than floating in the middle of it. */
-    align-items: start;
-    gap: 1.5rem;
-  }
-
-  .report-charts--single .report-chart-card__head {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 1.35rem;
-    margin-bottom: 0;
-  }
-
   /* Two charts share a row, so each keeps a compact plot. */
   .report-chart-plot {
     height: 13.5rem;
   }
 
-  /* A chart on its own gets the depth to justify the space. */
+  /*
+   * A chart on its own is the section's feature: the figure and its control
+   * sit above a plot that runs the full width of the card.
+   */
+  .report-charts--single .report-chart-card__head {
+    margin-bottom: 0.9rem;
+  }
+
   .report-charts--single .report-chart-plot {
-    height: 22.5rem;
+    height: 14rem;
   }
 }
 
@@ -1816,7 +1799,8 @@
 
 .report-chart-axis {
   fill: var(--report-text-secondary);
-  font-size: 10px;
+  /* Absolute, because the chart is drawn 1:1 with its box. */
+  font-size: 11px;
   font-variant-numeric: tabular-nums;
 }
 

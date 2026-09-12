@@ -119,8 +119,9 @@ function ChartCard({
   const h = plotBox?.h ?? 240;
   const padL = 48;
   const padR = 18;
-  const padT = 18;
-  const padB = 32;
+  // Just enough to clear the top y-label and sit the dates under the axis.
+  const padT = 14;
+  const padB = 28;
   const plotW = w - padL - padR;
   const plotH = h - padT - padB;
 
@@ -353,15 +354,14 @@ function ChartCard({
           >
             <defs>
               {/*
-                Stops are proportions of the filled area, so on a tall plot
-                they have to fall away sooner — held at the old positions the
-                light stops reading as a glow under the line and becomes a
-                field of green.
+                Falls away quickly so the light reads as a glow under the line
+                and the lower half of the plot stays dark, rather than the
+                fill becoming a block of green.
               */}
               <linearGradient id={`fill-${gid}`} x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="rgba(191,255,0,0.1)" />
-                <stop offset="34%" stopColor="rgba(191,255,0,0.028)" />
-                <stop offset="78%" stopColor="rgba(191,255,0,0)" />
+                <stop offset="26%" stopColor="rgba(191,255,0,0.024)" />
+                <stop offset="66%" stopColor="rgba(191,255,0,0)" />
               </linearGradient>
             </defs>
 
