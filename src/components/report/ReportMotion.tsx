@@ -108,6 +108,7 @@ export function ReportMotion({ children }: { children: ReactNode }) {
           });
         }
         if (delivery) {
+          delivery.classList.add("is-entering");
           timeline.to(
             delivery,
             {
@@ -115,6 +116,11 @@ export function ReportMotion({ children }: { children: ReactNode }) {
               y: 0,
               duration: 0.36,
               clearProps: "opacity,visibility,transform",
+              onComplete: () => {
+                window.setTimeout(() => {
+                  delivery.classList.remove("is-entering");
+                }, 1100);
+              },
             },
             0.08,
           );

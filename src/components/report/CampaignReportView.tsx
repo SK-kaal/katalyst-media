@@ -292,6 +292,20 @@ export function CampaignReportView({
             className="report-overview-card report-delivery-card"
             aria-label="Campaign budget and delivery"
           >
+            <div className="report-delivery-card__contours" aria-hidden="true">
+              <svg viewBox="0 0 220 160" preserveAspectRatio="xMaxYMin slice">
+                {[18, 34, 50, 66, 82, 98, 114, 130].map((radius) => (
+                  <circle
+                    key={radius}
+                    cx="210"
+                    cy="8"
+                    r={radius}
+                    fill="none"
+                  />
+                ))}
+              </svg>
+            </div>
+
             <div className="report-delivery-card__budget">
               <p className="report-summary__budget-label">Campaign Budget</p>
               <p className="report-summary__budget-value">
@@ -301,20 +315,30 @@ export function CampaignReportView({
                 />
               </p>
             </div>
+
             <div className="report-delivery-card__divider" aria-hidden="true" />
+
             <div className="report-delivery-card__content">
               <div className="report-card__eyebrow">Campaign Delivery</div>
               <div className="report-delivery__row">
-                <div>
+                <div className="report-delivery__stats">
                   <p className="report-card__value">
-                    {campaign.target_posts != null
-                      ? `${metrics.posts} / ${Number(campaign.target_posts)}`
-                      : formatFullNumber(metrics.posts)}
+                    {campaign.target_posts != null ? (
+                      <>
+                        <AnimatedValue value={metrics.posts} />
+                        <span className="report-delivery__separator"> / </span>
+                        {formatFullNumber(Number(campaign.target_posts))}
+                      </>
+                    ) : (
+                      <AnimatedValue value={metrics.posts} />
+                    )}
                   </p>
                   <p className="report-delivery__label">Campaign Posts</p>
                 </div>
                 {campaign.target_posts != null ? (
-                  <p className="report-delivery__pct">{deliveryPct}% complete</p>
+                  <span className="report-delivery__pct">
+                    {deliveryPct}% complete
+                  </span>
                 ) : null}
               </div>
               {campaign.target_posts != null ? (
