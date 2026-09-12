@@ -4,28 +4,37 @@
   min-height: 100svh;
 }
 
-.report-motion-root--paused .report-overview-card::before,
 .report-motion-root--paused .report-summary__waveform,
-.report-motion-root--paused .report-delivery-card__contours,
+.report-motion-root--paused .report-delivery-card::before,
 .report-motion-root--paused .report-results__live-dot::after,
 .report-motion-root--paused .report-loading__block {
   animation-play-state: paused;
 }
 
 .report-shell {
+  --report-bg: #050605;
+  --report-card: #090c0a;
+  --report-raised: #0d110e;
+  --report-border: rgba(135, 165, 140, 0.16);
+  --report-text: #f4f5f3;
+  --report-text-secondary: #929a94;
+  --report-neon: #bfff00;
+  --color-deep-black: var(--report-bg);
+  --color-graphite: #141816;
+  --color-off-white: var(--report-text);
+  --color-soft-grey: #a7aea9;
+  --color-muted-grey: var(--report-text-secondary);
+  --color-acid-lime: var(--report-neon);
   position: relative;
   min-height: 100svh;
   overflow-x: clip;
-  background:
-    radial-gradient(ellipse 70% 45% at 100% 0%, rgba(198, 255, 0, 0.07), transparent 55%),
-    radial-gradient(ellipse 50% 40% at 0% 100%, rgba(198, 255, 0, 0.04), transparent 50%),
-    var(--color-deep-black);
-  color: var(--color-off-white);
+  background: var(--report-bg);
+  color: var(--report-text);
   text-rendering: optimizeLegibility;
 }
 
 .report-shell :where(a, button, select):focus-visible {
-  outline: 2px solid var(--color-acid-lime);
+  outline: 2px solid var(--report-neon);
   outline-offset: 3px;
 }
 
@@ -36,8 +45,8 @@
   gap: 0.75rem 1rem;
   min-height: 4.75rem;
   padding: 1.3rem clamp(1.25rem, 3.5vw, 3rem);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(10, 10, 12, 0.96);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(5, 6, 5, 0.96);
 }
 
 .report-header__center {
@@ -121,16 +130,16 @@
 }
 
 .report-loading__block {
-  border: 1px solid rgba(255, 255, 255, 0.055);
+  border: 1px solid var(--report-border);
   border-radius: 18px;
   background:
     linear-gradient(
       100deg,
       transparent 25%,
-      rgba(255, 255, 255, 0.035) 45%,
+      rgba(255, 255, 255, 0.03) 45%,
       transparent 65%
     ),
-    rgba(16, 16, 18, 0.9);
+    var(--report-card);
   background-size: 240% 100%;
   animation: report-loading-pulse 1.4s ease-in-out infinite;
 }
@@ -191,166 +200,127 @@
   isolation: isolate;
   overflow: hidden;
   min-width: 0;
-  border: 1px solid rgba(255, 255, 255, 0.075);
+  border: 1px solid var(--report-border);
   border-radius: 16px;
-  background:
-    linear-gradient(135deg, rgba(18, 22, 20, 0.98), rgba(10, 13, 12, 0.98)),
-    rgba(15, 17, 17, 0.98);
+  background: var(--report-card);
 }
 
 .report-overview-card::before {
-  content: "";
-  position: absolute;
-  z-index: -1;
-  inset: -18%;
-  pointer-events: none;
-  opacity: 0.38;
-  transform-origin: 72% 50%;
-  background:
-    radial-gradient(ellipse 35% 58% at 77% 44%, rgba(198, 255, 0, 0.16), transparent 70%),
-    repeating-radial-gradient(
-      ellipse 44% 38% at 75% 50%,
-      transparent 0 12px,
-      rgba(198, 255, 0, 0.11) 13px,
-      transparent 14px 23px
-    );
-  -webkit-mask-image: linear-gradient(90deg, transparent 18%, #000 58%, #000 100%);
-  mask-image: linear-gradient(90deg, transparent 18%, #000 58%, #000 100%);
-  animation: report-decor-drift 22s ease-in-out infinite alternate;
-  will-change: transform, opacity;
+  content: none;
 }
 
 .report-summary::before {
-  opacity: 0.24;
-  background: radial-gradient(
-    ellipse 42% 68% at 72% 50%,
-    rgba(198, 255, 0, 0.14),
-    transparent 72%
-  );
+  content: none;
 }
 
 .report-summary__waveform {
   position: absolute;
-  z-index: -1;
-  inset: 8% -5% 5% 32%;
+  z-index: 0;
+  inset: 10% -4% 8% 34%;
   overflow: hidden;
   pointer-events: none;
-  opacity: 0.28;
   transform-origin: center;
-  -webkit-mask-image: linear-gradient(90deg, transparent, #000 25%, #000 86%, transparent);
-  mask-image: linear-gradient(90deg, transparent, #000 25%, #000 86%, transparent);
-  animation: report-waveform-drift 26s ease-in-out infinite alternate;
-  will-change: transform, opacity;
+  -webkit-mask-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    #000 28%,
+    #000 72%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    #000 28%,
+    #000 72%,
+    transparent 100%
+  );
+  animation: report-waveform-drift 28s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+.report-summary__waveform-glow {
+  position: absolute;
+  z-index: 0;
+  top: 18%;
+  left: 28%;
+  width: 44%;
+  height: 64%;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(191, 255, 0, 0.11) 0%,
+    rgba(191, 255, 0, 0.04) 32%,
+    rgba(191, 255, 0, 0) 70%
+  );
+  filter: blur(18px);
+  pointer-events: none;
 }
 
 .report-summary__waveform svg {
+  position: relative;
+  z-index: 1;
   width: 100%;
   height: 100%;
 }
 
-.report-summary__waveform path {
+.report-summary__waveform-path {
   fill: none;
-  stroke: rgba(198, 255, 0, 0.32);
-  stroke-width: 0.8;
+  stroke: rgba(191, 255, 0, 0.07);
+  stroke-width: 0.7;
   vector-effect: non-scaling-stroke;
+}
+
+.report-summary__waveform-path--bright {
+  stroke: rgba(191, 255, 0, 0.28);
+  stroke-width: 0.85;
 }
 
 .report-delivery-card::before {
-  inset: -30% -20% -10% 20%;
-  opacity: 0.55;
-  transform-origin: 92% 8%;
-  background: radial-gradient(
-    circle at 88% 8%,
-    rgba(198, 255, 0, 0.22),
-    rgba(198, 255, 0, 0.06) 28%,
-    transparent 52%
-  );
-  -webkit-mask-image: none;
-  mask-image: none;
-  animation: report-delivery-glow 26s ease-in-out infinite alternate;
-}
-
-.report-delivery-card__contours {
+  content: "";
   position: absolute;
   z-index: 0;
-  top: -8%;
-  right: -6%;
-  width: min(72%, 13.5rem);
-  height: 58%;
+  inset: 0;
   pointer-events: none;
-  opacity: 0.55;
-  -webkit-mask-image: linear-gradient(125deg, transparent 8%, #000 42%, #000 100%);
-  mask-image: linear-gradient(125deg, transparent 8%, #000 42%, #000 100%);
-  animation: report-contour-drift 28s ease-in-out infinite alternate;
+  background: radial-gradient(
+    circle at 100% 0%,
+    rgba(191, 255, 0, 0.14) 0%,
+    rgba(191, 255, 0, 0.05) 14%,
+    rgba(191, 255, 0, 0) 40%
+  );
+  animation: report-delivery-glow 15s ease-in-out infinite alternate;
   will-change: transform, opacity;
-}
-
-.report-delivery-card__contours svg {
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-
-.report-delivery-card__contours circle {
-  stroke: rgba(198, 255, 0, 0.28);
-  stroke-width: 1;
-  vector-effect: non-scaling-stroke;
 }
 
 @keyframes report-delivery-glow {
   from {
-    opacity: 0.42;
+    opacity: 0.72;
     transform: translate3d(0, 0, 0) scale(1);
   }
   to {
-    opacity: 0.62;
-    transform: translate3d(-1.5%, 1%, 0) scale(1.04);
-  }
-}
-
-@keyframes report-contour-drift {
-  from {
-    opacity: 0.42;
-    transform: translate3d(0, 0.4%, 0) scale(1);
-  }
-  to {
-    opacity: 0.62;
-    transform: translate3d(-2.2%, -1.2%, 0) scale(1.03);
+    opacity: 1;
+    transform: translate3d(-2.5%, 2%, 0) scale(1.05);
   }
 }
 
 @keyframes report-delivery-border-in {
   0% {
-    border-color: rgba(198, 255, 0, 0.42);
+    border-color: rgba(191, 255, 0, 0.34);
     box-shadow:
-      0 0 0 1px rgba(198, 255, 0, 0.12),
-      inset 0 1px 0 rgba(198, 255, 0, 0.08);
+      0 0 0 1px rgba(191, 255, 0, 0.08),
+      inset 0 1px 0 rgba(191, 255, 0, 0.05);
   }
   100% {
-    border-color: rgba(255, 255, 255, 0.075);
+    border-color: var(--report-border);
     box-shadow: none;
   }
 }
 
 @keyframes report-waveform-drift {
   from {
-    opacity: 0.2;
-    transform: translate3d(-1.2%, 0.5%, 0) scale(1);
+    transform: translate3d(-1%, 0.4%, 0) scale(1);
   }
   to {
-    opacity: 0.32;
-    transform: translate3d(1.2%, -0.5%, 0) scale(1.015);
-  }
-}
-
-@keyframes report-decor-drift {
-  0% {
-    transform: translate3d(-1.25%, 0, 0) scale(1);
-    opacity: 0.28;
-  }
-  100% {
-    transform: translate3d(1.25%, -0.5%, 0) scale(1.018);
-    opacity: 0.42;
+    transform: translate3d(1.1%, -0.5%, 0) scale(1.012);
   }
 }
 
@@ -364,6 +334,8 @@
 }
 
 .report-summary__art {
+  position: relative;
+  z-index: 1;
   display: block;
   overflow: hidden;
   width: 7rem;
@@ -371,7 +343,7 @@
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 12px;
   background: var(--color-graphite);
-  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.28);
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.4);
 }
 
 .report-summary__art img {
@@ -386,9 +358,7 @@
   width: 100%;
   height: 100%;
   place-items: center;
-  background:
-    radial-gradient(circle at 30% 25%, rgba(198, 255, 0, 0.08), transparent 45%),
-    rgba(255, 255, 255, 0.018);
+  background: rgba(255, 255, 255, 0.02);
   color: rgba(255, 255, 255, 0.28);
 }
 
@@ -398,6 +368,8 @@
 }
 
 .report-summary__identity {
+  position: relative;
+  z-index: 1;
   min-width: 0;
   padding-top: 1.8rem;
 }
@@ -460,10 +432,10 @@
 
 .report-summary__sound-icon:hover,
 .report-summary__sound-icon:focus-visible {
-  border-color: rgba(198, 255, 0, 0.72);
-  background: rgba(198, 255, 0, 0.055);
-  color: var(--color-acid-lime);
-  box-shadow: 0 0 18px rgba(198, 255, 0, 0.08);
+  border-color: rgba(191, 255, 0, 0.55);
+  background: rgba(191, 255, 0, 0.04);
+  color: var(--report-neon);
+  box-shadow: 0 0 14px rgba(191, 255, 0, 0.06);
 }
 
 .report-summary__sound-tooltip {
@@ -499,6 +471,7 @@
 
 .report-status {
   position: absolute;
+  z-index: 2;
   top: 1rem;
   right: 1rem;
   display: inline-flex;
@@ -506,7 +479,7 @@
   gap: 0.38rem;
   width: fit-content;
   padding: 0.3rem 0.65rem;
-  border: 1px solid rgba(198, 255, 0, 0.35);
+  border: 1px solid rgba(135, 165, 140, 0.4);
   border-radius: 999px;
   color: var(--color-off-white);
   font-size: 0.62rem;
@@ -538,11 +511,8 @@
   gap: 0;
   min-height: 12.5rem;
   padding: 1.35rem 1.4rem 1.25rem;
-  border-color: rgba(160, 180, 140, 0.16);
-  background:
-    linear-gradient(160deg, rgba(16, 20, 18, 0.99), rgba(9, 11, 11, 0.99)),
-    rgba(12, 14, 14, 0.98);
-  box-shadow: inset 0 1px 0 rgba(198, 255, 0, 0.04);
+  background: var(--report-card);
+  box-shadow: none;
 }
 
 .report-delivery-card.is-entering {
@@ -568,8 +538,8 @@
   background: linear-gradient(
     90deg,
     transparent,
-    rgba(255, 255, 255, 0.1) 12%,
-    rgba(255, 255, 255, 0.1) 88%,
+    rgba(255, 255, 255, 0.08) 12%,
+    rgba(255, 255, 255, 0.08) 88%,
     transparent
   );
 }
@@ -643,15 +613,17 @@
   flex-shrink: 0;
   margin-top: 0.35rem;
   padding: 0.28rem 0.62rem;
-  border: 1px solid rgba(198, 255, 0, 0.34);
+  border: 1px solid rgba(135, 165, 140, 0.34);
   border-radius: 999px;
-  color: rgba(220, 255, 140, 0.92);
+  color: var(--report-neon);
   font-size: 0.68rem;
   font-weight: 580;
   letter-spacing: 0.01em;
   white-space: nowrap;
-  background: rgba(198, 255, 0, 0.04);
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.2);
+  background: rgba(5, 6, 5, 0.92);
+  box-shadow:
+    0 0 12px rgba(191, 255, 0, 0.06),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.35);
 }
 
 .report-progress {
@@ -665,8 +637,8 @@
 .report-progress__fill {
   height: 100%;
   border-radius: inherit;
-  background: var(--color-acid-lime);
-  box-shadow: 0 0 10px rgba(198, 255, 0, 0.18);
+  background: var(--report-neon);
+  box-shadow: 0 0 8px rgba(191, 255, 0, 0.12);
   transition: width 180ms var(--ease-ui);
 }
 
@@ -771,22 +743,15 @@
     padding: 0.24rem 0.52rem;
     font-size: 0.64rem;
   }
-
-  .report-delivery-card__contours {
-    width: min(68%, 11rem);
-    height: 52%;
-  }
 }
 
 /* —— Campaign results —— */
 .report-results {
   margin-top: 1.2rem;
   padding: 1.05rem;
-  border: 1px solid rgba(255, 255, 255, 0.075);
+  border: 1px solid var(--report-border);
   border-radius: 16px;
-  background:
-    radial-gradient(ellipse 48% 55% at 55% 40%, rgba(198, 255, 0, 0.035), transparent),
-    rgba(14, 17, 16, 0.96);
+  background: var(--report-card);
 }
 
 @media (min-width: 900px) {
@@ -847,7 +812,7 @@
   content: "";
   position: absolute;
   inset: -0.25rem;
-  border: 1px solid rgba(198, 255, 0, 0.5);
+  border: 1px solid rgba(191, 255, 0, 0.45);
   border-radius: inherit;
   animation: report-live-pulse 2s ease-out infinite;
 }
@@ -878,11 +843,15 @@
   min-height: 10.5rem;
   overflow: hidden;
   padding: 1rem;
-  border: 1px solid rgba(198, 255, 0, 0.12);
+  border: 1px solid var(--report-border);
   border-radius: 11px;
   background:
-    radial-gradient(ellipse 70% 80% at 80% 20%, rgba(198, 255, 0, 0.14), transparent 70%),
-    rgba(5, 9, 7, 0.74);
+    radial-gradient(
+      ellipse 50% 60% at 90% 8%,
+      rgba(191, 255, 0, 0.055),
+      transparent 55%
+    ),
+    var(--report-raised);
 }
 
 .report-results__featured-head {
@@ -923,11 +892,9 @@
   min-width: 0;
   min-height: 5rem;
   padding: 0.8rem 0.9rem;
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  border: 1px solid var(--report-border);
   border-radius: 11px;
-  background:
-    linear-gradient(120deg, rgba(255, 255, 255, 0.018), transparent 70%),
-    rgba(4, 7, 6, 0.58);
+  background: var(--report-raised);
   overflow: hidden;
 }
 
@@ -969,7 +936,7 @@
   align-self: end;
   height: clamp(6.3rem, 10vw, 8rem);
   margin-top: 0.55rem;
-  border-top: 1px solid rgba(198, 255, 0, 0.08);
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
   border-radius: 0;
 }
 
@@ -1085,11 +1052,9 @@
 }
 
 .report-panel {
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  border: 1px solid var(--report-border);
   border-radius: 16px;
-  background:
-    linear-gradient(140deg, rgba(16, 20, 18, 0.96), rgba(10, 13, 12, 0.96)),
-    rgba(14, 16, 15, 0.96);
+  background: var(--report-card);
   padding: 1.05rem 1.1rem 1.1rem;
 }
 
@@ -1213,7 +1178,7 @@
 .report-toggle button.is-active {
   background: var(--color-acid-lime);
   color: #0a0a0a;
-  box-shadow: 0 0 14px rgba(198, 255, 0, 0.12);
+  box-shadow: 0 0 14px rgba(191, 255, 0, 0.1);
 }
 
 .report-chart-plot {
@@ -1244,10 +1209,10 @@
   .report-results__featured:hover,
   .report-metric-card:hover,
   .report-chart-card:hover {
-    border-color: rgba(198, 255, 0, 0.2);
+    border-color: rgba(191, 255, 0, 0.22);
     box-shadow:
-      0 12px 30px rgba(0, 0, 0, 0.18),
-      inset 0 1px 0 rgba(198, 255, 0, 0.025);
+      0 12px 30px rgba(0, 0, 0, 0.28),
+      inset 0 1px 0 rgba(255, 255, 255, 0.02);
     transform: translateY(-1px);
   }
 
@@ -1401,7 +1366,7 @@
 
 .report-tool-btn:hover,
 .report-tool-btn.is-active {
-  border-color: rgba(198, 255, 0, 0.45);
+  border-color: rgba(191, 255, 0, 0.45);
   color: var(--color-off-white);
 }
 
@@ -1421,7 +1386,7 @@
   overflow-x: auto;
   overscroll-behavior-inline: contain;
   scroll-snap-type: inline proximity;
-  scrollbar-color: rgba(198, 255, 0, 0.35) rgba(255, 255, 255, 0.06);
+  scrollbar-color: rgba(191, 255, 0, 0.35) rgba(255, 255, 255, 0.06);
   scrollbar-width: thin;
 }
 
@@ -1476,7 +1441,7 @@
 }
 
 a.report-vcard:hover {
-  border-color: rgba(198, 255, 0, 0.3);
+  border-color: rgba(191, 255, 0, 0.3);
   box-shadow: 0 12px 36px rgba(0, 0, 0, 0.35);
 }
 
@@ -1608,7 +1573,7 @@ a.report-vcard:hover {
   width: 100%;
   margin-top: 0.85rem;
   min-height: 2.2rem;
-  border: 1px solid rgba(198, 255, 0, 0.4);
+  border: 1px solid rgba(191, 255, 0, 0.4);
   border-radius: 999px;
   background: rgba(0, 0, 0, 0.35);
   color: var(--color-off-white);
@@ -1620,7 +1585,7 @@ a.report-vcard:hover {
 .report-vcard:hover .report-vcard__cta {
   border-color: var(--color-acid-lime);
   color: var(--color-acid-lime);
-  background: rgba(198, 255, 0, 0.06);
+  background: rgba(191, 255, 0, 0.06);
 }
 
 /* Compact all-content cards */
@@ -1743,7 +1708,7 @@ a.report-vcard:hover {
 }
 
 .report-page-btn.is-active {
-  border-color: rgba(198, 255, 0, 0.5);
+  border-color: rgba(191, 255, 0, 0.5);
   color: var(--color-acid-lime);
 }
 
@@ -1811,9 +1776,8 @@ a.report-vcard:hover {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .report-overview-card::before,
   .report-summary__waveform,
-  .report-delivery-card__contours,
+  .report-delivery-card::before,
   .report-delivery-card.is-entering,
   .report-results__live--active .report-results__live-dot::after,
   .report-loading__block {

@@ -102,12 +102,19 @@ function buildMetricHistory(
 function CampaignWaveform() {
   return (
     <div className="report-summary__waveform" aria-hidden="true">
+      <div className="report-summary__waveform-glow" />
       <svg viewBox="0 0 680 190" preserveAspectRatio="none">
         {Array.from({ length: 9 }, (_, index) => {
           const y = 50 + index * 10;
+          const bright = index >= 3 && index <= 5;
           return (
             <path
               key={y}
+              className={
+                bright
+                  ? "report-summary__waveform-path report-summary__waveform-path--bright"
+                  : "report-summary__waveform-path"
+              }
               d={`M-30 ${y} C80 ${18 + index * 7}, 155 ${
                 132 - index * 3
               }, 270 ${72 + index * 5} S470 ${
@@ -292,20 +299,6 @@ export function CampaignReportView({
             className="report-overview-card report-delivery-card"
             aria-label="Campaign budget and delivery"
           >
-            <div className="report-delivery-card__contours" aria-hidden="true">
-              <svg viewBox="0 0 220 160" preserveAspectRatio="xMaxYMin slice">
-                {[18, 34, 50, 66, 82, 98, 114, 130].map((radius) => (
-                  <circle
-                    key={radius}
-                    cx="210"
-                    cy="8"
-                    r={radius}
-                    fill="none"
-                  />
-                ))}
-              </svg>
-            </div>
-
             <div className="report-delivery-card__budget">
               <p className="report-summary__budget-label">Campaign Budget</p>
               <p className="report-summary__budget-value">

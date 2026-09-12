@@ -182,10 +182,10 @@ export function ReportMetricChart({
             <stop
               offset="0%"
               stopColor={
-                featured ? "rgba(198,255,0,0.30)" : "rgba(198,255,0,0.16)"
+                featured ? "rgba(191,255,0,0.22)" : "rgba(191,255,0,0.12)"
               }
             />
-            <stop offset="100%" stopColor="rgba(198,255,0,0)" />
+            <stop offset="100%" stopColor="rgba(191,255,0,0)" />
           </linearGradient>
         </defs>
 

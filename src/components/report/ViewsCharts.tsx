@@ -253,8 +253,8 @@ function ChartCard({
           >
             <defs>
               <linearGradient id={`fill-${gid}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="rgba(198,255,0,0.12)" />
-                <stop offset="100%" stopColor="rgba(198,255,0,0)" />
+                <stop offset="0%" stopColor="rgba(191,255,0,0.1)" />
+                <stop offset="100%" stopColor="rgba(191,255,0,0)" />
               </linearGradient>
             </defs>
 
@@ -305,7 +305,7 @@ function ChartCard({
               ref={lineRef}
               points={line}
               fill="none"
-              stroke="#c6ff00"
+              stroke="#bfff00"
               strokeWidth="1.8"
               strokeLinejoin="round"
               strokeLinecap="round"
@@ -327,7 +327,7 @@ function ChartCard({
                   cy={active.y}
                   r="4.5"
                   fill="#0a0a0a"
-                  stroke="#c6ff00"
+                  stroke="#bfff00"
                   strokeWidth="2"
                   vectorEffect="non-scaling-stroke"
                 />
@@ -337,7 +337,7 @@ function ChartCard({
                 cx={latest.x}
                 cy={latest.y}
                 r="3.5"
-                fill="#c6ff00"
+                fill="#bfff00"
               />
             ) : null}
 
