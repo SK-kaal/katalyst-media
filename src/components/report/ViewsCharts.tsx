@@ -37,6 +37,7 @@ function ChartCard({
   totalLabel,
   totalValue,
   series,
+  emptyTitle = "Not enough data yet",
   emptyHint,
   valueNoun,
 }: {
@@ -44,6 +45,7 @@ function ChartCard({
   totalLabel: string;
   totalValue: number | null;
   series: ReportChartPoint[];
+  emptyTitle?: string;
   emptyHint: string;
   valueNoun: string;
 }) {
@@ -285,7 +287,7 @@ function ChartCard({
 
       {!showChart ? (
         <div className="report-empty report-empty--chart">
-          <p>Not enough data yet</p>
+          <p>{emptyTitle}</p>
           <p className="report-empty__hint">{emptyHint}</p>
         </div>
       ) : (
@@ -481,6 +483,12 @@ export function ViewsCharts({
   viewsTotal: number | null;
   showCreations?: boolean;
 }) {
+  // TikTok stopped publishing how many videos use a sound, so this chart can
+  // be waiting on a second day of history or on a figure that will never
+  // arrive. Saying "not enough data yet" for the second case promises the
+  // client something that no amount of waiting delivers.
+  const creationsUnavailable = creations.length === 0 && creationsTotal == null;
+
   return (
     <div
       className={`report-charts${showCreations ? "" : " report-charts--single"}`}
@@ -492,7 +500,14 @@ export function ViewsCharts({
           totalValue={creationsTotal}
           series={creations}
           valueNoun="creations"
-          emptyHint="Tracking has just started. Charts will appear after additional sound refreshes."
+          emptyTitle={
+            creationsUnavailable ? "Not published by TikTok" : "Building history"
+          }
+          emptyHint={
+            creationsUnavailable
+              ? "TikTok no longer shares how many videos use a sound. Every other figure on this report is tracked daily."
+              : "One day recorded so far. This chart appears once there are two days to compare."
+          }
         />
       ) : null}
       <ChartCard
@@ -501,7 +516,8 @@ export function ViewsCharts({
         totalValue={viewsTotal}
         series={views}
         valueNoun="views"
-        emptyHint="Tracking has just started. Charts will appear after additional refreshes."
+        emptyTitle="Building history"
+        emptyHint="Views are recorded daily. This chart appears once there are two days to compare."
       />
     </div>
   );
