@@ -29,3 +29,24 @@ export async function createAdminClient() {
   await ensureSupabaseBridge(supabase);
   return supabase;
 }
+
+/**
+ * Data client for scheduled work. Carries the same portal privileges as the
+ * admin client but holds its session in memory, because cron invocations have
+ * no cookie jar and no access-code session to check.
+ */
+export async function createScheduledClient() {
+  if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return createServiceClient();
+  }
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !key) {
+    throw new Error("Missing Supabase configuration");
+  }
+  const supabase = createSupabaseClient<Database>(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  await ensureSupabaseBridge(supabase);
+  return supabase;
+}

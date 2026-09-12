@@ -129,12 +129,19 @@ async function sha256Bytes(value: string) {
   );
 }
 
-/** Timing-safe compare of submitted code against ADMIN_ACCESS_CODE (server-only). */
-export async function verifyAccessCode(submitted: string): Promise<boolean> {
-  const expected = expectedAccessCode();
+/** Timing-safe compare of two secrets of any length (server-only). */
+export async function verifySecret(
+  submitted: string,
+  expected: string,
+): Promise<boolean> {
   const left = await sha256Bytes(submitted);
   const right = await sha256Bytes(expected);
   return timingSafeEqualBytes(left, right);
+}
+
+/** Timing-safe compare of submitted code against ADMIN_ACCESS_CODE (server-only). */
+export async function verifyAccessCode(submitted: string): Promise<boolean> {
+  return verifySecret(submitted, expectedAccessCode());
 }
 
 export function adminCookieOptions(maxAge = ADMIN_SESSION_MAX_AGE_SEC) {
