@@ -478,6 +478,11 @@ export function CampaignReportView({
           </div>
         </section>
 
+        {/*
+          The client report does not show TikTok Creations. Sound usage is
+          still tracked and still shown in the portal — TikTok just no longer
+          publishes the figure reliably enough to put in front of a client.
+        */}
         <ViewsCharts
           creations={creationsSeries}
           views={viewsSeries}
@@ -487,7 +492,7 @@ export function CampaignReportView({
               : null
           }
           viewsTotal={metrics.views}
-          showCreations={Boolean(soundUrl)}
+          showCreations={false}
         />
 
         <section className="report-section report-section--featured">

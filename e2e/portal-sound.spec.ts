@@ -314,10 +314,16 @@ test.describe.serial("TikTok sound management", () => {
     expect(JSON.stringify(sharedReport)).not.toMatch(
       /internal_notes|share_token|client_id|campaign_id|last_sync_error|"email"/i,
     );
-    await reportPage.reload();
+    // The tracked count still reaches the UI, but in the portal only: the
+    // client report deliberately does not carry a TikTok Creations card,
+    // because TikTok no longer publishes the figure reliably. The payload
+    // assertion above proves the tracking itself is unaffected.
+    await page.reload();
     await expect(
-      reportPage.locator(".report-chart-card").filter({ hasText: "TikTok Creations" }),
+      page.locator(".report-chart-card").filter({ hasText: "TikTok Creations" }),
     ).toContainText("222");
+    await reportPage.reload();
+    await expect(reportPage.getByText("TikTok Creations")).toHaveCount(0);
 
     // Case F: remove only sound-specific active data.
     await openSoundMenu(page);
