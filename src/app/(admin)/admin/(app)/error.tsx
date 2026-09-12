@@ -15,8 +15,8 @@ export default function AdminError({
   }, [error]);
 
   return (
-    <section className="admin-card mx-auto max-w-xl p-8 text-center" role="alert">
-      <p className="admin-kicker">Unable to load</p>
+    <section className="admin-panel mx-auto max-w-xl p-8 text-center" role="alert">
+      <p className="admin-page-eyebrow">Unable to load</p>
       <h1 className="mt-2 text-2xl font-semibold text-off-white">
         Something went wrong
       </h1>

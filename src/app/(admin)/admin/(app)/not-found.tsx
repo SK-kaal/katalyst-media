@@ -2,8 +2,8 @@ import Link from "next/link";
 
 export default function AdminNotFound() {
   return (
-    <section className="admin-card mx-auto max-w-xl p-8 text-center">
-      <p className="admin-kicker">Not found</p>
+    <section className="admin-panel mx-auto max-w-xl p-8 text-center">
+      <p className="admin-page-eyebrow">Not found</p>
       <h1 className="mt-2 text-2xl font-semibold text-off-white">
         This portal record does not exist
       </h1>

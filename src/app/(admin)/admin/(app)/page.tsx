@@ -178,7 +178,7 @@ export default async function CampaignLibraryPage({
                 <li key={c.id}>
                   <Link
                     href={`/admin/campaigns/${c.id}${sync.tone === "bad" ? "?tab=content" : ""}`}
-                    className="inline-flex max-w-[18rem] flex-col rounded-md border border-white/10 bg-black/20 px-3 py-2 hover:border-[#ffd27a]/40"
+                    className="inline-flex max-w-[18rem] flex-col rounded-md border border-[color:var(--admin-border)] bg-black/20 px-3 py-2 hover:border-[#ffd27a]/40"
                   >
                     <span className="truncate text-sm font-semibold">
                       {campaignHeadline(c, client)}
@@ -210,7 +210,7 @@ export default async function CampaignLibraryPage({
                   className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
                     status === key
                       ? "border-acid-lime text-acid-lime"
-                      : "border-white/10 text-soft-grey hover:border-white/20"
+                      : "border-[color:var(--admin-border)] text-soft-grey hover:border-[color:var(--admin-border-strong)]"
                   }`}
                 >
                   {label} ({counts[key]})
@@ -222,7 +222,7 @@ export default async function CampaignLibraryPage({
             className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
               viewTrash
                 ? "border-acid-lime text-acid-lime"
-                : "border-white/10 text-soft-grey hover:border-white/20"
+                : "border-[color:var(--admin-border)] text-soft-grey hover:border-[color:var(--admin-border-strong)]"
             }`}
           >
             Trash
@@ -355,7 +355,7 @@ export default async function CampaignLibraryPage({
                       <span className="text-muted-grey">Creations n/a</span>
                     )}
                   </div>
-                  <div className="mt-3 flex items-center justify-between gap-2 border-t border-white/5 pt-2 text-[0.7rem]">
+                  <div className="mt-3 flex items-center justify-between gap-2 border-t border-[color:var(--admin-border-soft)] pt-2 text-[0.7rem]">
                     <span className="text-muted-grey">
                       {formatGbp(Number(campaign.budget))} Budget
                     </span>

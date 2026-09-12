@@ -344,7 +344,7 @@ export function CampaignEditor({
               <img src={artwork} alt="" className="size-full object-cover" />
             ) : (
               <span className="grid size-full place-items-center">
-                <Music2 className="size-5 text-white/20" aria-hidden="true" />
+                <Music2 className="size-5 text-muted-grey/70" aria-hidden="true" />
               </span>
             )}
           </div>
@@ -821,7 +821,7 @@ export function CampaignEditor({
             {showManual ? (
               <form
                 id="manual-post-form"
-                className="grid gap-3 border-t border-white/8 pt-4 sm:grid-cols-2"
+                className="grid gap-3 border-t border-[color:var(--admin-border)] pt-4 sm:grid-cols-2"
                 action={(formData) =>
                   run(() => createTikTokPostManual(campaign.id, formData), "Post saved.")
                 }
@@ -889,7 +889,7 @@ export function CampaignEditor({
               ) : null}
             </h2>
             <div className="flex flex-wrap gap-2">
-              <div className="flex gap-1 rounded-full border border-white/10 p-0.5">
+              <div className="flex gap-1 rounded-full border border-[color:var(--admin-border)] p-0.5">
                 {(
                   [
                     ["all", "All"],
@@ -1334,7 +1334,7 @@ export function CampaignEditor({
             <>
               <div>
                 <p className="admin-label">Secure Client Link</p>
-                <p className="break-all rounded-[8px] border border-white/10 bg-black/30 px-3 py-2 text-sm">
+                <p className="break-all rounded-[8px] border border-[color:var(--admin-border)] bg-black/30 px-3 py-2 text-sm">
                   {reportUrl}
                 </p>
               </div>

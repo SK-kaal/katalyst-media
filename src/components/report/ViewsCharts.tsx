@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useId, useMemo, useRef, useState } from "react";
 import { AnimatedValue } from "@/components/report/ReportMotion";
 import {
   formatCompactNumber,
@@ -40,6 +40,7 @@ function ChartCard({
   emptyTitle = "Not enough data yet",
   emptyHint,
   valueNoun,
+  tracking = true,
 }: {
   title: string;
   totalLabel: string;
@@ -48,13 +49,15 @@ function ChartCard({
   emptyTitle?: string;
   emptyHint: string;
   valueNoun: string;
+  /** Whether the empty state is still waiting on data worth scanning for. */
+  tracking?: boolean;
 }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const lineRef = useRef<SVGPolylineElement>(null);
   const areaRef = useRef<SVGPolygonElement>(null);
   const toggleRef = useRef<HTMLDivElement>(null);
   const toggleIndicatorRef = useRef<HTMLSpanElement>(null);
-  const toggleReadyRef = useRef(false);
+  const toggleGeometryRef = useRef<{ left: number; width: number } | null>(null);
   const [mode, setMode] = useState<Mode>("cumulative");
   const [hover, setHover] = useState<number | null>(null);
   const gid = useId().replace(/:/g, "");
@@ -150,39 +153,46 @@ function ChartCard({
       : formatSignedFullNumber(active.value)
     : "";
 
-  useEffect(() => {
-    const toggle = toggleRef.current;
-    const indicator = toggleIndicatorRef.current;
-    const activeButton = toggle?.querySelector<HTMLButtonElement>(
-      `button[data-mode="${mode}"]`,
-    );
-    if (!toggle || !indicator || !activeButton) return;
+  useGSAP(
+    () => {
+      const toggle = toggleRef.current;
+      const indicator = toggleIndicatorRef.current;
+      const activeButton = toggle?.querySelector<HTMLButtonElement>(
+        `button[data-mode="${mode}"]`,
+      );
+      if (!toggle || !indicator || !activeButton) return;
 
-    const properties = {
-      x: activeButton.offsetLeft,
-      width: activeButton.offsetWidth,
-      opacity: 1,
-    };
-    const reduceMotion = window.matchMedia(
-      "(prefers-reduced-motion: reduce)",
-    ).matches;
+      const left = activeButton.offsetLeft;
+      const width = activeButton.offsetWidth;
+      const previous = toggleGeometryRef.current;
+      const reduceMotion = window.matchMedia(
+        "(prefers-reduced-motion: reduce)",
+      ).matches;
 
-    if (!toggleReadyRef.current || reduceMotion) {
-      gsap.set(indicator, properties);
-      toggleReadyRef.current = true;
-    } else {
-      gsap.to(indicator, {
-        ...properties,
-        duration: 0.32,
-        ease: "power2.inOut",
-        overwrite: true,
-      });
-    }
+      if (!previous || reduceMotion) {
+        gsap.set(indicator, { x: left, width, scaleX: 1, opacity: 1 });
+      } else {
+        // Width is set instantly and the travel is done with transforms, so
+        // the slide never triggers layout.
+        gsap.set(indicator, {
+          width,
+          x: previous.left,
+          scaleX: previous.width / width,
+          opacity: 1,
+        });
+        gsap.to(indicator, {
+          x: left,
+          scaleX: 1,
+          duration: 0.32,
+          ease: "power2.inOut",
+          overwrite: true,
+        });
+      }
 
-    return () => {
-      gsap.killTweensOf(indicator);
-    };
-  }, [mode]);
+      toggleGeometryRef.current = { left, width };
+    },
+    { scope: toggleRef, dependencies: [mode] },
+  );
 
   useGSAP(
     () => {
@@ -241,6 +251,7 @@ function ChartCard({
       <div className="report-panel__head report-chart-card__head">
         <div>
           <p className="report-chart-card__eyebrow">{title}</p>
+          {/* No dangling label when there is no figure to label. */}
           {displayTotal != null ? (
             <>
               <p className="report-chart-card__total">
@@ -248,45 +259,50 @@ function ChartCard({
               </p>
               <p className="report-chart-card__total-label">{totalLabel}</p>
             </>
-          ) : (
-            <p className="report-chart-card__total-label">{totalLabel}</p>
-          )}
+          ) : null}
         </div>
-        <div
-          ref={toggleRef}
-          className="report-toggle"
-          role="group"
-          aria-label={`${title} mode`}
-          data-mode={mode}
-        >
-          <span
-            ref={toggleIndicatorRef}
-            className="report-toggle__indicator"
-            aria-hidden="true"
-          />
-          <button
-            type="button"
-            className={mode === "cumulative" ? "is-active" : ""}
-            data-mode="cumulative"
-            aria-pressed={mode === "cumulative"}
-            onClick={() => changeMode("cumulative")}
+        {/* No toggle when there is no chart to toggle. */}
+        {showChart ? (
+          <div
+            ref={toggleRef}
+            className="report-toggle"
+            role="group"
+            aria-label={`${title} mode`}
+            data-mode={mode}
           >
-            Cumulative
-          </button>
-          <button
-            type="button"
-            className={mode === "daily" ? "is-active" : ""}
-            data-mode="daily"
-            aria-pressed={mode === "daily"}
-            onClick={() => changeMode("daily")}
-          >
-            Daily
-          </button>
-        </div>
+            <span
+              ref={toggleIndicatorRef}
+              className="report-toggle__indicator"
+              aria-hidden="true"
+            />
+            <button
+              type="button"
+              className={mode === "cumulative" ? "is-active" : ""}
+              data-mode="cumulative"
+              aria-pressed={mode === "cumulative"}
+              onClick={() => changeMode("cumulative")}
+            >
+              Cumulative
+            </button>
+            <button
+              type="button"
+              className={mode === "daily" ? "is-active" : ""}
+              data-mode="daily"
+              aria-pressed={mode === "daily"}
+              onClick={() => changeMode("daily")}
+            >
+              Daily
+            </button>
+          </div>
+        ) : null}
       </div>
 
       {!showChart ? (
-        <div className="report-empty report-empty--chart">
+        <div
+          className={`report-empty${
+            tracking ? " report-empty--chart" : ""
+          }`}
+        >
           <p>{emptyTitle}</p>
           <p className="report-empty__hint">{emptyHint}</p>
         </div>
@@ -307,6 +323,7 @@ function ChartCard({
             <defs>
               <linearGradient id={`fill-${gid}`} x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="rgba(191,255,0,0.1)" />
+                <stop offset="55%" stopColor="rgba(191,255,0,0.03)" />
                 <stop offset="100%" stopColor="rgba(191,255,0,0)" />
               </linearGradient>
             </defs>
@@ -314,19 +331,18 @@ function ChartCard({
             {yTicks.map((tick) => (
               <g key={tick.y}>
                 <line
+                  className="report-chart-grid"
                   x1={padL}
                   x2={padL + plotW}
                   y1={tick.y}
                   y2={tick.y}
-                  stroke="rgba(255,255,255,0.06)"
                   vectorEffect="non-scaling-stroke"
                 />
                 <text
+                  className="report-chart-axis"
                   x={padL - 10}
                   y={tick.y + 3}
                   textAnchor="end"
-                  fill="rgba(255,255,255,0.38)"
-                  fontSize="10"
                 >
                   {tick.label}
                 </text>
@@ -336,11 +352,10 @@ function ChartCard({
             {xLabels.map((label) => (
               <text
                 key={`${label.x}-${label.label}`}
+                className="report-chart-axis"
                 x={label.x}
                 y={h - 10}
                 textAnchor="middle"
-                fill="rgba(255,255,255,0.38)"
-                fontSize="10"
               >
                 {label.label}
               </text>
@@ -379,12 +394,11 @@ function ChartCard({
             {active ? (
               <>
                 <line
+                  className="report-chart-crosshair"
                   x1={active.x}
                   x2={active.x}
                   y1={padT}
                   y2={padT + plotH}
-                  stroke="rgba(255,255,255,0.18)"
-                  strokeDasharray="4 4"
                 />
                 <circle
                   cx={active.x}
@@ -508,6 +522,9 @@ export function ViewsCharts({
               ? "TikTok no longer shares how many videos use a sound. Every other figure on this report is tracked daily."
               : "One day recorded so far. This chart appears once there are two days to compare."
           }
+          // A scanning line implies something is still being looked for. When
+          // TikTok simply does not publish the figure, nothing is.
+          tracking={!creationsUnavailable}
         />
       ) : null}
       <ChartCard

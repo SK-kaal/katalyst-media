@@ -88,7 +88,7 @@ export default async function ClientsPage({
             className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${
               !showArchived
                 ? "border-acid-lime text-acid-lime"
-                : "border-white/10 text-soft-grey"
+                : "border-[color:var(--admin-border)] text-soft-grey"
             }`}
           >
             Active
@@ -98,7 +98,7 @@ export default async function ClientsPage({
             className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${
               showArchived
                 ? "border-acid-lime text-acid-lime"
-                : "border-white/10 text-soft-grey"
+                : "border-[color:var(--admin-border)] text-soft-grey"
             }`}
           >
             Archived

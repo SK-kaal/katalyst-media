@@ -103,7 +103,7 @@ export function AdminSidebar() {
       <div className="admin-mobile-bar">
         <div>
           <Wordmark className="text-[0.82rem] tracking-[0.12em]" />
-          <p className="mt-1 text-[0.58rem] uppercase tracking-[0.14em] text-acid-lime">
+          <p className="mt-1 text-[0.62rem] uppercase tracking-[0.12em] text-acid-lime">
             Private Portal
           </p>
         </div>
@@ -122,10 +122,10 @@ export function AdminSidebar() {
       {open ? (
         <div
           ref={mobileMenuRef}
-          className="mb-4 rounded-[12px] border border-white/10 bg-carbon p-3 lg:hidden"
+          className="mb-4 rounded-[12px] border border-[color:var(--admin-border)] bg-[var(--admin-card)] p-3 lg:hidden"
         >
           <AdminNavLinks pathname={pathname} onNavigate={() => setOpen(false)} />
-          <div className="mt-3 border-t border-white/10 pt-3">
+          <div className="mt-3 border-t border-[color:var(--admin-border)] pt-3">
             <p className="admin-sidebar__user">Authorised access</p>
             <LogoutButton />
           </div>

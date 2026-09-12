@@ -181,10 +181,18 @@ export function ReportMetricChart({
             x2="0"
             y2="1"
           >
+            {/* Falls away quickly so a flat series reads as a soft light
+                under the line rather than a solid green block. */}
             <stop
               offset="0%"
               stopColor={
-                featured ? "rgba(191,255,0,0.22)" : "rgba(191,255,0,0.12)"
+                featured ? "rgba(191,255,0,0.14)" : "rgba(191,255,0,0.1)"
+              }
+            />
+            <stop
+              offset="55%"
+              stopColor={
+                featured ? "rgba(191,255,0,0.04)" : "rgba(191,255,0,0.03)"
               }
             />
             <stop offset="100%" stopColor="rgba(191,255,0,0)" />

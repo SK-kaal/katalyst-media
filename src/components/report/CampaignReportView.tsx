@@ -373,7 +373,9 @@ export function CampaignReportView({
                   <div
                     className="report-progress__fill"
                     style={{ width: `${deliveryBarPct}%` }}
-                  />
+                  >
+                    <span className="report-progress__glow" aria-hidden="true" />
+                  </div>
                 </div>
               ) : (
                 <p className="report-card__hint">

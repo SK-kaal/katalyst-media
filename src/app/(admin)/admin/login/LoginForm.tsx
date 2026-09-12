@@ -23,11 +23,11 @@ export default function LoginForm() {
     <div className="admin-login">
       <DirectionalLineBackground className="opacity-[0.35]" />
       <div
-        className="pointer-events-none absolute inset-y-0 left-0 w-1/3 bg-[radial-gradient(circle_at_left,rgba(198,255,0,0.08),transparent_65%)]"
+        className="pointer-events-none absolute inset-y-0 left-0 w-1/3 bg-[radial-gradient(circle_at_left,rgba(191,255,0,0.07),transparent_65%)]"
         aria-hidden="true"
       />
       <div
-        className="pointer-events-none absolute inset-y-0 right-0 w-1/3 bg-[radial-gradient(circle_at_right,rgba(198,255,0,0.06),transparent_65%)]"
+        className="pointer-events-none absolute inset-y-0 right-0 w-1/3 bg-[radial-gradient(circle_at_right,rgba(191,255,0,0.055),transparent_65%)]"
         aria-hidden="true"
       />
 
@@ -109,9 +109,9 @@ export default function LoginForm() {
         </form>
 
         <p className="mt-6 flex items-center gap-3 text-center text-[0.72rem] text-muted-grey">
-          <span className="h-px flex-1 bg-white/10" />
+          <span className="h-px flex-1 bg-[var(--admin-border)]" />
           Authorised users only.
-          <span className="h-px flex-1 bg-white/10" />
+          <span className="h-px flex-1 bg-[var(--admin-border)]" />
         </p>
       </div>
     </div>

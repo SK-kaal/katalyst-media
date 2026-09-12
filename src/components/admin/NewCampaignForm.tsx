@@ -62,7 +62,7 @@ export function NewCampaignForm({
 
   return (
     <form
-      className="admin-panel mt-6 space-y-5 p-5 md:p-6"
+      className="admin-panel mt-6 space-y-5 p-5"
       onSubmit={(event) => {
         event.preventDefault();
         const form = event.currentTarget;
@@ -117,7 +117,7 @@ export function NewCampaignForm({
         {clientLocked && selectedClient ? (
           <>
             <input type="hidden" name="client_id" value={selectedClient.id} />
-            <p className="rounded-[8px] border border-white/10 bg-black/25 px-3 py-2 text-sm font-semibold">
+            <p className="rounded-[8px] border border-[color:var(--admin-border)] bg-black/25 px-3 py-2 text-sm font-semibold">
               {selectedClient.name}
               {selectedClient.handle ? (
                 <span className="ml-2 font-normal text-muted-grey">

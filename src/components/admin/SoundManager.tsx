@@ -41,13 +41,13 @@ function SoundArtwork({
 }) {
   return (
     <div
-      className={`${className} grid shrink-0 place-items-center overflow-hidden rounded-[10px] border border-white/8 bg-graphite`}
+      className={`${className} grid shrink-0 place-items-center overflow-hidden rounded-[10px] border border-[color:var(--admin-border)] bg-graphite`}
     >
       {url ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={url} alt="" className="size-full object-cover" />
       ) : (
-        <Music2 className="size-6 text-white/25" aria-hidden="true" />
+        <Music2 className="size-6 text-muted-grey/70" aria-hidden="true" />
       )}
     </div>
   );

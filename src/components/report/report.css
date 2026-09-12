@@ -11,10 +11,10 @@
 .report-motion-root--paused .report-summary__waveform-pulse,
 .report-motion-root--paused .report-summary::after,
 .report-motion-root--paused .report-delivery-card::before,
-.report-motion-root--paused .report-progress__fill,
+.report-motion-root--paused .report-progress__glow,
 .report-motion-root--paused .report-progress__fill::after,
-.report-motion-root--paused .report-status__dot,
-.report-motion-root--paused .report-results__live-dot,
+.report-motion-root--paused .report-status__dot::after,
+.report-motion-root--paused .report-results__live-dot::after,
 .report-motion-root--paused .report-results::before,
 .report-motion-root--paused .report-results__featured::before,
 .report-motion-root--paused .report-chart-card::before,
@@ -26,7 +26,7 @@
 .report-motion-root--paused .report-metric-plot__latest-pulse,
 .report-motion-root--paused .report-chart-pulse,
 .report-motion-root--paused .report-empty--chart::before,
-.report-motion-root--paused .report-loading__block {
+.report-motion-root--paused .report-loading__block::after {
   animation-play-state: paused;
 }
 
@@ -38,6 +38,12 @@
   --report-text: #f4f5f3;
   --report-text-secondary: #929a94;
   --report-neon: #bfff00;
+  /* Three radii: large panels, the cards inside them, and controls. */
+  --report-radius-lg: 16px;
+  --report-radius-md: 12px;
+  --report-radius-sm: 8px;
+  /* One inset for every large card, so their content shares an edge. */
+  --report-pad-card: 1.15rem;
   --color-deep-black: var(--report-bg);
   --color-graphite: #141816;
   --color-off-white: var(--report-text);
@@ -55,6 +61,81 @@
 .report-shell :where(a, button, select):focus-visible {
   outline: 2px solid var(--report-neon);
   outline-offset: 3px;
+}
+
+/*
+ * Above-the-fold entrance. This lives in CSS so it starts with the first
+ * paint: driving it from GSAP meant the cards rendered at full opacity, were
+ * hidden once hydration ran, then animated back in — a visible flash.
+ * Everything below the fold is still revealed on scroll from ReportMotion.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  .report-atmosphere {
+    animation: report-fade-in 0.8s var(--ease-out) both;
+  }
+
+  .report-header {
+    animation: report-fade-down 0.42s var(--ease-out) both;
+  }
+
+  .report-overview-card {
+    animation: report-card-in 0.44s var(--ease-out) 0.12s both;
+  }
+
+  .report-overview-card + .report-overview-card {
+    animation-delay: 0.2s;
+  }
+
+  .report-delivery-card {
+    animation:
+      report-card-in 0.44s var(--ease-out) 0.2s both,
+      report-delivery-border-in 1.1s ease-out 0.5s both;
+  }
+
+  .report-progress__fill {
+    transform-origin: left center;
+    animation: report-progress-in 0.78s var(--ease-out) 0.26s both;
+  }
+}
+
+@keyframes report-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes report-fade-down {
+  from {
+    opacity: 0;
+    transform: translate3d(0, -6px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes report-card-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 9px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes report-progress-in {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
 }
 
 /* —— Global background atmosphere —— */
@@ -132,7 +213,7 @@
   gap: 0.75rem 1rem;
   min-height: 4.75rem;
   padding: 1.3rem clamp(1.25rem, 3.5vw, 3rem);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(135, 165, 140, 0.1);
   background: rgba(5, 6, 5, 0.96);
 }
 
@@ -206,6 +287,12 @@
     width: min(1280px, calc(100% - 4rem));
     padding: 2.75rem 0 6rem;
   }
+
+  /* Keep the header text on the same edge as the content column instead of
+     letting it drift out to the viewport on wide screens. */
+  .report-header {
+    padding-inline: max(2rem, calc((100% - 1280px) / 2));
+  }
 }
 
 .report-loading {
@@ -219,30 +306,38 @@
 }
 
 .report-loading__block {
+  position: relative;
+  overflow: hidden;
   border: 1px solid var(--report-border);
-  border-radius: 18px;
-  background:
-    linear-gradient(
-      100deg,
-      transparent 25%,
-      rgba(255, 255, 255, 0.03) 45%,
-      transparent 65%
-    ),
-    var(--report-card);
-  background-size: 240% 100%;
-  animation: report-loading-pulse 1.4s ease-in-out infinite;
+  border-radius: var(--report-radius-lg);
+  background: var(--report-card);
 }
 
+/* Swept with a transform rather than an animated background-position. */
+.report-loading__block::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 25%,
+    rgba(255, 255, 255, 0.035) 45%,
+    transparent 65%
+  );
+  animation: report-loading-pulse 1.6s ease-in-out infinite;
+}
+
+/* Heights track the real cards so the swap does not jump the page. */
 .report-loading__summary {
-  min-height: 12rem;
+  min-height: 10.5rem;
 }
 
 .report-loading__delivery {
-  min-height: 10rem;
+  min-height: 12.5rem;
 }
 
 .report-loading__results {
-  min-height: 13rem;
+  min-height: 26rem;
 }
 
 .report-loading__charts {
@@ -265,16 +360,24 @@
 
   .report-loading__summary,
   .report-loading__delivery {
-    min-height: 12rem;
+    min-height: 16rem;
+  }
+
+  .report-loading__results {
+    min-height: 21.5rem;
+  }
+
+  .report-loading__chart {
+    min-height: 20.75rem;
   }
 }
 
 @keyframes report-loading-pulse {
   from {
-    background-position: 140% 0;
+    transform: translate3d(-100%, 0, 0);
   }
   to {
-    background-position: -100% 0;
+    transform: translate3d(100%, 0, 0);
   }
 }
 
@@ -290,7 +393,7 @@
   overflow: hidden;
   min-width: 0;
   border: 1px solid var(--report-border);
-  border-radius: 16px;
+  border-radius: var(--report-radius-lg);
   background: var(--report-card);
 }
 
@@ -461,9 +564,9 @@
   pointer-events: none;
   background: radial-gradient(
     circle at 100% 0%,
-    rgba(191, 255, 0, 0.14) 0%,
-    rgba(191, 255, 0, 0.05) 14%,
-    rgba(191, 255, 0, 0) 40%
+    rgba(191, 255, 0, 0.11) 0%,
+    rgba(191, 255, 0, 0.035) 12%,
+    rgba(191, 255, 0, 0) 32%
   );
   animation: report-delivery-glow 24s ease-in-out infinite alternate;
   will-change: transform, opacity;
@@ -517,7 +620,7 @@
   align-items: center;
   gap: 1rem;
   min-height: 10rem;
-  padding: 1.05rem;
+  padding: var(--report-pad-card);
 }
 
 .report-summary__art {
@@ -527,8 +630,8 @@
   overflow: hidden;
   width: 7rem;
   aspect-ratio: 1;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
+  border: 1px solid var(--report-border);
+  border-radius: var(--report-radius-md);
   background: var(--color-graphite);
   box-shadow: 0 16px 32px rgba(0, 0, 0, 0.4);
 }
@@ -545,8 +648,8 @@
   width: 100%;
   height: 100%;
   place-items: center;
-  background: rgba(255, 255, 255, 0.02);
-  color: rgba(255, 255, 255, 0.28);
+  background: rgba(135, 165, 140, 0.05);
+  color: rgba(146, 154, 148, 0.72);
 }
 
 .report-summary__art-placeholder svg {
@@ -561,12 +664,20 @@
   padding-top: 1.8rem;
 }
 
+/* One eyebrow treatment, shared by every card and section heading. */
+.report-summary__label,
+.report-summary__budget-label,
+.report-results__eyebrow,
+.report-chart-card__eyebrow,
+.report-state__eyebrow {
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
 .report-summary__label {
   color: var(--color-acid-lime);
-  font-size: 0.65rem;
-  font-weight: 750;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
 }
 
 .report-summary__title-row {
@@ -601,8 +712,8 @@
   height: 2.75rem;
   flex: 0 0 2.75rem;
   place-items: center;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 10px;
+  border: 1px solid rgba(135, 165, 140, 0.3);
+  border-radius: var(--report-radius-sm);
   background: rgba(0, 0, 0, 0.28);
   color: var(--color-off-white);
   transition:
@@ -631,8 +742,8 @@
   bottom: calc(100% + 0.55rem);
   z-index: 5;
   padding: 0.35rem 0.5rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 7px;
+  border: 1px solid var(--report-border);
+  border-radius: var(--report-radius-sm);
   background: rgba(8, 10, 9, 0.98);
   color: var(--color-off-white);
   font-size: 0.67rem;
@@ -670,7 +781,7 @@
   border-radius: 999px;
   color: var(--color-off-white);
   font-size: 0.62rem;
-  font-weight: 750;
+  font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -680,15 +791,26 @@
   width: 0.38rem;
   height: 0.38rem;
   border-radius: 999px;
-  background: var(--color-acid-lime);
+  background: rgba(191, 255, 0, 0.7);
 }
 
-.report-status:not(.report-status--ended) .report-status__dot {
+/*
+ * The slow light-up is an opacity fade over a pre-rendered glow. Animating
+ * box-shadow directly repainted the dot on every frame.
+ */
+.report-status:not(.report-status--ended) .report-status__dot::after,
+.report-results__live--active .report-results__live-dot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--color-acid-lime);
+  box-shadow: 0 0 8px rgba(191, 255, 0, 0.5);
   animation: report-status-breathe 4.8s ease-in-out infinite alternate;
 }
 
 .report-status--ended {
-  border-color: rgba(255, 255, 255, 0.16);
+  border-color: rgba(135, 165, 140, 0.26);
   color: var(--color-soft-grey);
 }
 
@@ -702,7 +824,7 @@
   justify-content: space-between;
   gap: 0;
   min-height: 12.5rem;
-  padding: 1.35rem 1.4rem 1.25rem;
+  padding: var(--report-pad-card);
   background: var(--report-card);
   box-shadow: none;
 }
@@ -726,22 +848,18 @@
   position: relative;
   z-index: 1;
   height: 1px;
-  margin: 1.15rem -1.4rem 1.05rem;
+  margin: 1.15rem calc(-1 * var(--report-pad-card)) 1.05rem;
   background: linear-gradient(
     90deg,
     transparent,
-    rgba(255, 255, 255, 0.08) 12%,
-    rgba(255, 255, 255, 0.08) 88%,
+    rgba(135, 165, 140, 0.18) 12%,
+    rgba(135, 165, 140, 0.18) 88%,
     transparent
   );
 }
 
 .report-summary__budget-label {
   color: var(--color-muted-grey);
-  font-size: 0.64rem;
-  font-weight: 680;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
 }
 
 .report-summary__budget-value {
@@ -758,7 +876,7 @@
 .report-card__eyebrow {
   color: var(--color-soft-grey);
   font-size: 0.78rem;
-  font-weight: 620;
+  font-weight: 600;
 }
 
 .report-card__value {
@@ -792,7 +910,7 @@
 
 .report-delivery__separator {
   color: var(--color-muted-grey);
-  font-weight: 520;
+  font-weight: 500;
 }
 
 .report-delivery__label {
@@ -809,7 +927,7 @@
   border-radius: 999px;
   color: var(--report-neon);
   font-size: 0.68rem;
-  font-weight: 580;
+  font-weight: 600;
   letter-spacing: 0.01em;
   white-space: nowrap;
   background: rgba(5, 6, 5, 0.92);
@@ -823,7 +941,7 @@
   height: 0.28rem;
   overflow: hidden;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(135, 165, 140, 0.16);
 }
 
 .report-progress__fill {
@@ -834,6 +952,19 @@
   background: var(--report-neon);
   box-shadow: 0 0 8px rgba(191, 255, 0, 0.12);
   transition: width 180ms var(--ease-ui);
+}
+
+/*
+ * The bar's slow brighten, as an opacity fade on a light overlay. The old
+ * version animated box-shadow and filter, which repainted every frame — and
+ * the shadow was clipped by the track anyway.
+ */
+.report-progress__glow {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: rgba(255, 255, 255, 0.16);
+  pointer-events: none;
   animation: report-progress-breathe 6.4s ease-in-out infinite alternate;
 }
 
@@ -856,12 +987,10 @@
 
 @keyframes report-progress-breathe {
   from {
-    box-shadow: 0 0 6px rgba(191, 255, 0, 0.12);
-    filter: brightness(0.94);
+    opacity: 0;
   }
   to {
-    box-shadow: 0 0 13px rgba(191, 255, 0, 0.4);
-    filter: brightness(1.08);
+    opacity: 1;
   }
 }
 
@@ -890,16 +1019,18 @@
 /* A slow light-up and fade back — no expanding ring. */
 @keyframes report-status-breathe {
   from {
-    box-shadow: 0 0 0 rgba(191, 255, 0, 0);
-    filter: brightness(0.68);
+    opacity: 0.26;
   }
   to {
-    box-shadow: 0 0 8px rgba(191, 255, 0, 0.5);
-    filter: brightness(1.15);
+    opacity: 1;
   }
 }
 
 @media (min-width: 900px) {
+  .report-shell {
+    --report-pad-card: 1.25rem;
+  }
+
   .report-overview {
     grid-template-columns: minmax(0, 1.72fr) minmax(18rem, 1fr);
   }
@@ -912,12 +1043,11 @@
   .report-summary {
     grid-template-columns: 8.25rem minmax(0, 1fr);
     gap: 1.3rem;
-    padding: 1rem 1.15rem;
   }
 
   .report-summary__art {
     width: 8.25rem;
-    border-radius: 13px;
+    border-radius: var(--report-radius-md);
   }
 
   .report-summary__identity {
@@ -928,20 +1058,12 @@
     width: 2.375rem;
     height: 2.375rem;
     flex-basis: 2.375rem;
-    border-radius: 9px;
+    border-radius: var(--report-radius-sm);
   }
 
   .report-status {
     top: 1.15rem;
     right: 1.2rem;
-  }
-
-  .report-delivery-card {
-    padding: 1.45rem 1.5rem 1.35rem;
-  }
-
-  .report-delivery-card__divider {
-    margin: 1.2rem -1.5rem 1.1rem;
   }
 
   .report-delivery-card__budget {
@@ -950,11 +1072,14 @@
 }
 
 @media (max-width: 430px) {
+  .report-shell {
+    --report-pad-card: 1rem;
+  }
+
   .report-summary {
     grid-template-columns: 6.875rem minmax(0, 1fr);
     gap: 0.85rem;
     min-height: 8rem;
-    padding: 0.9rem;
   }
 
   .report-summary__art {
@@ -981,15 +1106,10 @@
 
   .report-delivery-card {
     min-height: 11.5rem;
-    padding: 1.2rem 1.15rem 1.1rem;
   }
 
   .report-delivery-card__budget {
     padding-right: 1.5rem;
-  }
-
-  .report-delivery-card__divider {
-    margin: 1rem -1.15rem 0.95rem;
   }
 
   .report-summary__budget-value {
@@ -1008,9 +1128,9 @@
   isolation: isolate;
   overflow: hidden;
   margin-top: 1.2rem;
-  padding: 1.05rem;
+  padding: var(--report-pad-card);
   border: 1px solid var(--report-border);
-  border-radius: 16px;
+  border-radius: var(--report-radius-lg);
   background: var(--report-card);
 }
 
@@ -1041,7 +1161,6 @@
 @media (min-width: 900px) {
   .report-results {
     margin-top: 0.75rem;
-    padding: 1.25rem;
   }
 }
 
@@ -1055,10 +1174,6 @@
 
 .report-results__eyebrow {
   color: var(--color-acid-lime);
-  font-size: 0.6rem;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
 }
 
 .report-results__title {
@@ -1089,8 +1204,13 @@
 }
 
 .report-results__live--active .report-results__live-dot {
-  background: var(--color-acid-lime);
-  animation: report-status-breathe 5.4s ease-in-out 0.6s infinite alternate;
+  background: rgba(191, 255, 0, 0.7);
+}
+
+/* Offset so the two live dots never breathe in lockstep. */
+.report-results__live--active .report-results__live-dot::after {
+  animation-duration: 5.4s;
+  animation-delay: 0.6s;
 }
 
 .report-results__layout {
@@ -1107,7 +1227,7 @@
   overflow: hidden;
   padding: 1rem;
   border: 1px solid var(--report-border);
-  border-radius: 11px;
+  border-radius: var(--report-radius-md);
   background: var(--report-raised);
 }
 
@@ -1174,7 +1294,7 @@
   min-height: 5rem;
   padding: 0.8rem 0.9rem;
   border: 1px solid var(--report-border);
-  border-radius: 11px;
+  border-radius: var(--report-radius-md);
   background: var(--report-raised);
   overflow: hidden;
 }
@@ -1215,12 +1335,18 @@
   min-width: 0;
 }
 
-.report-metric-card__label {
-  color: var(--color-muted-grey);
+/* One micro-label treatment for the dense cards. */
+.report-metric-card__label,
+.report-chart-card__total-label,
+.report-vcard__metric-label {
   font-size: 0.62rem;
   font-weight: 650;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+.report-metric-card__label {
+  color: var(--color-muted-grey);
 }
 
 .report-metric-card__value {
@@ -1240,7 +1366,12 @@
   min-width: 0;
   height: 2.8rem;
   overflow: hidden;
-  border-radius: 6px;
+  /*
+   * Square, like the featured plot. The newest point sits hard against the
+   * top-right corner, so rounding here clips its tap target — the corner is
+   * invisible anyway, since the line and fill never reach it.
+   */
+  border-radius: 0;
   opacity: 0.9;
   touch-action: pan-y;
 }
@@ -1249,7 +1380,7 @@
   align-self: end;
   height: clamp(6.3rem, 10vw, 8rem);
   margin-top: 0.55rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  border-top: 1px solid rgba(135, 165, 140, 0.12);
   border-radius: 0;
 }
 
@@ -1327,9 +1458,9 @@
 .report-metric-plot--waiting {
   display: grid;
   place-items: center;
-  border: 1px dashed rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.34);
-  font-size: 0.58rem;
+  border: 1px dashed rgba(135, 165, 140, 0.18);
+  color: var(--report-text-secondary);
+  font-size: 0.62rem;
   letter-spacing: 0.05em;
   text-align: center;
 }
@@ -1341,12 +1472,12 @@
   gap: 0.15rem;
   min-width: 6.5rem;
   padding: 0.38rem 0.48rem;
-  border: 1px solid rgba(255, 255, 255, 0.11);
-  border-radius: 7px;
+  border: 1px solid var(--report-border);
+  border-radius: var(--report-radius-sm);
   background: rgba(8, 11, 9, 0.96);
   box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
   color: var(--color-muted-grey);
-  font-size: 0.56rem;
+  font-size: 0.6rem;
   line-height: 1.2;
   pointer-events: none;
   transform: translate(-50%, -100%);
@@ -1412,9 +1543,9 @@
 
 .report-panel {
   border: 1px solid var(--report-border);
-  border-radius: 16px;
+  border-radius: var(--report-radius-lg);
   background: var(--report-card);
-  padding: 1.05rem 1.1rem 1.1rem;
+  padding: var(--report-pad-card);
 }
 
 .report-panel__head {
@@ -1443,8 +1574,8 @@
   align-items: center;
   min-height: 1.85rem;
   padding: 0.25rem 0.65rem;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 8px;
+  border: 1px solid var(--report-border);
+  border-radius: var(--report-radius-sm);
   color: var(--color-soft-grey);
   font-size: 0.68rem;
   font-weight: 600;
@@ -1454,6 +1585,9 @@
 .report-empty {
   display: grid;
   place-items: center;
+  /* Without this the two rows each stretch to half the block and the
+     message and its hint drift 60px apart. */
+  align-content: center;
   min-height: 12rem;
   color: var(--color-muted-grey);
   font-size: 0.88rem;
@@ -1467,7 +1601,7 @@
   overflow: hidden;
   min-height: 11.25rem;
   background-image: linear-gradient(
-    rgba(255, 255, 255, 0.035) 1px,
+    rgba(135, 165, 140, 0.07) 1px,
     transparent 1px
   );
   background-size: 100% 25%;
@@ -1502,7 +1636,7 @@
 
 .report-empty__hint {
   max-width: 22rem;
-  color: rgba(255, 255, 255, 0.46);
+  color: var(--report-text-secondary);
   font-size: 0.78rem;
   line-height: 1.45;
 }
@@ -1515,10 +1649,6 @@
 
 .report-chart-card__eyebrow {
   color: var(--color-muted-grey);
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
 }
 
 .report-chart-card__total {
@@ -1534,10 +1664,6 @@
 .report-chart-card__total-label {
   margin-top: 0.3rem;
   color: var(--color-muted-grey);
-  font-size: 0.66rem;
-  font-weight: 650;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 .report-toggle {
@@ -1545,7 +1671,7 @@
   display: inline-flex;
   align-items: center;
   padding: 0.18rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--report-border);
   border-radius: 999px;
   background: rgba(0, 0, 0, 0.35);
   gap: 0.15rem;
@@ -1563,7 +1689,7 @@
   box-shadow: 0 0 14px rgba(191, 255, 0, 0.1);
   opacity: 0;
   pointer-events: none;
-  will-change: transform, width;
+  transform-origin: left center;
 }
 
 .report-toggle button {
@@ -1596,8 +1722,16 @@
 .report-chart-card {
   position: relative;
   isolation: isolate;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
   min-width: 0;
+}
+
+/* A card with no chart still fills its share of the row, so the message sits
+   in the middle of the card rather than leaving a gap under it. */
+.report-chart-card .report-empty {
+  flex: 1;
 }
 
 .report-chart-card::before {
@@ -1634,6 +1768,21 @@
 
 .report-chart-card svg {
   display: block;
+}
+
+.report-chart-grid {
+  stroke: rgba(135, 165, 140, 0.12);
+}
+
+.report-chart-axis {
+  fill: var(--report-text-secondary);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.report-chart-crosshair {
+  stroke: rgba(244, 245, 243, 0.22);
+  stroke-dasharray: 4 4;
 }
 
 .report-chart-svg {
@@ -1785,6 +1934,19 @@
     filter: blur(12px);
   }
 
+  /*
+   * Fewer simultaneously composited layers on phones. The card lights stay
+   * exactly where they are, they just stop moving — the atmosphere and the
+   * waveform still carry the page's ambient motion.
+   */
+  .report-results::before,
+  .report-results__featured::before,
+  .report-chart-card::before {
+    animation: none;
+    opacity: 0.82;
+    will-change: auto;
+  }
+
   .report-chart-line,
   .report-metric-plot__line {
     filter: none;
@@ -1807,9 +1969,9 @@
   transform: translate(-50%, calc(-100% - 12px));
   min-width: 8.5rem;
   padding: 0.55rem 0.7rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 9px;
-  background: rgba(12, 12, 14, 0.96);
+  border: 1px solid var(--report-border);
+  border-radius: var(--report-radius-sm);
+  background: rgba(9, 12, 10, 0.97);
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4);
   pointer-events: none;
   white-space: nowrap;
@@ -1917,10 +2079,11 @@
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  min-height: 2.4rem;
+  /* 40px minimum so these stay comfortable targets on a phone. */
+  min-height: 2.5rem;
   padding: 0.4rem 0.78rem;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 9px;
+  border: 1px solid var(--report-border);
+  border-radius: var(--report-radius-sm);
   background: rgba(0, 0, 0, 0.28);
   color: var(--color-soft-grey);
   font-size: 0.76rem;
@@ -1959,7 +2122,7 @@
   overflow-x: auto;
   overscroll-behavior-inline: contain;
   scroll-snap-type: inline proximity;
-  scrollbar-color: rgba(191, 255, 0, 0.35) rgba(255, 255, 255, 0.06);
+  scrollbar-color: rgba(191, 255, 0, 0.35) rgba(135, 165, 140, 0.12);
   scrollbar-width: thin;
 }
 
@@ -2007,9 +2170,9 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 14px;
-  background: rgba(14, 14, 16, 0.96);
+  border: 1px solid var(--report-border);
+  border-radius: var(--report-radius-md);
+  background: var(--report-card);
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
@@ -2040,7 +2203,7 @@ a.report-vcard:hover {
   justify-items: center;
   gap: 0.55rem;
   padding: 1rem;
-  color: rgba(255, 255, 255, 0.42);
+  color: var(--report-text-secondary);
   font-size: 0.72rem;
   text-align: center;
 }
@@ -2056,8 +2219,8 @@ a.report-vcard:hover {
   height: 42%;
   background: linear-gradient(
     to top,
-    rgba(14, 14, 16, 0.98) 0%,
-    rgba(14, 14, 16, 0.72) 45%,
+    rgba(9, 12, 10, 0.98) 0%,
+    rgba(9, 12, 10, 0.72) 45%,
     transparent 100%
   );
   pointer-events: none;
@@ -2070,11 +2233,11 @@ a.report-vcard:hover {
   z-index: 2;
   min-width: 1.85rem;
   padding: 0.22rem 0.4rem;
-  border-radius: 6px;
+  border-radius: var(--report-radius-sm);
   background: var(--color-acid-lime);
   color: #0a0a0a;
   font-size: 0.68rem;
-  font-weight: 800;
+  font-weight: 700;
   text-align: center;
 }
 
@@ -2123,13 +2286,8 @@ a.report-vcard:hover {
   margin-top: 0.75rem;
 }
 
-/* Sized so "Comments" still fits its quarter of the four-up metrics row. */
 .report-vcard__metric-label {
   color: var(--color-muted-grey);
-  font-size: 0.52rem;
-  font-weight: 650;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
   white-space: nowrap;
 }
 
@@ -2147,7 +2305,7 @@ a.report-vcard:hover {
   justify-content: center;
   width: 100%;
   margin-top: 0.85rem;
-  min-height: 2.2rem;
+  min-height: 2.5rem;
   border: 1px solid rgba(191, 255, 0, 0.4);
   border-radius: 999px;
   background: rgba(0, 0, 0, 0.35);
@@ -2165,7 +2323,7 @@ a.report-vcard:hover {
 
 /* Compact all-content cards */
 .report-vcard--compact {
-  border-radius: 12px;
+  border-radius: var(--report-radius-md);
 }
 
 .report-vcard--compact .report-vcard__body {
@@ -2197,10 +2355,6 @@ a.report-vcard:hover {
   font-weight: 650;
 }
 
-.report-vcard--compact .report-vcard__metric-label {
-  font-size: 0.54rem;
-}
-
 .report-content-list {
   display: grid;
   gap: 0.65rem;
@@ -2216,7 +2370,7 @@ a.report-vcard:hover {
 
 .report-vcard--list .report-vcard__media {
   aspect-ratio: 9 / 16;
-  border-radius: 8px;
+  border-radius: var(--report-radius-sm);
   overflow: hidden;
 }
 
@@ -2237,10 +2391,6 @@ a.report-vcard:hover {
   color: var(--color-soft-grey);
   font-size: 0.76rem;
   font-weight: 650;
-}
-
-.report-vcard--list .report-vcard__metric-label {
-  font-size: 0.54rem;
 }
 
 .report-vcard--list .report-vcard__metrics {
@@ -2271,10 +2421,10 @@ a.report-vcard:hover {
 .report-page-btn {
   display: grid;
   place-items: center;
-  width: 2.25rem;
-  height: 2.25rem;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 8px;
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 1px solid var(--report-border);
+  border-radius: var(--report-radius-sm);
   background: rgba(0, 0, 0, 0.25);
   color: var(--color-soft-grey);
   font-size: 0.76rem;
@@ -2308,10 +2458,6 @@ a.report-vcard:hover {
 .report-state__eyebrow {
   margin-top: 2.75rem;
   color: var(--color-acid-lime);
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
 }
 
 .report-state__title {
@@ -2334,7 +2480,7 @@ a.report-vcard:hover {
   min-height: 2.65rem;
   margin-top: 1.5rem;
   padding: 0.55rem 1.1rem;
-  border-radius: 9px;
+  border-radius: var(--report-radius-sm);
   background: var(--color-acid-lime);
   color: #0a0a0a;
   font-size: 0.82rem;
@@ -2358,13 +2504,13 @@ a.report-vcard:hover {
   .report-summary__waveform-pulse,
   .report-summary::after,
   .report-delivery-card::before,
-  .report-progress__fill,
+  .report-progress__glow,
   .report-progress__fill::after,
-  .report-status:not(.report-status--ended) .report-status__dot,
+  .report-status:not(.report-status--ended) .report-status__dot::after,
   .report-delivery-card.is-entering,
   .report-results::before,
   .report-results__featured::before,
-  .report-results__live--active .report-results__live-dot,
+  .report-results__live--active .report-results__live-dot::after,
   .report-chart-card::before,
   .report-chart-svg,
   .report-chart-line,
@@ -2375,7 +2521,7 @@ a.report-vcard:hover {
   .report-metric-plot__area,
   .report-metric-plot__latest-pulse,
   .report-empty--chart::before,
-  .report-loading__block {
+  .report-loading__block::after {
     animation: none;
     will-change: auto;
   }
@@ -2384,7 +2530,8 @@ a.report-vcard:hover {
   .report-chart-pulse,
   .report-chart-latest-pulse,
   .report-metric-plot__latest-pulse,
-  .report-empty--chart::before {
+  .report-empty--chart::before,
+  .report-progress__glow {
     opacity: 0;
   }
 

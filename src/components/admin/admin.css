@@ -1,8 +1,37 @@
 /* Private admin portal — Katalyst tokens, calmer than the public site */
 
+/*
+ * Portal palette, matching the client report so the two surfaces read as one
+ * product. Only admin routes load this stylesheet, so :root is safe here — and
+ * it has to be :root rather than .admin-shell because the modals portal to
+ * document.body and would otherwise inherit the marketing palette.
+ */
+:root {
+  --admin-bg: #050605;
+  --admin-card: #090c0a;
+  --admin-raised: #0d110e;
+  --admin-border-soft: rgba(135, 165, 140, 0.1);
+  --admin-border: rgba(135, 165, 140, 0.16);
+  --admin-border-strong: rgba(135, 165, 140, 0.28);
+
+  /* Same three radii as the report. */
+  --admin-radius-lg: 16px;
+  --admin-radius-md: 12px;
+  --admin-radius-sm: 8px;
+
+  /* Shared tokens repointed so Tailwind utilities follow the portal palette. */
+  --color-deep-black: var(--admin-bg);
+  --color-carbon: var(--admin-bg);
+  --color-graphite: #141816;
+  --color-off-white: #f4f5f3;
+  --color-soft-grey: #a7aea9;
+  --color-muted-grey: #929a94;
+  --color-acid-lime: #bfff00;
+}
+
 .admin-shell {
   min-height: 100svh;
-  background: var(--color-deep-black);
+  background: var(--admin-bg);
   color: var(--color-off-white);
 }
 
@@ -27,8 +56,8 @@
   flex-direction: column;
   height: 100svh;
   padding: 1.5rem 1.1rem 1.25rem;
-  border-right: 1px solid rgba(255, 255, 255, 0.06);
-  background: var(--color-carbon);
+  border-right: 1px solid var(--admin-border-soft);
+  background: var(--admin-card);
 }
 
 @media (min-width: 1024px) {
@@ -44,8 +73,8 @@
 .admin-sidebar__eyebrow {
   margin-top: 0.55rem;
   color: var(--color-acid-lime);
-  font-size: 0.58rem;
-  letter-spacing: 0.14em;
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
@@ -61,7 +90,7 @@
   align-items: center;
   gap: 0.75rem;
   padding: 0.7rem 0.75rem;
-  border-radius: 8px;
+  border-radius: var(--admin-radius-sm);
   color: var(--color-soft-grey);
   font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
   font-size: 0.95rem;
@@ -72,12 +101,12 @@
 
 .admin-sidebar__link:hover {
   color: var(--color-off-white);
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(135, 165, 140, 0.06);
 }
 
 .admin-sidebar__link[aria-current="page"] {
   color: var(--color-off-white);
-  background: rgba(198, 255, 0, 0.06);
+  background: rgba(191, 255, 0, 0.06);
   box-shadow: inset 2px 0 0 var(--color-acid-lime);
 }
 
@@ -92,7 +121,7 @@
 .admin-sidebar__foot {
   margin-top: auto;
   padding-top: 1rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid var(--admin-border-soft);
 }
 
 .admin-sidebar__user {
@@ -128,8 +157,8 @@
   gap: 1rem;
   margin: 0;
   padding: 0.85rem 1rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  background: var(--color-carbon);
+  border-bottom: 1px solid var(--admin-border-soft);
+  background: var(--admin-card);
 }
 
 @media (min-width: 1024px) {
@@ -138,10 +167,12 @@
   }
 }
 
+/* Matches the report's eyebrow so both surfaces share one label scale. */
 .admin-page-eyebrow {
   color: var(--color-acid-lime);
-  font-size: 0.68rem;
-  letter-spacing: 0.14em;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
@@ -163,18 +194,20 @@
 }
 
 .admin-panel {
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: 12px;
-  background: rgba(18, 18, 20, 0.92);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-lg);
+  background: var(--admin-card);
 }
 
 .admin-input,
 .admin-select,
 .admin-textarea {
   width: 100%;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  background: rgba(8, 8, 9, 0.85);
+  /* 40px minimum for comfortable tapping. */
+  min-height: 2.5rem;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-sm);
+  background: rgba(0, 0, 0, 0.3);
   color: var(--color-off-white);
   font-size: 0.9rem;
   padding: 0.7rem 0.85rem;
@@ -184,8 +217,8 @@
 .admin-input:focus,
 .admin-select:focus,
 .admin-textarea:focus {
-  border-color: rgba(198, 255, 0, 0.55);
-  box-shadow: 0 0 0 1px rgba(198, 255, 0, 0.2);
+  border-color: rgba(191, 255, 0, 0.55);
+  box-shadow: 0 0 0 1px rgba(191, 255, 0, 0.2);
 }
 
 .admin-label {
@@ -201,7 +234,8 @@
   align-items: center;
   justify-content: center;
   gap: 0.4rem;
-  border-radius: 8px;
+  min-height: 2.5rem;
+  border-radius: var(--admin-radius-sm);
   padding: 0.7rem 1rem;
   font-size: 0.86rem;
   font-weight: 600;
@@ -225,7 +259,7 @@
 }
 
 .admin-btn:focus-visible {
-  outline: 2px solid rgba(198, 255, 0, 0.7);
+  outline: 2px solid rgba(191, 255, 0, 0.7);
   outline-offset: 2px;
 }
 
@@ -242,18 +276,18 @@
 }
 
 .admin-btn--primary:hover:not(:disabled) {
-  background: #d4ff3d;
+  background: #d0ff4a;
 }
 
 .admin-btn--ghost {
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: 1px solid var(--admin-border-strong);
   background: transparent;
   color: var(--color-off-white);
 }
 
 .admin-btn--ghost:hover:not(:disabled) {
-  border-color: rgba(198, 255, 0, 0.35);
-  background: rgba(198, 255, 0, 0.05);
+  border-color: rgba(191, 255, 0, 0.35);
+  background: rgba(191, 255, 0, 0.05);
 }
 
 .admin-btn--danger {
@@ -274,10 +308,10 @@
 
 .admin-table th {
   padding: 0.75rem 0.85rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid var(--admin-border);
   color: var(--color-muted-grey);
-  font-size: 0.68rem;
-  font-weight: 500;
+  font-size: 0.62rem;
+  font-weight: 650;
   letter-spacing: 0.08em;
   text-align: left;
   text-transform: uppercase;
@@ -285,7 +319,7 @@
 
 .admin-table td {
   padding: 0.9rem 0.85rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid var(--admin-border-soft);
   vertical-align: middle;
 }
 
@@ -302,12 +336,12 @@
 }
 
 .admin-status--active {
-  background: rgba(198, 255, 0, 0.12);
+  background: rgba(191, 255, 0, 0.12);
   color: var(--color-acid-lime);
 }
 
 .admin-status--ended {
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: 1px solid var(--admin-border-strong);
   color: var(--color-muted-grey);
   background: transparent;
 }
@@ -331,12 +365,13 @@
 }
 
 .admin-metric {
-  padding: 0.9rem 1rem;
+  padding: 1rem;
 }
 
 .admin-metric__label {
   color: var(--color-muted-grey);
-  font-size: 0.68rem;
+  font-size: 0.62rem;
+  font-weight: 650;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -377,8 +412,8 @@
 }
 
 .admin-campaign-card:hover {
-  border-color: rgba(198, 255, 0, 0.28);
-  background: rgba(24, 24, 27, 0.95);
+  border-color: rgba(191, 255, 0, 0.28);
+  background: var(--admin-raised);
 }
 
 a.admin-campaign-card,
@@ -389,14 +424,14 @@ a.admin-campaign-card,
 a.admin-campaign-card:active,
 .admin-campaign-card--clickable:active {
   /* Avoid transform — it breaks nested fixed UI (menus/dialogs). */
-  background: rgba(24, 24, 27, 1);
+  background: #101613;
 }
 
 .admin-input:focus-visible,
 .admin-select:focus-visible {
   outline: none;
-  border-color: rgba(198, 255, 0, 0.45);
-  box-shadow: 0 0 0 1px rgba(198, 255, 0, 0.2);
+  border-color: rgba(191, 255, 0, 0.45);
+  box-shadow: 0 0 0 1px rgba(191, 255, 0, 0.2);
 }
 
 .admin-tab {
@@ -409,7 +444,7 @@ a.admin-campaign-card:active,
 }
 
 .admin-tab:focus-visible {
-  outline: 2px solid rgba(198, 255, 0, 0.55);
+  outline: 2px solid rgba(191, 255, 0, 0.55);
   outline-offset: 2px;
 }
 
@@ -418,7 +453,7 @@ a.admin-campaign-card:active,
 }
 
 .admin-table tbody tr:hover {
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(135, 165, 140, 0.05);
 }
 
 .admin-field-error {
@@ -430,7 +465,7 @@ a.admin-campaign-card:active,
 .admin-campaign-card__thumb {
   position: relative;
   overflow: hidden;
-  border-radius: 8px;
+  border-radius: var(--admin-radius-md);
   aspect-ratio: 9 / 14;
   background: var(--color-graphite);
 }
@@ -439,7 +474,7 @@ a.admin-campaign-card:active,
   display: flex;
   gap: 0.15rem;
   overflow-x: auto;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid var(--admin-border);
 }
 
 .admin-tab {
@@ -463,9 +498,12 @@ a.admin-campaign-card:active,
   display: grid;
   min-height: 100svh;
   place-items: center;
+  /* Wordmark and card are separate rows; without this they each stretch to
+     half the viewport and the card centres in the bottom half. */
+  align-content: center;
   overflow: hidden;
   padding: 1.5rem;
-  background: var(--color-deep-black);
+  background: var(--admin-bg);
 }
 
 .admin-login__card {
@@ -473,9 +511,9 @@ a.admin-campaign-card:active,
   z-index: 1;
   width: min(100%, 26rem);
   padding: 1.75rem 1.5rem 1.5rem;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 14px;
-  background: rgba(18, 18, 21, 0.94);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-lg);
+  background: var(--admin-card);
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
 }
 
@@ -488,19 +526,18 @@ a.admin-campaign-card:active,
 .admin-icon-btn {
   display: inline-grid;
   place-items: center;
-  size: 2rem;
-  width: 2rem;
-  height: 2rem;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: var(--admin-radius-sm);
+  border: 1px solid var(--admin-border);
   color: var(--color-soft-grey);
   transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
 }
 
 .admin-icon-btn:hover {
-  border-color: rgba(198, 255, 0, 0.35);
+  border-color: rgba(191, 255, 0, 0.35);
   color: var(--color-off-white);
-  background: rgba(198, 255, 0, 0.05);
+  background: rgba(191, 255, 0, 0.05);
 }
 
 .admin-menu {
@@ -510,9 +547,9 @@ a.admin-campaign-card:active,
   z-index: 30;
   min-width: 11.5rem;
   padding: 0.35rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
-  background: #121215;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-md);
+  background: var(--admin-raised);
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
 }
 
@@ -520,7 +557,7 @@ a.admin-campaign-card:active,
   display: block;
   width: 100%;
   padding: 0.55rem 0.65rem;
-  border-radius: 7px;
+  border-radius: var(--admin-radius-sm);
   text-align: left;
   color: var(--color-soft-grey);
   font-size: 0.78rem;
@@ -528,7 +565,7 @@ a.admin-campaign-card:active,
 }
 
 .admin-menu__item:hover {
-  background: rgba(198, 255, 0, 0.07);
+  background: rgba(191, 255, 0, 0.07);
   color: var(--color-off-white);
 }
 
@@ -557,9 +594,9 @@ a.admin-campaign-card:active,
   max-height: min(90vh, 40rem);
   overflow: auto;
   padding: 1.35rem 1.25rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 14px;
-  background: #121215;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-lg);
+  background: var(--admin-raised);
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
   transform: none;
 }
@@ -573,8 +610,8 @@ a.admin-campaign-card:active,
   width: 100%;
   height: min(55svh, 22rem);
   overflow: hidden;
-  border-radius: 10px;
-  background: #0a0a0c;
+  border-radius: var(--admin-radius-md);
+  background: var(--admin-bg);
 }
 
 .admin-range {
@@ -585,14 +622,14 @@ a.admin-campaign-card:active,
   width: 5.5rem;
   height: 5.5rem;
   overflow: hidden;
-  border-radius: 12px;
-  border: 1px dashed rgba(255, 255, 255, 0.18);
+  border-radius: var(--admin-radius-md);
+  border: 1px dashed var(--admin-border-strong);
   background: var(--color-graphite);
   transition: border-color 0.15s ease;
 }
 
 .admin-avatar-btn:hover {
-  border-color: rgba(198, 255, 0, 0.45);
+  border-color: rgba(191, 255, 0, 0.45);
 }
 
 .admin-toast-stack {
@@ -607,16 +644,16 @@ a.admin-campaign-card:active,
 
 .admin-toast {
   padding: 0.75rem 0.9rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
-  background: rgba(18, 18, 21, 0.96);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-md);
+  background: rgba(9, 12, 10, 0.97);
   color: var(--color-off-white);
   font-size: 0.82rem;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
 }
 
 .admin-toast--ok {
-  border-color: rgba(198, 255, 0, 0.28);
+  border-color: rgba(191, 255, 0, 0.28);
 }
 
 .admin-toast--warn {
@@ -632,9 +669,9 @@ a.admin-campaign-card:active,
   display: grid;
   place-items: center;
   padding: 2.5rem 1.25rem;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
-  background: rgba(18, 18, 21, 0.55);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-lg);
+  background: rgba(9, 12, 10, 0.6);
   text-align: center;
 }
 
@@ -652,7 +689,7 @@ a.admin-campaign-card:active,
   height: 2px;
   overflow: hidden;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(135, 165, 140, 0.16);
 }
 
 .admin-loading__line::after {
@@ -678,7 +715,7 @@ a.admin-campaign-card:active,
   height: 0.45rem;
   border-radius: 999px;
   background: var(--color-acid-lime);
-  box-shadow: 0 0 10px rgba(198, 255, 0, 0.55);
+  box-shadow: 0 0 10px rgba(191, 255, 0, 0.55);
   animation: admin-dot-pulse 1s ease-in-out infinite;
 }
 

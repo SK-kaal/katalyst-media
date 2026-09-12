@@ -67,7 +67,7 @@ export default async function CampaignReportPreviewPage({
 
   return (
     <div>
-      <div className="border-b border-white/10 bg-black/40 px-4 py-2 text-center text-xs text-muted-grey">
+      <div className="border-b border-[color:var(--admin-border)] bg-black/40 px-4 py-2 text-center text-xs text-muted-grey">
         Admin preview · Client access is currently disabled for this ended campaign
       </div>
       <CampaignReportView

@@ -31,8 +31,11 @@ test.describe("client report cross-browser quality", () => {
       const errors: string[] = [];
       page.on("pageerror", (error) => errors.push(error.message));
 
-      // The load-in sequence transforms the cards, so geometry and hover
-      // assertions must wait for GSAP to clear its inline transforms.
+      // The load-in sequence offsets and fades the cards, so geometry and
+      // hover assertions must wait for it to settle. The entrance is a CSS
+      // animation with a `both` fill, so a settled card keeps an identity
+      // transform rather than dropping back to `none` — assert that it is
+      // opaque and undisplaced instead of matching one implementation.
       const settleIntro = async () => {
         await expect
           .poll(
@@ -40,10 +43,20 @@ test.describe("client report cross-browser quality", () => {
               page
                 .locator(".report-overview-card")
                 .last()
-                .evaluate((element) => getComputedStyle(element).transform),
+                .evaluate((element) => {
+                  const style = getComputedStyle(element);
+                  const matrix = new DOMMatrixReadOnly(style.transform);
+                  return (
+                    style.opacity === "1" &&
+                    Math.abs(matrix.m41) < 0.5 &&
+                    Math.abs(matrix.m42) < 0.5 &&
+                    Math.abs(matrix.a - 1) < 0.01 &&
+                    Math.abs(matrix.d - 1) < 0.01
+                  );
+                }),
             { timeout: 6000 },
           )
-          .toBe("none");
+          .toBe(true);
       };
 
       try {
@@ -185,20 +198,30 @@ test.describe("client report cross-browser quality", () => {
           );
         expect(Number.parseFloat(budgetGlowDuration)).toBeGreaterThanOrEqual(8);
         // The live dots glow in and out; they must not carry a ring pulse.
+        // The glow is a pre-rendered ::after whose opacity fades, so that the
+        // dot does not repaint a box-shadow on every frame.
         for (const selector of [
           ".report-status__dot",
           ".report-results__live-dot",
         ]) {
           const dot = await page.locator(selector).evaluate((element) => ({
-            name: getComputedStyle(element).animationName,
-            duration: getComputedStyle(element).animationDuration,
-            ring: getComputedStyle(element, "::after").animationName,
-            ringContent: getComputedStyle(element, "::after").content,
+            own: getComputedStyle(element).animationName,
+            glow: getComputedStyle(element, "::after").animationName,
+            duration: getComputedStyle(element, "::after").animationDuration,
+            glowTransform: getComputedStyle(element, "::after").transform,
+            glowTop: getComputedStyle(element, "::after").top,
+            glowLeft: getComputedStyle(element, "::after").left,
           }));
-          expect(dot.name).toBe("report-status-breathe");
+          expect(dot.glow).toBe("report-status-breathe");
           expect(Number.parseFloat(dot.duration)).toBeGreaterThanOrEqual(4);
-          expect(dot.ring).toBe("none");
-          expect(dot.ringContent).not.toBe('""');
+          // The glow sits inside the dot and never scales, so it cannot read
+          // as a ring expanding out of it.
+          expect(dot.glowTop).toBe("0px");
+          expect(dot.glowLeft).toBe("0px");
+          expect(["none", "matrix(1, 0, 0, 1, 0, 0)"]).toContain(
+            dot.glowTransform,
+          );
+          expect(dot.own).toBe("none");
         }
 
         // Ambient motion must keep running without scroll, hover or clicks.
