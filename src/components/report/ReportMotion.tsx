@@ -7,7 +7,7 @@ import {
   formatFullNumber,
   formatGbpExact,
 } from "@/lib/portal/metrics";
-import { gsap, useGSAP } from "@/lib/motion";
+import { gsap, ScrollTrigger, useGSAP } from "@/lib/motion";
 
 type ValueKind = "number" | "currency" | "percent";
 
@@ -25,6 +25,8 @@ export function AnimatedValue({
   kind?: ValueKind;
 }) {
   const visualRef = useRef<HTMLSpanElement>(null);
+  const hasRevealedRef = useRef(false);
+  const previousValueRef = useRef(value);
   const finalValue = formatValue(value, kind);
 
   useGSAP(
@@ -32,16 +34,58 @@ export function AnimatedValue({
       const visual = visualRef.current;
       if (!visual) return;
 
-      const media = gsap.matchMedia();
-      media.add("(prefers-reduced-motion: no-preference)", () => {
-        const counter = { value: 0 };
-        visual.textContent = formatValue(0, kind);
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        visual.textContent = finalValue;
+        hasRevealedRef.current = true;
+        previousValueRef.current = value;
+        return;
+      }
 
-        gsap.to(counter, {
+      let valueTween: gsap.core.Tween | null = null;
+      let feedbackTween: gsap.core.Tween | null = null;
+
+      if (!hasRevealedRef.current) {
+        visual.textContent = formatValue(0, kind);
+        const revealTrigger = ScrollTrigger.create({
+          trigger: visual,
+          start: "top 96%",
+          once: true,
+          onEnter: () => {
+            hasRevealedRef.current = true;
+            previousValueRef.current = value;
+
+            const counter = { value: 0 };
+            valueTween = gsap.to(counter, {
+              value: Math.max(0, value),
+              duration: 0.82,
+              ease: "power3.out",
+              onUpdate: () => {
+                visual.textContent = formatValue(counter.value, kind);
+              },
+              onComplete: () => {
+                visual.textContent = finalValue;
+              },
+            });
+          },
+        });
+
+        return () => {
+          revealTrigger.kill();
+          valueTween?.kill();
+        };
+      }
+
+      const previousValue = previousValueRef.current;
+      previousValueRef.current = value;
+
+      if (previousValue !== value) {
+        const counter = { value: Math.max(0, previousValue) };
+        visual.textContent = formatValue(counter.value, kind);
+
+        valueTween = gsap.to(counter, {
           value: Math.max(0, value),
-          duration: 0.78,
-          delay: 0.18,
-          ease: "power3.out",
+          duration: 0.62,
+          ease: "power2.out",
           onUpdate: () => {
             visual.textContent = formatValue(counter.value, kind);
           },
@@ -49,11 +93,33 @@ export function AnimatedValue({
             visual.textContent = finalValue;
           },
         });
-      });
 
-      return () => media.revert();
+        feedbackTween = gsap.fromTo(
+          visual,
+          {
+            color: "#dcff75",
+            textShadow: "0 0 12px rgba(191, 255, 0, 0.28)",
+          },
+          {
+            color: "inherit",
+            textShadow: "0 0 0 rgba(191, 255, 0, 0)",
+            duration: 0.58,
+            ease: "power2.out",
+            clearProps: "color,text-shadow",
+          },
+        );
+      }
+
+      return () => {
+        valueTween?.kill();
+        feedbackTween?.kill();
+      };
     },
-    { scope: visualRef },
+    {
+      scope: visualRef,
+      dependencies: [finalValue, kind, value],
+      revertOnUpdate: true,
+    },
   );
 
   return (
@@ -81,102 +147,132 @@ export function ReportMotion({ children }: { children: ReactNode }) {
 
       const media = gsap.matchMedia();
       media.add("(prefers-reduced-motion: no-preference)", () => {
-        const campaign = root.querySelector(".report-summary");
-        const delivery = root.querySelector(".report-delivery-card");
+        const overview = root.querySelector(".report-overview");
+        const overviewCards = root.querySelectorAll(".report-overview-card");
+        const delivery = root.querySelector<HTMLElement>(".report-delivery-card");
         const results = root.querySelector(".report-results");
-        const metrics = root.querySelectorAll(".report-metric-card");
+        const resultCards = root.querySelectorAll(
+          ".report-results__featured, .report-metric-card",
+        );
+        const chartsWrap = root.querySelector(".report-charts");
         const charts = root.querySelectorAll(".report-chart-card");
+        const sections = root.querySelectorAll(".report-section");
         const progress = root.querySelector(".report-progress__fill");
-        const entranceTargets = [campaign, delivery, results, ...metrics, ...charts]
-          .filter((target): target is Element => target != null);
 
-        gsap.set(entranceTargets, { autoAlpha: 0, y: 10 });
+        gsap.set(overviewCards, { opacity: 0, y: 9 });
         if (progress) {
           gsap.set(progress, { scaleX: 0, transformOrigin: "left center" });
         }
 
-        const timeline = gsap.timeline({
-          defaults: { ease: "power3.out" },
-        });
+        if (overview && overviewCards.length > 0) {
+          const overviewTimeline = gsap.timeline({
+            defaults: { ease: "power3.out" },
+            scrollTrigger: {
+              trigger: overview,
+              start: "top 96%",
+              once: true,
+            },
+          });
 
-        if (campaign) {
-          timeline.to(campaign, {
-            autoAlpha: 1,
+          overviewTimeline.to(overviewCards, {
+            opacity: 1,
             y: 0,
-            duration: 0.36,
-            clearProps: "opacity,visibility,transform",
+            duration: 0.44,
+            stagger: 0.08,
+            clearProps: "opacity,transform",
+            onStart: () => delivery?.classList.add("is-entering"),
+          });
+
+          if (progress) {
+            overviewTimeline.to(
+              progress,
+              {
+                scaleX: 1,
+                duration: 0.78,
+                ease: "power2.out",
+                clearProps: "transform,transform-origin",
+              },
+              0.14,
+            );
+          }
+
+          if (delivery) {
+            overviewTimeline.call(
+              () => delivery.classList.remove("is-entering"),
+              [],
+              1.18,
+            );
+          }
+        }
+
+        if (results) {
+          gsap.set(results, { opacity: 0.35, y: 9 });
+          gsap.set(resultCards, { opacity: 0.4, y: 7 });
+
+          const resultsTimeline = gsap.timeline({
+            defaults: { ease: "power3.out" },
+            scrollTrigger: {
+              trigger: results,
+              start: "top 92%",
+              once: true,
+            },
+          });
+
+          resultsTimeline
+            .to(results, {
+              opacity: 1,
+              y: 0,
+              duration: 0.46,
+              clearProps: "opacity,transform",
+            })
+            .to(
+              resultCards,
+              {
+                opacity: 1,
+                y: 0,
+                duration: 0.36,
+                stagger: 0.055,
+                clearProps: "opacity,transform",
+              },
+              0.1,
+            );
+        }
+
+        if (chartsWrap && charts.length > 0) {
+          gsap.set(charts, { opacity: 0.35, y: 9 });
+          gsap.to(charts, {
+            opacity: 1,
+            y: 0,
+            duration: 0.44,
+            stagger: 0.08,
+            ease: "power3.out",
+            clearProps: "opacity,transform",
+            scrollTrigger: {
+              trigger: chartsWrap,
+              start: "top 92%",
+              once: true,
+            },
           });
         }
-        if (delivery) {
-          timeline.to(
-            delivery,
+
+        sections.forEach((section) => {
+          gsap.fromTo(
+            section,
+            { opacity: 0.45, y: 9 },
             {
-              autoAlpha: 1,
+              opacity: 1,
               y: 0,
-              duration: 0.36,
-              clearProps: "opacity,visibility,transform",
-              onStart: () => {
-                delivery.classList.add("is-entering");
+              duration: 0.46,
+              ease: "power3.out",
+              clearProps: "opacity,transform",
+              scrollTrigger: {
+                trigger: section,
+                start: "top 92%",
+                once: true,
               },
-              onComplete: () => {
-                window.setTimeout(() => {
-                  delivery.classList.remove("is-entering");
-                }, 1100);
-              },
             },
-            0.08,
           );
-        }
-        if (progress) {
-          timeline.to(
-            progress,
-            {
-              scaleX: 1,
-              duration: 0.72,
-              ease: "power2.out",
-              clearProps: "transform,transform-origin",
-            },
-            0.16,
-          );
-        }
-        if (results) {
-          timeline.to(
-            results,
-            {
-              autoAlpha: 1,
-              y: 0,
-              duration: 0.38,
-              clearProps: "opacity,visibility,transform",
-            },
-            0.2,
-          );
-        }
-        if (metrics.length > 0) {
-          timeline.to(
-            metrics,
-            {
-              autoAlpha: 1,
-              y: 0,
-              duration: 0.28,
-              stagger: 0.07,
-              clearProps: "opacity,visibility,transform",
-            },
-            0.32,
-          );
-        }
-        if (charts.length > 0) {
-          timeline.to(
-            charts,
-            {
-              autoAlpha: 1,
-              y: 0,
-              duration: 0.34,
-              stagger: 0.08,
-              clearProps: "opacity,visibility,transform",
-            },
-            0.58,
-          );
-        }
+        });
       });
 
       return () => {

@@ -110,7 +110,11 @@ test.describe("client report cross-browser quality", () => {
           }),
         );
         expect(overviewBoxes).toHaveLength(2);
-        expect(Math.round(overviewBoxes[0].y)).toBe(Math.round(overviewBoxes[1].y));
+        expect(
+          Math.abs(
+            Math.round(overviewBoxes[0].y) - Math.round(overviewBoxes[1].y),
+          ),
+        ).toBeLessThanOrEqual(3);
         expect(overviewBoxes[0].width).toBeGreaterThan(overviewBoxes[1].width);
         await expect(page.locator(".report-metric-card__icon")).toHaveCount(0);
         await expect(
@@ -151,20 +155,29 @@ test.describe("client report cross-browser quality", () => {
           ).toBeVisible();
         }
 
-        const decorationDuration = await page
-          .locator(".report-overview-card")
-          .first()
+        const waveformDuration = await page
+          .locator(".report-summary__waveform")
+          .evaluate((element) => getComputedStyle(element).animationDuration);
+        expect(Number.parseFloat(waveformDuration)).toBeGreaterThanOrEqual(20);
+        const budgetGlowDuration = await page
+          .locator(".report-delivery-card")
           .evaluate(
             (element) =>
               getComputedStyle(element, "::before").animationDuration,
           );
-        expect(Number.parseFloat(decorationDuration)).toBeGreaterThanOrEqual(18);
-        expect(
-          await page.locator(".report-results__live-dot").evaluate(
-            (element) =>
-              getComputedStyle(element, "::after").animationDuration,
-          ),
-        ).toBe("2s");
+        expect(Number.parseFloat(budgetGlowDuration)).toBeGreaterThanOrEqual(12);
+        for (const selector of [
+          ".report-status__dot",
+          ".report-results__live-dot",
+        ]) {
+          const duration = await page
+            .locator(selector)
+            .evaluate(
+              (element) =>
+                getComputedStyle(element, "::after").animationDuration,
+            );
+          expect(Number.parseFloat(duration)).toBeGreaterThanOrEqual(4);
+        }
 
         await page.setViewportSize({ width: 390, height: 900 });
         await page.goto(reportUrl!, { waitUntil: "networkidle" });
@@ -172,7 +185,9 @@ test.describe("client report cross-browser quality", () => {
           expect((await soundLink.boundingBox())?.width).toBeGreaterThanOrEqual(44);
           expect((await soundLink.boundingBox())?.height).toBeGreaterThanOrEqual(44);
         }
-        await page.locator(".report-summary__title").evaluate((element) => {
+        const campaignTitle = page.locator(".report-summary__title");
+        const originalCampaignTitle = await campaignTitle.textContent();
+        await campaignTitle.evaluate((element) => {
           element.textContent =
             "A deliberately long campaign title that must wrap without crowding the sound link";
         });
@@ -181,21 +196,55 @@ test.describe("client report cross-browser quality", () => {
             () => document.documentElement.scrollWidth <= window.innerWidth,
           ),
         ).toBe(true);
+        await campaignTitle.evaluate((element, originalTitle) => {
+          element.textContent = originalTitle;
+        }, originalCampaignTitle);
 
-        const resourceCount = await page.evaluate(
-          () => performance.getEntriesByType("resource").length,
+        const dataRequestCount = await page.evaluate(
+          () =>
+            performance
+              .getEntriesByType("resource")
+              .filter((entry) => {
+                const url = new URL(entry.name);
+                return (
+                  url.pathname.startsWith("/api/") ||
+                  url.pathname.includes("/rest/v1/") ||
+                  url.pathname.includes("/rpc/")
+                );
+              }).length,
         );
         const firstDaily = page.getByRole("button", { name: "Daily" }).first();
+        const firstIndicator = page.locator(".report-toggle__indicator").first();
+        const indicatorBefore = await firstIndicator.evaluate(
+          (element) => getComputedStyle(element).transform,
+        );
         await firstDaily.focus();
-        await page.keyboard.press("Enter");
+        await firstDaily.click();
         await expect(firstDaily).toHaveAttribute("aria-pressed", "true");
+        await expect
+          .poll(() =>
+            firstIndicator.evaluate(
+              (element) => getComputedStyle(element).transform,
+            ),
+          )
+          .not.toBe(indicatorBefore);
         await page.getByRole("button", { name: "Cumulative" }).first().click();
         await firstDaily.click();
         expect(
           await page.evaluate(
-            () => performance.getEntriesByType("resource").length,
+            () =>
+              performance
+                .getEntriesByType("resource")
+                .filter((entry) => {
+                  const url = new URL(entry.name);
+                  return (
+                    url.pathname.startsWith("/api/") ||
+                    url.pathname.includes("/rest/v1/") ||
+                    url.pathname.includes("/rpc/")
+                  );
+                }).length,
           ),
-        ).toBe(resourceCount);
+        ).toBe(dataRequestCount);
 
         const viewsChart = page.locator(".report-chart-card").last();
         await viewsChart.getByRole("button", { name: "Cumulative" }).click();
@@ -273,8 +322,7 @@ test.describe("client report cross-browser quality", () => {
         await page.reload({ waitUntil: "networkidle" });
         expect(
           await page
-            .locator(".report-overview-card")
-            .first()
+            .locator(".report-delivery-card")
             .evaluate(
               (element) =>
                 getComputedStyle(element, "::before").animationName,

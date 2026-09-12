@@ -82,6 +82,8 @@ export function ReportMetricChart({
       ? `0,${height} ${line} ${width},${height}`
       : "";
   const active = activeIndex != null ? points[activeIndex] : null;
+  const latest = points[points.length - 1];
+  const hasDrawableHistory = points.length >= 2;
 
   useGSAP(
     () => {
@@ -131,7 +133,7 @@ export function ReportMetricChart({
     },
     {
       scope: rootRef,
-      dependencies: [animationDelay, featured, line, points.length],
+      dependencies: [animationDelay, featured, hasDrawableHistory],
       revertOnUpdate: true,
     },
   );
@@ -193,6 +195,7 @@ export function ReportMetricChart({
           <polygon
             ref={areaRef}
             points={area}
+            className="report-metric-plot__area"
             fill={`url(#report-metric-fill-${gradientId})`}
           />
         ) : null}
@@ -211,6 +214,26 @@ export function ReportMetricChart({
             className="report-metric-plot__line"
           />
         )}
+
+        {latest && points.length >= 2 ? (
+          <>
+            <circle
+              className="report-metric-plot__latest-pulse"
+              cx={latest.x}
+              cy={latest.y}
+              r={featured ? 4.5 : 3.5}
+              fill="none"
+              vectorEffect="non-scaling-stroke"
+            />
+            <circle
+              className="report-metric-plot__latest-point"
+              cx={latest.x}
+              cy={latest.y}
+              r={featured ? 2.4 : 1.8}
+              vectorEffect="non-scaling-stroke"
+            />
+          </>
+        ) : null}
 
         {points.map((point, index) => (
           <circle

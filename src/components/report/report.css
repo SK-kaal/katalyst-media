@@ -5,8 +5,22 @@
 }
 
 .report-motion-root--paused .report-summary__waveform,
+.report-motion-root--paused .report-summary__waveform-glow,
+.report-motion-root--paused .report-summary__waveform-path,
 .report-motion-root--paused .report-delivery-card::before,
+.report-motion-root--paused .report-progress__fill::after,
+.report-motion-root--paused .report-status__dot::after,
+.report-motion-root--paused .report-results::before,
+.report-motion-root--paused .report-results__featured::before,
 .report-motion-root--paused .report-results__live-dot::after,
+.report-motion-root--paused .report-chart-card::before,
+.report-motion-root--paused .report-chart-line,
+.report-motion-root--paused .report-chart-area,
+.report-motion-root--paused .report-chart-latest-pulse,
+.report-motion-root--paused .report-metric-plot__line,
+.report-motion-root--paused .report-metric-plot__area,
+.report-motion-root--paused .report-metric-plot__latest-pulse,
+.report-motion-root--paused .report-empty--chart::before,
 .report-motion-root--paused .report-loading__block {
   animation-play-state: paused;
 }
@@ -254,6 +268,8 @@
   );
   filter: blur(18px);
   pointer-events: none;
+  animation: report-waveform-glow-breathe 11s ease-in-out infinite alternate;
+  will-change: transform, opacity;
 }
 
 .report-summary__waveform svg {
@@ -268,11 +284,24 @@
   stroke: rgba(191, 255, 0, 0.07);
   stroke-width: 0.7;
   vector-effect: non-scaling-stroke;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: report-signal-line-drift 34s ease-in-out infinite alternate;
+  will-change: transform;
 }
 
 .report-summary__waveform-path--bright {
   stroke: rgba(191, 255, 0, 0.28);
   stroke-width: 0.85;
+}
+
+.report-summary__waveform-path:nth-child(3n + 2) {
+  animation-duration: 28s;
+  animation-direction: alternate-reverse;
+}
+
+.report-summary__waveform-path:nth-child(3n) {
+  animation-duration: 40s;
 }
 
 .report-delivery-card::before {
@@ -321,6 +350,26 @@
   }
   to {
     transform: translate3d(1.1%, -0.5%, 0) scale(1.012);
+  }
+}
+
+@keyframes report-waveform-glow-breathe {
+  from {
+    opacity: 0.62;
+    transform: translate3d(-1.5%, 0, 0) scale(0.96);
+  }
+  to {
+    opacity: 0.9;
+    transform: translate3d(2%, -1%, 0) scale(1.04);
+  }
+}
+
+@keyframes report-signal-line-drift {
+  from {
+    transform: translate3d(-1.2%, 0, 0);
+  }
+  to {
+    transform: translate3d(1.2%, 0, 0);
   }
 }
 
@@ -489,10 +538,21 @@
 }
 
 .report-status__dot {
+  position: relative;
   width: 0.38rem;
   height: 0.38rem;
   border-radius: 999px;
   background: var(--color-acid-lime);
+}
+
+.report-status:not(.report-status--ended) .report-status__dot::after {
+  content: "";
+  position: absolute;
+  inset: -0.24rem;
+  border: 1px solid rgba(191, 255, 0, 0.38);
+  border-radius: inherit;
+  opacity: 0;
+  animation: report-status-signal 5.4s ease-out infinite;
 }
 
 .report-status--ended {
@@ -635,11 +695,66 @@
 }
 
 .report-progress__fill {
+  position: relative;
+  overflow: hidden;
   height: 100%;
   border-radius: inherit;
   background: var(--report-neon);
   box-shadow: 0 0 8px rgba(191, 255, 0, 0.12);
   transition: width 180ms var(--ease-ui);
+}
+
+.report-progress__fill::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 60%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.34),
+    transparent
+  );
+  opacity: 0;
+  transform: translate3d(-180%, 0, 0);
+  animation: report-progress-glint 7.5s ease-in-out 1.4s infinite;
+  will-change: transform, opacity;
+}
+
+@keyframes report-progress-glint {
+  0%,
+  68% {
+    opacity: 0;
+    transform: translate3d(-180%, 0, 0);
+  }
+  74% {
+    opacity: 0.28;
+  }
+  88% {
+    opacity: 0;
+    transform: translate3d(260%, 0, 0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(260%, 0, 0);
+  }
+}
+
+@keyframes report-status-signal {
+  0%,
+  70% {
+    opacity: 0;
+    transform: scale(0.55);
+  }
+  76% {
+    opacity: 0.38;
+    transform: scale(0.62);
+  }
+  90%,
+  100% {
+    opacity: 0;
+    transform: scale(1.55);
+  }
 }
 
 @media (min-width: 900px) {
@@ -747,11 +862,38 @@
 
 /* —— Campaign results —— */
 .report-results {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
   margin-top: 1.2rem;
   padding: 1.05rem;
   border: 1px solid var(--report-border);
   border-radius: 16px;
   background: var(--report-card);
+}
+
+.report-results::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  top: -42%;
+  left: 18%;
+  width: 50%;
+  height: 95%;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(191, 255, 0, 0.052),
+    rgba(191, 255, 0, 0) 68%
+  );
+  pointer-events: none;
+  animation: report-ambient-light 14s ease-in-out infinite alternate;
+  will-change: transform, opacity;
+}
+
+.report-results > * {
+  position: relative;
+  z-index: 1;
 }
 
 @media (min-width: 900px) {
@@ -814,22 +956,7 @@
   inset: -0.25rem;
   border: 1px solid rgba(191, 255, 0, 0.45);
   border-radius: inherit;
-  animation: report-live-pulse 2s ease-out infinite;
-}
-
-@keyframes report-live-pulse {
-  0%,
-  42% {
-    opacity: 0;
-    transform: scale(0.45);
-  }
-  55% {
-    opacity: 0.45;
-  }
-  100% {
-    opacity: 0;
-    transform: scale(1.45);
-  }
+  animation: report-status-signal 5.1s ease-out 0.8s infinite;
 }
 
 .report-results__layout {
@@ -838,6 +965,8 @@
 }
 
 .report-results__featured {
+  position: relative;
+  isolation: isolate;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   min-height: 10.5rem;
@@ -845,13 +974,31 @@
   padding: 1rem;
   border: 1px solid var(--report-border);
   border-radius: 11px;
-  background:
-    radial-gradient(
-      ellipse 50% 60% at 90% 8%,
-      rgba(191, 255, 0, 0.055),
-      transparent 55%
-    ),
-    var(--report-raised);
+  background: var(--report-raised);
+}
+
+.report-results__featured::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  top: -28%;
+  right: -18%;
+  width: 68%;
+  height: 100%;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(191, 255, 0, 0.075),
+    rgba(191, 255, 0, 0) 68%
+  );
+  pointer-events: none;
+  animation: report-ambient-light 12s ease-in-out 0.6s infinite alternate-reverse;
+  will-change: transform, opacity;
+}
+
+.report-results__featured > * {
+  position: relative;
+  z-index: 1;
 }
 
 .report-results__featured-head {
@@ -896,6 +1043,38 @@
   border-radius: 11px;
   background: var(--report-raised);
   overflow: hidden;
+}
+
+.report-metric-card::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 -70% 42%;
+  height: 110%;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(191, 255, 0, 0.06),
+    rgba(191, 255, 0, 0) 68%
+  );
+  opacity: 0.2;
+  pointer-events: none;
+  transition: opacity 220ms ease, transform 220ms ease;
+}
+
+.report-metric-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes report-ambient-light {
+  from {
+    opacity: 0.58;
+    transform: translate3d(-2%, 1%, 0) scale(0.96);
+  }
+  to {
+    opacity: 0.92;
+    transform: translate3d(3%, -2%, 0) scale(1.04);
+  }
 }
 
 .report-metric-card__content {
@@ -954,6 +1133,8 @@
   stroke-linecap: round;
   stroke-linejoin: round;
   vector-effect: non-scaling-stroke;
+  filter: drop-shadow(0 0 2px rgba(191, 255, 0, 0.16));
+  animation: report-chart-line-breathe 8s ease-in-out infinite alternate;
 }
 
 .report-metric-plot--featured .report-metric-plot__line {
@@ -963,6 +1144,21 @@
 .report-metric-plot__line--flat {
   opacity: 0.58;
   stroke-dasharray: 3 4;
+}
+
+.report-metric-plot__area {
+  animation: report-chart-area-breathe 11s ease-in-out infinite alternate;
+}
+
+.report-metric-plot__latest-point {
+  fill: var(--report-neon);
+}
+
+.report-metric-plot__latest-pulse {
+  stroke: rgba(191, 255, 0, 0.34);
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: report-chart-point-pulse 4.8s ease-out infinite;
 }
 
 .report-metric-plot--waiting {
@@ -1103,12 +1299,42 @@
 }
 
 .report-empty--chart {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
   min-height: 11.25rem;
   background-image: linear-gradient(
     rgba(255, 255, 255, 0.035) 1px,
     transparent 1px
   );
   background-size: 100% 25%;
+}
+
+.report-empty--chart::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  top: 8%;
+  bottom: 8%;
+  left: -34%;
+  width: 32%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(191, 255, 0, 0.045),
+    rgba(191, 255, 0, 0.075),
+    transparent
+  );
+  filter: blur(8px);
+  opacity: 0;
+  pointer-events: none;
+  animation: report-empty-scan 10s ease-in-out 1.5s infinite;
+  will-change: transform, opacity;
+}
+
+.report-empty--chart > * {
+  position: relative;
+  z-index: 1;
 }
 
 .report-empty__hint {
@@ -1152,6 +1378,7 @@
 }
 
 .report-toggle {
+  position: relative;
   display: inline-flex;
   align-items: center;
   padding: 0.18rem;
@@ -1161,7 +1388,24 @@
   gap: 0.15rem;
 }
 
+.report-toggle__indicator {
+  position: absolute;
+  z-index: 0;
+  top: 0.18rem;
+  bottom: 0.18rem;
+  left: 0;
+  width: 58%;
+  border-radius: 999px;
+  background: var(--color-acid-lime);
+  box-shadow: 0 0 14px rgba(191, 255, 0, 0.1);
+  opacity: 0;
+  pointer-events: none;
+  will-change: transform, width;
+}
+
 .report-toggle button {
+  position: relative;
+  z-index: 1;
   min-height: 2.75rem;
   padding: 0.25rem 0.78rem;
   border-radius: 999px;
@@ -1176,9 +1420,9 @@
 }
 
 .report-toggle button.is-active {
-  background: var(--color-acid-lime);
+  background: transparent;
   color: #0a0a0a;
-  box-shadow: 0 0 14px rgba(191, 255, 0, 0.1);
+  box-shadow: none;
 }
 
 .report-chart-plot {
@@ -1187,11 +1431,121 @@
 }
 
 .report-chart-card {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
   min-width: 0;
+}
+
+.report-chart-card::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  top: -34%;
+  right: -18%;
+  width: 58%;
+  height: 86%;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(191, 255, 0, 0.05),
+    rgba(191, 255, 0, 0) 68%
+  );
+  pointer-events: none;
+  animation: report-ambient-light 15s ease-in-out infinite alternate;
+  will-change: transform, opacity;
+}
+
+.report-chart-card > * {
+  position: relative;
+  z-index: 1;
 }
 
 .report-chart-card svg {
   display: block;
+}
+
+.report-chart-svg {
+  animation: report-chart-mode-in 0.32s ease-out both;
+}
+
+.report-chart-line {
+  filter: drop-shadow(0 0 2px rgba(191, 255, 0, 0.18));
+  animation: report-chart-line-breathe 8s ease-in-out infinite alternate;
+}
+
+.report-chart-area {
+  animation: report-chart-area-breathe 11s ease-in-out infinite alternate;
+}
+
+.report-chart-latest-pulse {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: report-chart-point-pulse 4.8s ease-out infinite;
+}
+
+@keyframes report-chart-mode-in {
+  from {
+    opacity: 0.62;
+    transform: translate3d(0, 2px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes report-chart-line-breathe {
+  from {
+    stroke-opacity: 0.82;
+  }
+  to {
+    stroke-opacity: 1;
+  }
+}
+
+@keyframes report-chart-area-breathe {
+  from {
+    opacity: 0.72;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes report-chart-point-pulse {
+  0%,
+  70% {
+    opacity: 0;
+    transform: scale(0.72);
+  }
+  76% {
+    opacity: 0.4;
+  }
+  92%,
+  100% {
+    opacity: 0;
+    transform: scale(1.65);
+  }
+}
+
+@keyframes report-empty-scan {
+  0%,
+  18% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0);
+  }
+  28% {
+    opacity: 0.7;
+  }
+  56% {
+    opacity: 0;
+    transform: translate3d(430%, 0, 0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(430%, 0, 0);
+  }
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -1216,15 +1570,40 @@
     transform: translateY(-1px);
   }
 
+  .report-metric-card:hover::after {
+    opacity: 0.72;
+    transform: translate3d(-2%, -2%, 0) scale(1.03);
+  }
+
   .report-toggle button:not(.is-active):hover {
     color: var(--color-off-white);
     transform: translateY(-1px);
   }
 }
 
+.report-metric-card:active,
+.report-chart-card:active {
+  transform: translateY(1px);
+}
+
 @media (min-width: 900px) {
   .report-toggle button {
     min-height: 2rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .report-summary__waveform-glow {
+    filter: blur(12px);
+  }
+
+  .report-chart-line,
+  .report-metric-plot__line {
+    filter: none;
+  }
+
+  .report-empty--chart::before {
+    filter: none;
   }
 }
 
@@ -1777,9 +2156,24 @@ a.report-vcard:hover {
 
 @media (prefers-reduced-motion: reduce) {
   .report-summary__waveform,
+  .report-summary__waveform-glow,
+  .report-summary__waveform-path,
   .report-delivery-card::before,
+  .report-progress__fill::after,
+  .report-status__dot::after,
   .report-delivery-card.is-entering,
+  .report-results::before,
+  .report-results__featured::before,
   .report-results__live--active .report-results__live-dot::after,
+  .report-chart-card::before,
+  .report-chart-svg,
+  .report-chart-line,
+  .report-chart-area,
+  .report-chart-latest-pulse,
+  .report-metric-plot__line,
+  .report-metric-plot__area,
+  .report-metric-plot__latest-pulse,
+  .report-empty--chart::before,
   .report-loading__block {
     animation: none;
     will-change: auto;
@@ -1803,5 +2197,10 @@ a.report-vcard:hover {
   .report-chart-card:hover,
   .report-toggle button:hover {
     transform: none;
+  }
+
+  .report-toggle__indicator {
+    transition: none;
+    will-change: auto;
   }
 }

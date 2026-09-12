@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { AnimatedValue } from "@/components/report/ReportMotion";
 import {
   formatCompactNumber,
@@ -50,6 +50,9 @@ function ChartCard({
   const rootRef = useRef<HTMLDivElement>(null);
   const lineRef = useRef<SVGPolylineElement>(null);
   const areaRef = useRef<SVGPolygonElement>(null);
+  const toggleRef = useRef<HTMLDivElement>(null);
+  const toggleIndicatorRef = useRef<HTMLSpanElement>(null);
+  const toggleReadyRef = useRef(false);
   const [mode, setMode] = useState<Mode>("cumulative");
   const [hover, setHover] = useState<number | null>(null);
   const gid = useId().replace(/:/g, "");
@@ -145,6 +148,40 @@ function ChartCard({
       : formatSignedFullNumber(active.value)
     : "";
 
+  useEffect(() => {
+    const toggle = toggleRef.current;
+    const indicator = toggleIndicatorRef.current;
+    const activeButton = toggle?.querySelector<HTMLButtonElement>(
+      `button[data-mode="${mode}"]`,
+    );
+    if (!toggle || !indicator || !activeButton) return;
+
+    const properties = {
+      x: activeButton.offsetLeft,
+      width: activeButton.offsetWidth,
+      opacity: 1,
+    };
+    const reduceMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+
+    if (!toggleReadyRef.current || reduceMotion) {
+      gsap.set(indicator, properties);
+      toggleReadyRef.current = true;
+    } else {
+      gsap.to(indicator, {
+        ...properties,
+        duration: 0.32,
+        ease: "power2.inOut",
+        overwrite: true,
+      });
+    }
+
+    return () => {
+      gsap.killTweensOf(indicator);
+    };
+  }, [mode]);
+
   useGSAP(
     () => {
       const lineElement = lineRef.current;
@@ -192,7 +229,7 @@ function ChartCard({
     },
     {
       scope: rootRef,
-      dependencies: [area, line, mode, showChart],
+      dependencies: [showChart],
       revertOnUpdate: true,
     },
   );
@@ -213,10 +250,22 @@ function ChartCard({
             <p className="report-chart-card__total-label">{totalLabel}</p>
           )}
         </div>
-        <div className="report-toggle" role="group" aria-label={`${title} mode`}>
+        <div
+          ref={toggleRef}
+          className="report-toggle"
+          role="group"
+          aria-label={`${title} mode`}
+          data-mode={mode}
+        >
+          <span
+            ref={toggleIndicatorRef}
+            className="report-toggle__indicator"
+            aria-hidden="true"
+          />
           <button
             type="button"
             className={mode === "cumulative" ? "is-active" : ""}
+            data-mode="cumulative"
             aria-pressed={mode === "cumulative"}
             onClick={() => changeMode("cumulative")}
           >
@@ -225,6 +274,7 @@ function ChartCard({
           <button
             type="button"
             className={mode === "daily" ? "is-active" : ""}
+            data-mode="daily"
             aria-pressed={mode === "daily"}
             onClick={() => changeMode("daily")}
           >
@@ -246,8 +296,9 @@ function ChartCard({
           }}
         >
           <svg
+            key={mode}
             viewBox={`0 0 ${w} ${h}`}
-            className="w-full"
+            className="report-chart-svg w-full"
             role="img"
             aria-label={`${title} ${mode} chart`}
           >
@@ -297,6 +348,7 @@ function ChartCard({
               <polygon
                 ref={areaRef}
                 points={area}
+                className="report-chart-area"
                 fill={`url(#fill-${gid})`}
               />
             ) : null}
@@ -304,6 +356,7 @@ function ChartCard({
             <polyline
               ref={lineRef}
               points={line}
+              className="report-chart-line"
               fill="none"
               stroke="#bfff00"
               strokeWidth="1.8"
@@ -333,12 +386,24 @@ function ChartCard({
                 />
               </>
             ) : latest ? (
-              <circle
-                cx={latest.x}
-                cy={latest.y}
-                r="3.5"
-                fill="#bfff00"
-              />
+              <>
+                <circle
+                  className="report-chart-latest-pulse"
+                  cx={latest.x}
+                  cy={latest.y}
+                  r="5"
+                  fill="none"
+                  stroke="rgba(191,255,0,0.32)"
+                  vectorEffect="non-scaling-stroke"
+                />
+                <circle
+                  className="report-chart-latest-point"
+                  cx={latest.x}
+                  cy={latest.y}
+                  r="3.5"
+                  fill="#bfff00"
+                />
+              </>
             ) : null}
 
             {/* Invisible hit targets */}
