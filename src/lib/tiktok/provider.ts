@@ -218,36 +218,42 @@ function readVideoDetail(html: string) {
   return detail?.itemInfo?.itemStruct ?? null;
 }
 
-function readUsageCountFromHtml(html: string): number | null {
-  // Best-effort only — TikTok often withholds this from SSR.
-  const patterns = [
-    /"videoCount"\s*:\s*(\d+)/,
-    /"video_count"\s*:\s*(\d+)/,
-    /"userCount"\s*:\s*(\d+)/,
-    /"originalItemStats"[^}]*"videoCount"\s*:\s*(\d+)/,
-  ];
-  for (const pattern of patterns) {
-    const match = html.match(pattern);
-    if (match) {
-      const n = Number(match[1]);
-      if (Number.isFinite(n) && n > 0) return n;
-    }
+/**
+ * Creations for a sound, when TikTok publishes it — best-effort only, since
+ * TikTok usually withholds this from SSR.
+ *
+ * Only values that unambiguously belong to the sound are accepted. A loose
+ * `"videoCount"` scan is not safe: TikTok pages also carry
+ * `authorStats.videoCount` and `userInfo.stats.videoCount`, which are a
+ * creator's own upload count, and reporting one of those as campaign
+ * creations would publish a fabricated figure to a client.
+ */
+export function readUsageCountFromHtml(html: string): number | null {
+  // `originalItemStats` belongs to the sound itself, not to any creator.
+  const scoped = html.match(/"originalItemStats"[^}]*"videoCount"\s*:\s*(\d+)/);
+  if (scoped) {
+    const n = Number(scoped[1]);
+    if (Number.isFinite(n) && n > 0) return n;
   }
 
-  // Try music detail hydration JSON when present.
   const uni = extractScriptJson(html, "__UNIVERSAL_DATA_FOR_REHYDRATION__") as {
     __DEFAULT_SCOPE__?: Record<string, unknown>;
   } | null;
-  const scope = uni?.__DEFAULT_SCOPE__;
-  if (scope) {
-    for (const value of Object.values(scope)) {
-      const asJson = JSON.stringify(value);
-      const match = asJson.match(/"videoCount"\s*:\s*(\d+)/);
-      if (match) {
-        const n = Number(match[1]);
-        if (Number.isFinite(n) && n > 0) return n;
+  const musicDetail = uni?.__DEFAULT_SCOPE__?.["webapp.music-detail"] as
+    | {
+        musicInfo?: {
+          stats?: { videoCount?: number | string };
+          music?: { videoCount?: number | string };
+        };
       }
-    }
+    | undefined;
+
+  for (const candidate of [
+    musicDetail?.musicInfo?.stats?.videoCount,
+    musicDetail?.musicInfo?.music?.videoCount,
+  ]) {
+    const n = Number(candidate);
+    if (Number.isFinite(n) && n > 0) return Math.round(n);
   }
 
   return null;
