@@ -17,7 +17,9 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const source = process.argv[2] ?? path.join(here, "km-logo.png");
 
 /** Share of the icon's width the wordmark spans. The rest is padding. */
-const MARK_WIDTH_RATIO = 0.88;
+const MARK_WIDTH_RATIO = 0.76;
+/** Corner radius as a share of the icon's width. */
+const CORNER_RADIUS_RATIO = 0.2;
 const BACKGROUND = { r: 0, g: 0, b: 0, alpha: 1 };
 
 const root = process.cwd();
@@ -53,15 +55,20 @@ const bounds = await findMarkBounds(source);
 const mark = await sharp(source).extract(bounds).png().toBuffer();
 const aspect = bounds.height / bounds.width;
 
-/** One square icon: the mark scaled to a fixed width share, centred on black. */
-async function renderIcon(size) {
+/**
+ * One square icon: the mark scaled to a fixed width share, centred on black.
+ *
+ * `rounded` is off for icons the platform masks itself, such as the Apple touch
+ * icon, where pre-rounding would show through as corner artefacts.
+ */
+async function renderIcon(size, { rounded = true } = {}) {
   const markWidth = Math.max(1, Math.round(size * MARK_WIDTH_RATIO));
   const markHeight = Math.max(1, Math.round(markWidth * aspect));
   const scaled = await sharp(mark)
     .resize(markWidth, markHeight, { kernel: sharp.kernel.lanczos3, fit: "fill" })
     .png()
     .toBuffer();
-  return sharp({
+  const square = await sharp({
     create: {
       width: size,
       height: size,
@@ -76,6 +83,21 @@ async function renderIcon(size) {
         top: Math.round((size - markHeight) / 2),
       },
     ])
+    .png()
+    .toBuffer();
+
+  if (!rounded) {
+    return sharp(square).png({ compressionLevel: 9 }).toBuffer();
+  }
+
+  const radius = size * CORNER_RADIUS_RATIO;
+  const corners = Buffer.from(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}">` +
+      `<rect width="${size}" height="${size}" rx="${radius}" ry="${radius}" fill="#fff"/>` +
+      `</svg>`,
+  );
+  return sharp(square)
+    .composite([{ input: corners, blend: "dest-in" }])
     .png({ compressionLevel: 9 })
     .toBuffer();
 }
@@ -116,13 +138,14 @@ for (const size of icoSizes) {
 await writeFile(path.join(appDir, "favicon.ico"), buildIco(icoImages));
 
 const pngTargets = [
-  [path.join(appDir, "icon.png"), 32],
-  [path.join(appDir, "apple-icon.png"), 180],
-  [path.join(publicDir, "icon-192.png"), 192],
-  [path.join(publicDir, "icon-512.png"), 512],
+  [path.join(appDir, "icon.png"), 32, { rounded: true }],
+  // iOS rounds the home-screen icon itself, so this one stays full-bleed.
+  [path.join(appDir, "apple-icon.png"), 180, { rounded: false }],
+  [path.join(publicDir, "icon-192.png"), 192, { rounded: true }],
+  [path.join(publicDir, "icon-512.png"), 512, { rounded: true }],
 ];
-for (const [file, size] of pngTargets) {
-  await writeFile(file, await renderIcon(size));
+for (const [file, size, options] of pngTargets) {
+  await writeFile(file, await renderIcon(size, options));
 }
 
 console.log(
@@ -131,12 +154,13 @@ console.log(
       artwork: source,
       markBounds: bounds,
       markWidthRatio: MARK_WIDTH_RATIO,
+      cornerRadiusRatio: CORNER_RADIUS_RATIO,
       wrote: {
-        "src/app/favicon.ico": icoSizes.join(", "),
+        "src/app/favicon.ico": `${icoSizes.join(", ")} (rounded)`,
         ...Object.fromEntries(
-          pngTargets.map(([file, size]) => [
+          pngTargets.map(([file, size, options]) => [
             path.relative(root, file).replace(/\\/g, "/"),
-            `${size}x${size}`,
+            `${size}x${size}${options.rounded ? " (rounded)" : " (square, iOS masks it)"}`,
           ]),
         ),
       },
