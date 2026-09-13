@@ -12,12 +12,15 @@ export const company = {
   focusLabel: "What we do",
   location: "United Kingdom",
   sidebarLocation: "London · Worldwide campaigns",
-  url: process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.katalystmedia.xyz",
+  url: process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.katalystmedia.co.uk",
   pageTitle: "Katalyst Media | Music Marketing for Artists & Labels",
   email: (process.env.NEXT_PUBLIC_CONTACT_EMAIL ?? "").trim(),
   instagramUrl: (process.env.NEXT_PUBLIC_INSTAGRAM_URL ?? "").trim(),
   linkedinUrl: (process.env.NEXT_PUBLIC_LINKEDIN_URL ?? "").trim(),
 } as const;
+
+/** The site's host, for prose that names the website rather than links to it. */
+export const siteDomain = company.url.replace(/^https?:\/\/(?:www\.)?/, "");
 
 export type SocialLink = {
   label: string;

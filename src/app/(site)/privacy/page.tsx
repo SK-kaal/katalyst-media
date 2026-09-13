@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Container } from "@/components/layout/Container";
 import { PageHero } from "@/components/ui/PageHero";
-import { company, hasPublicEmail } from "@/content/company";
+import { company, hasPublicEmail, siteDomain } from "@/content/company";
 import { createMetadata } from "@/lib/metadata";
 
 export const metadata = createMetadata({
@@ -36,7 +36,7 @@ function ContactMethod() {
         href="/#contact"
         className="text-off-white underline underline-offset-4 transition-colors hover:text-acid-lime"
       >
-        katalystmedia.xyz/#contact
+        {siteDomain}/#contact
       </Link>
     </>
   );
