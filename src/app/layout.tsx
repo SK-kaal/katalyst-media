@@ -23,9 +23,6 @@ export const metadata: Metadata = {
     path: "/",
   }),
   metadataBase: new URL(company.url),
-  icons: {
-    icon: [{ url: "/icon.png", sizes: "48x48", type: "image/png" }],
-  },
 };
 
 export default function RootLayout({
