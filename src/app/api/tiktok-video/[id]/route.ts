@@ -82,7 +82,9 @@ export async function GET(request: Request, context: RouteContext) {
       upstream.headers.get("Content-Type") ?? "video/mp4",
     );
     headers.set("Accept-Ranges", "bytes");
-    headers.set("Cache-Control", "private, max-age=90");
+    // Long enough that a card leaving and re-entering the carousel is served
+    // from the browser cache instead of re-resolving and re-proxying the file.
+    headers.set("Cache-Control", "private, max-age=1800");
     const contentLength = upstream.headers.get("Content-Length");
     if (contentLength) headers.set("Content-Length", contentLength);
     const contentRange = upstream.headers.get("Content-Range");

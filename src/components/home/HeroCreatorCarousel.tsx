@@ -15,6 +15,10 @@ import {
   type CreatorVideo,
 } from "@/content/creator-videos";
 import { cn } from "@/lib/utils";
+import {
+  clearMediaWarmQueue,
+  warmMediaSource,
+} from "./hero-video-preload";
 import "./hero-carousel.css";
 
 type HeroCreatorCarouselProps = {
@@ -31,14 +35,43 @@ const DESKTOP_MAX_THROW_PX_PER_MS = 2.4;
 const SETTLE_MS = 520;
 /** How far back (ms) to look when estimating release flick velocity. */
 const VELOCITY_SAMPLE_WINDOW_MS = 90;
-const DESKTOP_POOL_SIZE = 7;
-const MOBILE_POOL_SIZE = 5;
+/**
+ * The slot pool has to be wide enough to hold the visible cards plus a runway
+ * of pre-loaded ones on either side, because a slot only recycles at the edge
+ * of the window. The wider the window, the longer a newly assigned video has
+ * to buffer before it can reach the viewport.
+ */
+const DESKTOP_POOL_SIZE = 17;
+const MOBILE_POOL_SIZE = 11;
+/** Slots held behind the viewport, so dragging backwards is prepared too. */
+const DESKTOP_LEAD_SLOTS = 5;
+const MOBILE_LEAD_SLOTS = 4;
 /** Floor for desktop: four visible cards plus one incoming pre-play slot. */
 const DESKTOP_MIN_PLAY_COUNT = 5;
 /** Mobile: the visible card(s) plus one incoming card already playing. */
 const MOBILE_PLAY_COUNT = 3;
 /** Pre-play lead-in, expressed in card strides. */
 const PLAY_LEAD_STRIDES = 0.9;
+/**
+ * How far out, in card strides, a card is buffered ahead as well as decoded.
+ * Kept close to the viewport because this is the expensive tier.
+ */
+const DESKTOP_WARM_STRIDES = 1.8;
+const MOBILE_WARM_STRIDES = 1.2;
+/**
+ * How far out a card holds a decoded first frame. This is the band that makes
+ * dragging feel instant, so it is stretched across the rest of the pool.
+ */
+const DESKTOP_FRAME_STRIDES = 9;
+const MOBILE_FRAME_STRIDES = 6;
+/**
+ * Equivalents for the reduced-motion scroller, which has no stride to measure
+ * against. Doubled for desktop, where cards are wider and more are on screen.
+ */
+const STATIC_WARM_MARGIN_PX = 260;
+const STATIC_FRAME_MARGIN_PX = 1100;
+/** Keeps the background warm-up clear of the initial page load. */
+const IDLE_WARM_DELAY_MS = 1200;
 /** Weighting that retires already-passed cards ahead of approaching ones. */
 const EXITING_RANK_PENALTY = 2.2;
 const FOCUS_X_RATIO = 0.36;
@@ -187,26 +220,56 @@ function nativeMediaSrc(video: CreatorVideo, nonce: number) {
   return nonce > 0 ? `${path}?r=${nonce}` : path;
 }
 
+/**
+ * How much of a video a slot is holding ready:
+ * - `play`   visible, or about to be, and playing
+ * - `warm`   buffered ahead and decoded to its first frame, paused
+ * - `frame`  first frame decoded and nothing more, paused
+ * - `idle`   no network activity; keeps whatever it already buffered
+ *
+ * `frame` is what stops a dragged-to card showing as blank. Holding a decoded
+ * opening frame costs a fraction of a full buffer, so it can be applied to the
+ * whole width of the pool, while `warm` stays close to the viewport.
+ */
+type PlayTier = "play" | "warm" | "frame" | "idle";
+
+function preloadFor(tier: PlayTier) {
+  if (tier === "play" || tier === "warm") return "auto";
+  return tier === "frame" ? "metadata" : "none";
+}
+
+/**
+ * Playback is gated while the reel is off screen or the tab is hidden, but the
+ * buffered frames are deliberately kept: a playing card drops back to warm so
+ * it resumes instantly instead of loading again on return.
+ */
+function resolveTier(tier: PlayTier, playbackAllowed: boolean): PlayTier {
+  if (playbackAllowed || tier !== "play") return tier;
+  return "warm";
+}
+
 function SocialNativePlayer({
   video,
-  shouldPlay,
-  warm,
+  tier,
   onPlayable,
   onFailure,
 }: {
   video: CreatorVideo;
-  shouldPlay: boolean;
-  warm: boolean;
+  tier: PlayTier;
   onPlayable: (videoId: string) => void;
   onFailure: (videoId: string) => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const reportedRef = useRef(false);
-  const retriesRef = useRef(0);
+  const appliedSrcRef = useRef<string | null>(null);
+  const warmedRef = useRef(false);
+  const shouldPlayRef = useRef(false);
   const [ready, setReady] = useState(false);
   const [autoplayBlocked, setAutoplayBlocked] = useState(false);
-  const [srcNonce, setSrcNonce] = useState(0);
-  const mediaSrc = nativeMediaSrc(video, srcNonce);
+  const [retry, setRetry] = useState({ id: video.id, count: 0 });
+
+  const attempt = retry.id === video.id ? retry.count : 0;
+  const mediaSrc = nativeMediaSrc(video, attempt);
 
   const playMuted = useCallback(() => {
     const node = videoRef.current;
@@ -224,48 +287,90 @@ function SocialNativePlayer({
       .catch(() => setAutoplayBlocked(true));
   }, []);
 
-  useEffect(() => {
-    reportedRef.current = false;
-    retriesRef.current = 0;
-    setReady(false);
-    setAutoplayBlocked(false);
-    setSrcNonce(0);
-  }, [video.id]);
+  /**
+   * Safari treats `preload="auto"` as a suggestion and will happily leave a
+   * paused element with nothing decoded, which defeats the point of warming it.
+   * A muted play stopped on the first frame forces the decode. The element is
+   * still transparent at this point, so none of this is visible.
+   */
+  const warmToFirstFrame = useCallback(() => {
+    const node = videoRef.current;
+    if (!node || warmedRef.current) return;
+    warmedRef.current = true;
+    if (node.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) return;
 
+    const settle = () => {
+      node.removeEventListener("loadeddata", settle);
+      if (!shouldPlayRef.current) node.pause();
+    };
+    node.addEventListener("loadeddata", settle);
+    node.muted = true;
+    node.playsInline = true;
+    const started = node.play();
+    if (started) void started.catch(() => {});
+  }, []);
+
+  // The source is assigned imperatively rather than through JSX so that a slot
+  // recycling onto a new video reuses the same element. Remounting would throw
+  // away every buffered byte and restart the request from nothing, which is
+  // what made cards appear late when the carousel was dragged.
   useEffect(() => {
     const node = videoRef.current;
     if (!node) return;
+    // A dormant slot that has never loaded stays empty until it is promoted.
+    if (tier === "idle" && appliedSrcRef.current === null) return;
+    if (appliedSrcRef.current === mediaSrc) return;
 
-    if (!shouldPlay) {
-      node.pause();
-      setAutoplayBlocked(false);
+    appliedSrcRef.current = mediaSrc;
+    reportedRef.current = false;
+    warmedRef.current = false;
+    setReady(false);
+    setAutoplayBlocked(false);
+    node.preload = preloadFor(tier);
+    node.src = mediaSrc;
+    node.load();
+  }, [mediaSrc, tier]);
+
+  useEffect(() => {
+    // Read by the warm-up's first-frame handler, which must not pause a card
+    // that has been promoted to playing while it was waiting for data.
+    shouldPlayRef.current = tier === "play";
+
+    const node = videoRef.current;
+    if (!node || appliedSrcRef.current === null) return;
+
+    node.preload = preloadFor(tier);
+
+    if (tier === "play") {
+      playMuted();
       return;
     }
 
-    playMuted();
-  }, [playMuted, shouldPlay, srcNonce, video.id]);
+    node.pause();
+    setAutoplayBlocked(false);
+    if (tier === "warm" || tier === "frame") warmToFirstFrame();
+  }, [mediaSrc, playMuted, tier, warmToFirstFrame]);
 
   return (
     <div className="hero-creator-reel__native-wrap">
       <video
-        key={`${video.id}-${srcNonce}`}
         ref={videoRef}
         className={cn(
           "hero-creator-reel__native",
           ready && "hero-creator-reel__native--ready",
         )}
-        src={mediaSrc}
         muted
         loop
         playsInline
-        autoPlay={shouldPlay}
-        preload={shouldPlay ? "auto" : warm ? "metadata" : "none"}
         disablePictureInPicture
         disableRemotePlayback
         controls={false}
         controlsList="nodownload nofullscreen noremoteplayback"
+        // Revealed on the first decoded frame rather than on playback, so a
+        // warmed card is already showing its opening frame when it slides in.
+        onLoadedData={() => setReady(true)}
         onCanPlay={() => {
-          if (shouldPlay) playMuted();
+          if (tier === "play") playMuted();
         }}
         onPlaying={() => {
           setReady(true);
@@ -274,14 +379,22 @@ function SocialNativePlayer({
           reportedRef.current = true;
           onPlayable(video.id);
         }}
-        onError={() => {
-          if (retriesRef.current >= 2) {
+        onError={(event) => {
+          const node = event.currentTarget;
+          if (appliedSrcRef.current === null) return;
+          // Recycling a slot aborts whatever the element was loading, and that
+          // surfaces here as an error. Treating it as a real failure would
+          // retire a perfectly good video and rebuild the whole reel, which is
+          // what made a single drag reload every card.
+          if (node.error?.code === MediaError.MEDIA_ERR_ABORTED) return;
+          if (node.getAttribute("src") !== appliedSrcRef.current) return;
+
+          if (attempt >= 2) {
             onFailure(video.id);
             return;
           }
-          retriesRef.current += 1;
           setReady(false);
-          setSrcNonce((value) => value + 1);
+          setRetry({ id: video.id, count: attempt + 1 });
         }}
       />
       {autoplayBlocked ? (
@@ -422,9 +535,9 @@ function sameIds(left: readonly string[], right: readonly string[]) {
   return left.every((id, index) => id === right[index]);
 }
 
-function sameFlags(left: readonly boolean[], right: readonly boolean[]) {
+function sameTiers(left: readonly PlayTier[], right: readonly PlayTier[]) {
   if (left.length !== right.length) return false;
-  return left.every((flag, index) => flag === right[index]);
+  return left.every((tier, index) => tier === right[index]);
 }
 
 function readCssLength(element: HTMLElement, property: string) {
@@ -454,17 +567,13 @@ function poolSizeFor(isMobile: boolean, videoCount: number) {
  */
 const SocialVideoCard = memo(function SocialVideoCard({
   video,
-  shouldLoad,
-  shouldPlay,
-  warm,
+  tier,
   playersEnabled,
   onVideoPlayable,
   onVideoFailure,
 }: {
   video: CreatorVideo;
-  shouldLoad: boolean;
-  shouldPlay: boolean;
-  warm: boolean;
+  tier: PlayTier;
   playersEnabled: boolean;
   onVideoPlayable: (videoId: string) => void;
   onVideoFailure: (videoId: string) => void;
@@ -473,21 +582,20 @@ const SocialVideoCard = memo(function SocialVideoCard({
     <article className="hero-creator-reel__card">
       <div className="hero-creator-reel__card-shell">
         <div className="hero-creator-reel__card-media">
+          {/* Stays mounted underneath the video for the whole life of the card,
+              so a loading, slow or failed source shows artwork rather than an
+              empty panel. The video covers it once it has a frame to show. */}
           <div className="hero-creator-reel__placeholder" aria-hidden="true">
             <div className="hero-creator-reel__placeholder-grid" />
-            {shouldLoad ? null : (
-              <span className="hero-creator-reel__placeholder-letter">
-                {video.creator.charAt(0)}
-              </span>
-            )}
+            <span className="hero-creator-reel__placeholder-letter">
+              {video.creator.charAt(0)}
+            </span>
           </div>
 
-          {playersEnabled && shouldLoad ? (
+          {playersEnabled ? (
             <SocialNativePlayer
-              key={video.id}
               video={video}
-              shouldPlay={shouldPlay}
-              warm={warm}
+              tier={tier}
               onPlayable={onVideoPlayable}
               onFailure={onVideoFailure}
             />
@@ -517,7 +625,9 @@ const SocialVideoCard = memo(function SocialVideoCard({
             rel="noreferrer"
             aria-label={`View ${video.creator} ${video.platform} post`}
             draggable={false}
-            tabIndex={shouldLoad ? 0 : -1}
+            // Only the cards on screen take a tab stop; the buffered ones
+            // waiting off to either side stay out of the tab order.
+            tabIndex={tier === "play" ? 0 : -1}
           />
         </div>
       </div>
@@ -559,9 +669,9 @@ export function HeroCreatorCarousel({ videos }: HeroCreatorCarouselProps) {
   const rafRef = useRef(0);
   const commitOffsetRef = useRef<(nextOffset: number) => void>(() => {});
   const paintSlotsRef = useRef<() => void>(() => {});
-  const loadFlagsRef = useRef<boolean[]>([]);
-  const playFlagsRef = useRef<boolean[]>([]);
-  const warmFlagsRef = useRef<boolean[]>([]);
+  const slotTiersRef = useRef<PlayTier[]>([]);
+  const leadSlotsRef = useRef(1);
+  const warmExpandedRef = useRef(false);
   const slotIdsRef = useRef<string[]>([]);
   const lastReactSyncRef = useRef(0);
   const [failedVideoIds, setFailedVideoIds] = useState<Set<string>>(
@@ -574,7 +684,8 @@ export function HeroCreatorCarousel({ videos }: HeroCreatorCarouselProps) {
   const [carouselActive, setCarouselActive] = useState(true);
   const [tabHidden, setTabHidden] = useState(false);
   const [dragging, setDragging] = useState(false);
-  const [staticLoadIds, setStaticLoadIds] = useState<string[]>([]);
+  const [staticWarmIds, setStaticWarmIds] = useState<string[]>([]);
+  const [staticFrameIds, setStaticFrameIds] = useState<string[]>([]);
   const [staticPlayIds, setStaticPlayIds] = useState<string[]>([]);
   const animate = reduceMotion === false;
   const canonicalVideos = useMemo(
@@ -603,14 +714,8 @@ export function HeroCreatorCarousel({ videos }: HeroCreatorCarouselProps) {
           (_, index) => displayVideos[mod(index - 1, displayVideos.length)],
         ),
   );
-  const [loadFlags, setLoadFlags] = useState<boolean[]>(() =>
-    Array.from({ length: poolSize }, () => true),
-  );
-  const [playFlags, setPlayFlags] = useState<boolean[]>(() =>
-    Array.from({ length: poolSize }, () => false),
-  );
-  const [warmFlags, setWarmFlags] = useState<boolean[]>(() =>
-    Array.from({ length: poolSize }, () => false),
+  const [slotTiers, setSlotTiers] = useState<PlayTier[]>(() =>
+    Array.from({ length: poolSize }, () => "idle" as PlayTier),
   );
   videosRef.current = displayVideos;
   const handleVideoPlayable = useCallback((videoId: string) => {
@@ -641,15 +746,14 @@ export function HeroCreatorCarousel({ videos }: HeroCreatorCarouselProps) {
       if (list.length === 0 || nextPoolSize <= 0) {
         slotLogicalRef.current = [];
         setSlotVideos([]);
-        setLoadFlags([]);
-        setPlayFlags([]);
-        setWarmFlags([]);
+        setSlotTiers([]);
         return;
       }
 
+      const lead = Math.min(leadSlotsRef.current, nextPoolSize - 1);
       const stride = strideRef.current;
       const base =
-        stride > 0 ? Math.floor(-offsetRef.current / stride) - 1 : -1;
+        stride > 0 ? Math.floor(-offsetRef.current / stride) - lead : -lead;
       const logical = Array.from(
         { length: nextPoolSize },
         (_, index) => base + index,
@@ -659,17 +763,15 @@ export function HeroCreatorCarousel({ videos }: HeroCreatorCarouselProps) {
       const nextVideos = logical.map(
         (index) => list[mod(index, list.length)],
       );
-      const nextLoad = Array.from({ length: nextPoolSize }, () => true);
-      const nextPlay = Array.from({ length: nextPoolSize }, () => false);
-      const nextWarm = Array.from({ length: nextPoolSize }, () => false);
+      // Real tiers land in the same commit, once the track has been measured.
+      const nextTiers = Array.from(
+        { length: nextPoolSize },
+        () => "idle" as PlayTier,
+      );
       slotIdsRef.current = nextVideos.map((video) => video.id);
-      loadFlagsRef.current = nextLoad;
-      playFlagsRef.current = nextPlay;
-      warmFlagsRef.current = nextWarm;
+      slotTiersRef.current = nextTiers;
       setSlotVideos(nextVideos);
-      setLoadFlags(nextLoad);
-      setPlayFlags(nextPlay);
-      setWarmFlags(nextWarm);
+      setSlotTiers(nextTiers);
     },
     [],
   );
@@ -709,44 +811,111 @@ export function HeroCreatorCarousel({ videos }: HeroCreatorCarouselProps) {
     paintSlotsRef.current();
   }, [animate, displayVideos, poolSize, resetSlotWindow, videoSignature]);
 
+  // Cards outside the slot window get no element, so nothing has asked their
+  // route to resolve an upstream URL yet — the slowest part of a cold request.
+  // Priming that during idle time means a distant card promoted by a long drag
+  // starts streaming immediately instead of waiting on a lookup. Ordered from
+  // the current position outwards, and held back until the reel is on screen so
+  // it never competes with the initial page load.
+  useEffect(() => {
+    if (!carouselActive || tabHidden) return;
+    if (displayVideos.length === 0) return;
+
+    const start = window.setTimeout(() => {
+      // Opening the warm band and priming distant routes are the same moment:
+      // the point where the reel is on screen and the load has calmed down.
+      warmExpandedRef.current = true;
+
+      const count = displayVideos.length;
+      const from = Math.max(baseIndexRef.current, 0);
+      for (let step = 0; step < count; step += 1) {
+        const video = displayVideos[mod(from + step, count)];
+        warmMediaSource(nativeMediaSrc(video, 0));
+      }
+    }, IDLE_WARM_DELAY_MS);
+
+    return () => {
+      window.clearTimeout(start);
+      clearMediaWarmQueue();
+    };
+  }, [carouselActive, displayVideos, tabHidden]);
+
+  // The reduced-motion reel is a plain scroller, so bands are measured from how
+  // far each card sits outside the viewport rather than from the track offset.
+  // The observer margin has to reach past the warm band for this to see the
+  // cards it needs to start buffering early.
   useEffect(() => {
     if (animate) return;
     const root = viewportRef.current;
     if (!root) return;
 
-    const maxLoad = isMobile ? 4 : 5;
     const maxPlay = isMobile ? 1 : 2;
-    const ratios = new Map<string, number>();
+    const maxWarm = isMobile ? 2 : 4;
+    const warmGap = isMobile ? STATIC_WARM_MARGIN_PX : STATIC_WARM_MARGIN_PX * 2;
+    const frameGap = isMobile
+      ? STATIC_FRAME_MARGIN_PX
+      : STATIC_FRAME_MARGIN_PX * 2;
+    // Holds the cards inside the observer margin. Their distances are measured
+    // fresh on every publish, because an entry that has not crossed a threshold
+    // recently would otherwise carry a stale rect from an earlier scroll.
+    const tracked = new Map<string, HTMLElement>();
 
     const publish = () => {
-      const ranked = [...ratios.entries()]
-        .sort((left, right) => right[1] - left[1])
+      const bounds = root.getBoundingClientRect();
+      const entries = [...tracked.entries()].map(([id, card]) => {
+        const rect = card.getBoundingClientRect();
+        const overlap =
+          Math.min(rect.right, bounds.right) - Math.max(rect.left, bounds.left);
+        return [
+          id,
+          {
+            ratio: rect.width > 0 ? Math.max(overlap, 0) / rect.width : 0,
+            gap: Math.max(bounds.left - rect.right, rect.left - bounds.right, 0),
+          },
+        ] as const;
+      });
+
+      const nextPlay = entries
+        .filter(([, item]) => item.ratio >= 0.08)
+        .sort((left, right) => right[1].ratio - left[1].ratio)
+        .slice(0, maxPlay)
         .map(([id]) => id);
-      const nextLoad = ranked.slice(0, maxLoad);
-      const nextPlay = ranked
-        .filter((id) => (ratios.get(id) ?? 0) >= 0.08)
-        .slice(0, maxPlay);
-      setStaticLoadIds((previous) =>
-        sameIds(previous, nextLoad) ? previous : nextLoad,
-      );
+      // Capped as well as bounded by distance: the observer margin reaches a
+      // long way, and buffering everything inside it would pull most of the
+      // reel down at full size.
+      const nextWarm = entries
+        .filter(([id, item]) => item.gap <= warmGap && !nextPlay.includes(id))
+        .sort((left, right) => left[1].gap - right[1].gap)
+        .slice(0, maxWarm)
+        .map(([id]) => id);
+      // Everything the observer can see at all, so cards past the warm band
+      // still hold a frame while those past the margin stay dormant.
+      const nextFrame = entries.map(([id]) => id);
       setStaticPlayIds((previous) =>
         sameIds(previous, nextPlay) ? previous : nextPlay,
+      );
+      setStaticWarmIds((previous) =>
+        sameIds(previous, nextWarm) ? previous : nextWarm,
+      );
+      setStaticFrameIds((previous) =>
+        sameIds(previous, nextFrame) ? previous : nextFrame,
       );
     };
 
     const observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
-          const id = (entry.target as HTMLElement).dataset.videoId;
+          const card = entry.target as HTMLElement;
+          const id = card.dataset.videoId;
           if (!id) continue;
-          if (entry.isIntersecting) ratios.set(id, entry.intersectionRatio);
-          else ratios.delete(id);
+          if (entry.isIntersecting) tracked.set(id, card);
+          else tracked.delete(id);
         }
         publish();
       },
       {
         root,
-        rootMargin: isMobile ? "0px 80px" : "0px 140px",
+        rootMargin: `0px ${frameGap}px`,
         threshold: [0, 0.08, 0.25, 0.5],
       },
     );
@@ -781,40 +950,46 @@ export function HeroCreatorCarousel({ videos }: HeroCreatorCarouselProps) {
     };
     paintSlotsRef.current = paintSlots;
 
+    /**
+     * Moves the window to `desiredBase` while disturbing as few slots as
+     * possible. A slot that still holds a wanted index keeps it, which is what
+     * lets its element keep the video it has already buffered and decoded;
+     * only slots that fell outside the window pick up the indices that just
+     * entered it. Rewriting every slot in order instead would shuffle videos
+     * between elements and force all of them to load again.
+     */
     const alignSlots = (desiredBase: number) => {
       const logical = slotLogicalRef.current;
       const pool = logical.length;
       if (pool === 0) return;
+
       const desired = new Set<number>();
       for (let index = 0; index < pool; index += 1) {
         desired.add(desiredBase + index);
       }
 
-      const occupied = new Set(logical);
-      const missing: number[] = [];
+      const claimed = new Set<number>();
+      const freeSlots: number[] = [];
       for (let index = 0; index < pool; index += 1) {
-        const nextIndex = desiredBase + index;
-        if (!occupied.has(nextIndex)) missing.push(nextIndex);
-      }
-
-      let writeAt = 0;
-      let recycled = 0;
-      for (let index = 0; index < pool; index += 1) {
-        if (!desired.has(logical[index])) recycled += 1;
-      }
-
-      if (missing.length !== recycled) {
-        for (let index = 0; index < pool; index += 1) {
-          logical[index] = desiredBase + index;
+        const current = logical[index];
+        // `claimed` also guards against a duplicate index surviving in two
+        // slots, which would otherwise leave the window with a hole.
+        if (desired.has(current) && !claimed.has(current)) {
+          claimed.add(current);
+        } else {
+          freeSlots.push(index);
         }
-        return;
       }
 
-      for (let index = 0; index < pool; index += 1) {
-        if (!desired.has(logical[index])) {
-          logical[index] = missing[writeAt];
-          writeAt += 1;
+      let cursor = 0;
+      for (const slot of freeSlots) {
+        while (cursor < pool && claimed.has(desiredBase + cursor)) {
+          cursor += 1;
         }
+        if (cursor >= pool) break;
+        logical[slot] = desiredBase + cursor;
+        claimed.add(desiredBase + cursor);
+        cursor += 1;
       }
     };
 
@@ -836,15 +1011,28 @@ export function HeroCreatorCarousel({ videos }: HeroCreatorCarouselProps) {
       const playLimit = isMobile
         ? MOBILE_PLAY_COUNT
         : Math.max(DESKTOP_MIN_PLAY_COUNT, fitsOnScreen + 2);
-      const preloadPad = isMobile ? stride * 1.5 : stride * 1.35;
       /**
        * How far outside the viewport a card may start playing. Cards travel
        * right-to-left, so this lets the next card spin up before it crosses the
-       * edge and prevents a visible pause on entry. `preloadPad` is kept wider
-       * than this so a card is always mounted, and has had a metadata runway,
-       * before it becomes play-eligible.
+       * edge and prevents a visible pause on entry.
        */
       const playLead = stride * PLAY_LEAD_STRIDES;
+      /**
+       * The two bands outside the play lead-in. Everything inside `warmPad` is
+       * buffered and decoded so it can be shown the instant it is dragged in;
+       * the band out to `metaPad` holds headers so promotion is cheap. Both are
+       * symmetric, which covers dragging in either direction.
+       */
+      // Both bands are held at the play lead-in until the page has settled, so
+      // the first load only pulls the cards that are actually on screen. They
+      // open up once there is idle time to spend on the ones either side.
+      const expanded = warmExpandedRef.current;
+      const warmPad = expanded
+        ? stride * (isMobile ? MOBILE_WARM_STRIDES : DESKTOP_WARM_STRIDES)
+        : playLead;
+      const framePad = expanded
+        ? stride * (isMobile ? MOBILE_FRAME_STRIDES : DESKTOP_FRAME_STRIDES)
+        : playLead;
       const nextIds: string[] = [];
       const nextVideos: CreatorVideo[] = [];
       const metrics = logical.map((logicalIndex, slot) => {
@@ -858,8 +1046,9 @@ export function HeroCreatorCarousel({ videos }: HeroCreatorCarouselProps) {
         const dist = Math.abs(center - focus);
         const overlap = Math.min(right, viewportWidth) - Math.max(left, 0);
         const visibleEnough = overlap >= cardWidth * 0.08;
-        const shouldLoad =
-          right > -preloadPad && left < viewportWidth + preloadPad;
+        const withinWarm = right > -warmPad && left < viewportWidth + warmPad;
+        const withinFrame =
+          right > -framePad && left < viewportWidth + framePad;
         const playEligible =
           right > -playLead && left < viewportWidth + playLead;
         // A card past the focus point is on its way out, so it yields its slot
@@ -868,10 +1057,17 @@ export function HeroCreatorCarousel({ videos }: HeroCreatorCarouselProps) {
         const fromFocus = center - focus;
         const playRank =
           fromFocus >= 0 ? fromFocus : -fromFocus * EXITING_RANK_PENALTY;
-        return { slot, dist, shouldLoad, visibleEnough, playEligible, playRank };
+        return {
+          slot,
+          dist,
+          visibleEnough,
+          withinWarm,
+          withinFrame,
+          playEligible,
+          playRank,
+        };
       });
 
-      const nextLoad = metrics.map((item) => item.shouldLoad);
       const playingSlots = new Set(
         metrics
           .filter((item) => item.playEligible)
@@ -879,22 +1075,12 @@ export function HeroCreatorCarousel({ videos }: HeroCreatorCarouselProps) {
           .slice(0, playLimit)
           .map((item) => item.slot),
       );
-      const nextPlay = metrics.map((item) => playingSlots.has(item.slot));
 
-      // The slots queued up behind the playing window keep `metadata` so the
-      // hand-off into playback stays smooth; everything further out uses `none`
-      // and issues no network request at all. Ranking by `playRank` warms the
-      // next approaching card rather than one that has already passed focus.
-      // Mobile warms only that single card so a distant slot stays lightweight.
-      const warmLimit = isMobile ? 1 : 2;
-      const warmingSlots = new Set(
-        metrics
-          .filter((item) => item.shouldLoad && !playingSlots.has(item.slot))
-          .sort((left, right) => left.playRank - right.playRank)
-          .slice(0, warmLimit)
-          .map((item) => item.slot),
-      );
-      const nextWarm = metrics.map((item) => warmingSlots.has(item.slot));
+      const nextTiers: PlayTier[] = metrics.map((item) => {
+        if (playingSlots.has(item.slot)) return "play";
+        if (item.withinWarm) return "warm";
+        return item.withinFrame ? "frame" : "idle";
+      });
 
       if (!isMobile) {
         const span = Math.max(viewportWidth * 0.52, 1);
@@ -915,21 +1101,15 @@ export function HeroCreatorCarousel({ videos }: HeroCreatorCarouselProps) {
       if (
         !force &&
         sameIds(slotIdsRef.current, nextIds) &&
-        sameFlags(loadFlagsRef.current, nextLoad) &&
-        sameFlags(playFlagsRef.current, nextPlay) &&
-        sameFlags(warmFlagsRef.current, nextWarm)
+        sameTiers(slotTiersRef.current, nextTiers)
       ) {
         return;
       }
 
       slotIdsRef.current = nextIds;
-      loadFlagsRef.current = nextLoad;
-      playFlagsRef.current = nextPlay;
-      warmFlagsRef.current = nextWarm;
+      slotTiersRef.current = nextTiers;
       setSlotVideos(nextVideos);
-      setLoadFlags(nextLoad);
-      setPlayFlags(nextPlay);
-      setWarmFlags(nextWarm);
+      setSlotTiers(nextTiers);
     };
 
     const commitOffset = (nextOffset: number) => {
@@ -956,8 +1136,9 @@ export function HeroCreatorCarousel({ videos }: HeroCreatorCarouselProps) {
       }
 
       offsetRef.current = wrapped;
+      const lead = leadSlotsRef.current;
       const nextBase =
-        stride > 0 ? Math.floor(-wrapped / stride) - 1 : -1;
+        stride > 0 ? Math.floor(-wrapped / stride) - lead : -lead;
       if (nextBase !== baseIndexRef.current) {
         baseIndexRef.current = nextBase;
         alignSlots(nextBase);
@@ -984,6 +1165,15 @@ export function HeroCreatorCarousel({ videos }: HeroCreatorCarouselProps) {
       cardWidthRef.current = cardWidth;
       strideRef.current = stride;
       viewportWidthRef.current = viewport.clientWidth;
+
+      // The lead can only be as deep as the pool allows once the visible cards
+      // have taken their slots, otherwise a wide display would run out of slots
+      // on the right and leave a real gap in the reel.
+      const pool = slotLogicalRef.current.length;
+      const fits = stride > 0 ? Math.ceil(viewport.clientWidth / stride) : 0;
+      const wanted = isMobile ? MOBILE_LEAD_SLOTS : DESKTOP_LEAD_SLOTS;
+      leadSlotsRef.current =
+        pool > 0 ? Math.max(1, Math.min(wanted, pool - fits - 1)) : wanted;
       setWidthRef.current = stride > 0 && count > 0 ? stride * count : 0;
       autoVelocityRef.current =
         setWidthRef.current > 0 ? -AUTO_SPEED_PX_PER_MS : 0;
@@ -1277,9 +1467,7 @@ export function HeroCreatorCarousel({ videos }: HeroCreatorCarouselProps) {
               >
                 <SocialVideoCard
                   video={video}
-                  shouldLoad={loadFlags[index] === true}
-                  shouldPlay={playbackAllowed && playFlags[index] === true}
-                  warm={warmFlags[index] === true}
+                  tier={resolveTier(slotTiers[index] ?? "idle", playbackAllowed)}
                   playersEnabled={playersEnabled}
                   onVideoPlayable={handleVideoPlayable}
                   onVideoFailure={handleVideoFailure}
@@ -1299,14 +1487,16 @@ export function HeroCreatorCarousel({ videos }: HeroCreatorCarouselProps) {
                 >
                   <SocialVideoCard
                     video={video}
-                    shouldLoad={staticLoadIds.includes(video.id)}
-                    shouldPlay={
-                      playbackAllowed && staticPlayIds.includes(video.id)
-                    }
-                    warm={
-                      staticLoadIds.includes(video.id) &&
-                      !staticPlayIds.includes(video.id)
-                    }
+                    tier={resolveTier(
+                      staticPlayIds.includes(video.id)
+                        ? "play"
+                        : staticWarmIds.includes(video.id)
+                          ? "warm"
+                          : staticFrameIds.includes(video.id)
+                            ? "frame"
+                            : "idle",
+                      playbackAllowed,
+                    )}
                     playersEnabled={playersEnabled}
                     onVideoPlayable={handleVideoPlayable}
                     onVideoFailure={handleVideoFailure}

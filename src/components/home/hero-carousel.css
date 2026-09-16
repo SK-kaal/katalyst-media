@@ -226,7 +226,10 @@
   z-index: 1;
   inset: 0;
   overflow: hidden;
-  background: #080809;
+  /* Transparent so the placeholder behind it stays visible while the source is
+     loading, retrying or unavailable. An opaque panel here used to cover the
+     artwork and read as a black card. */
+  background: transparent;
   pointer-events: none;
 }
 
@@ -237,7 +240,8 @@
   height: 100%;
   border: 0;
   object-fit: cover;
-  background: #080809;
+  /* No background either: until the first frame is decoded the element must not
+     paint over the placeholder. `object-fit: cover` fills the box afterwards. */
   opacity: 0;
   pointer-events: none;
   transition: opacity 180ms ease;
