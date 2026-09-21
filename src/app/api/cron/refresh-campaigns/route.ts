@@ -1,6 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { createScheduledClient } from "@/lib/admin-auth/client";
 import { verifySecret } from "@/lib/admin-auth/session";
+import { getUkCampaignRefreshWindow } from "@/lib/portal/cron-schedule";
 import { refreshCampaignDataWithClient } from "@/lib/portal/refresh";
 
 export const dynamic = "force-dynamic";
@@ -20,6 +21,9 @@ type CampaignOutcome = {
   posts?: { total: number; updated: number; failed: number };
   soundOk?: boolean;
   creations?: number | null;
+  providerDataDate?: string | null;
+  checkedAt?: string | null;
+  soundSnapshotInserted?: boolean;
   error?: string;
 };
 
@@ -40,6 +44,8 @@ export async function GET(request: Request) {
     return Response.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
 
+  const cronSchedule = request.headers.get("x-vercel-cron-schedule");
+  const ukWindow = getUkCampaignRefreshWindow();
   const startedAt = Date.now();
   const supabase = await createScheduledClient();
 
@@ -77,6 +83,9 @@ export async function GET(request: Request) {
         },
         soundOk: outcome.sound.ok,
         creations: outcome.sound.after,
+        providerDataDate: outcome.sound.providerDataDate,
+        checkedAt: outcome.sound.checkedAt,
+        soundSnapshotInserted: outcome.sound.snapshotInserted,
       });
       revalidatePath(`/report/${campaign.share_token}`);
       revalidatePath(`/admin/campaigns/${campaign.id}`);
@@ -96,6 +105,10 @@ export async function GET(request: Request) {
 
   const summary = {
     ok: true,
+    trigger: cronSchedule ? "vercel-cron" : "manual",
+    cronSchedule,
+    ukLocalTime: ukWindow.localTime,
+    timeZone: ukWindow.timeZone,
     durationMs: Date.now() - startedAt,
     scanned: queue.length,
     refreshed: results.filter((result) => !result.error).length,

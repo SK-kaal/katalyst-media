@@ -4,6 +4,10 @@
     {
       "path": "/api/cron/refresh-campaigns",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/refresh-campaigns",
+      "schedule": "0 18 * * *"
     }
   ]
 }

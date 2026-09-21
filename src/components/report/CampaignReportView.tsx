@@ -23,6 +23,7 @@ import {
   formatPostsVsTargetLabel,
   formatShortDate,
   sortReportPosts,
+  summarizeSoundTracking,
 } from "@/lib/portal/metrics";
 import type {
   ReportCampaign,
@@ -178,11 +179,8 @@ export function CampaignReportView({
   const deliveryPct = Math.round(delivery.progress * 100);
   const deliveryBarPct = Math.min(100, deliveryPct);
 
-  const creationsSeries = buildSeriesFromCumulativeSnapshots(
-    soundSnapshots.map((s) => ({
-      captured_at: s.captured_at,
-      value: Number(s.creation_count),
-    })),
+  const creations = summarizeSoundTracking(
+    soundSnapshots,
     campaign.sound_usage_count,
   );
 
@@ -478,21 +476,18 @@ export function CampaignReportView({
           </div>
         </section>
 
-        {/*
-          The client report does not show TikTok Creations. Sound usage is
-          still tracked and still shown in the portal — TikTok just no longer
-          publishes the figure reliably enough to put in front of a client.
-        */}
         <ViewsCharts
-          creations={creationsSeries}
+          creations={creations.series}
           views={viewsSeries}
           creationsTotal={
             campaign.sound_usage_count != null
               ? Number(campaign.sound_usage_count)
               : null
           }
+          creationsGrowth={creations.growthFromCampaignStart}
+          creationsProviderDate={creations.providerDataDate}
           viewsTotal={metrics.views}
-          showCreations={false}
+          showCreations={Boolean(campaign.tiktok_sound_url)}
         />
 
         <section className="report-section report-section--featured">

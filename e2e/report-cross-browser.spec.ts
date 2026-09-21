@@ -122,6 +122,59 @@ test.describe("client report cross-browser quality", () => {
               positions[0].x + positions[0].width,
             );
           }
+          const statLayouts = await topCards.evaluateAll((cards) =>
+            cards.map((card) => {
+              const cells = Array.from(
+                card.querySelectorAll<HTMLElement>(
+                  ".report-vcard__metrics > *",
+                ),
+              );
+              const boxes = cells.map((cell) => cell.getBoundingClientRect());
+              const widths = boxes.map((box) => box.width);
+              const gaps = boxes
+                .slice(1)
+                .map((box, index) => box.left - boxes[index].right);
+              return {
+                count: cells.length,
+                widthSpread:
+                  widths.length > 0
+                    ? Math.max(...widths) - Math.min(...widths)
+                    : Number.POSITIVE_INFINITY,
+                minimumGap:
+                  gaps.length > 0
+                    ? Math.min(...gaps)
+                    : Number.NEGATIVE_INFINITY,
+                centered: cells.every(
+                  (cell) => getComputedStyle(cell).textAlign === "center",
+                ),
+                labelsFit: cells.every((cell) => {
+                  const label = cell.querySelector<HTMLElement>(
+                    ".report-vcard__metric-label",
+                  );
+                  return Boolean(
+                    label && label.scrollWidth <= label.clientWidth + 1,
+                  );
+                }),
+                valuesFit: cells.every((cell) => {
+                  const value = cell.querySelector<HTMLElement>(
+                    ".report-vcard__metric-value",
+                  );
+                  return Boolean(
+                    value && value.scrollWidth <= value.clientWidth + 1,
+                  );
+                }),
+              };
+            }),
+          );
+          expect(statLayouts.length).toBeGreaterThanOrEqual(3);
+          for (const layout of statLayouts) {
+            expect(layout.count).toBe(4);
+            expect(layout.widthSpread).toBeLessThanOrEqual(1);
+            expect(layout.minimumGap).toBeGreaterThanOrEqual(5);
+            expect(layout.centered).toBe(true);
+            expect(layout.labelsFit).toBe(true);
+            expect(layout.valuesFit).toBe(true);
+          }
         }
 
         await page.setViewportSize({ width: 1440, height: 900 });

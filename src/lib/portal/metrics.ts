@@ -454,6 +454,73 @@ export type ReportChartPoint = {
   cumulative: number;
 };
 
+type SoundTrackingSnapshot = {
+  captured_at: string;
+  provider_data_date?: string | null;
+  checked_at?: string;
+  creation_count: number;
+};
+
+export type SoundTrackingSummary = {
+  series: ReportChartPoint[];
+  growthFromCampaignStart: number | null;
+  providerDataDate: string | null;
+  checkedAt: string | null;
+};
+
+/**
+ * Soundcharts' provider date is the chart date. `checked_at` only says when
+ * Katalyst looked, so it must never create a synthetic fresh point.
+ */
+export function summarizeSoundTracking(
+  snapshots: SoundTrackingSnapshot[],
+  currentValue?: number | null,
+): SoundTrackingSummary {
+  const rows = snapshots
+    .map((snapshot) => {
+      const value = Number(snapshot.creation_count);
+      const capturedAt = snapshot.provider_data_date
+        ? `${snapshot.provider_data_date}T12:00:00Z`
+        : snapshot.captured_at;
+      return { snapshot, capturedAt, value };
+    })
+    .filter(
+      (row) =>
+        Number.isFinite(new Date(row.capturedAt).getTime()) &&
+        Number.isFinite(row.value) &&
+        row.value >= 0,
+    )
+    .sort(
+      (left, right) =>
+        new Date(left.capturedAt).getTime() -
+        new Date(right.capturedAt).getTime(),
+    );
+
+  const series = buildSeriesFromCumulativeSnapshots(
+    rows.map((row) => ({
+      captured_at: row.capturedAt,
+      value: row.value,
+    })),
+  );
+  const baseline = rows[0]?.value;
+  const current =
+    currentValue != null && Number.isFinite(Number(currentValue))
+      ? Number(currentValue)
+      : rows.at(-1)?.value;
+  const latestProvider = rows
+    .filter((row) => Boolean(row.snapshot.provider_data_date))
+    .at(-1);
+
+  return {
+    series,
+    growthFromCampaignStart:
+      baseline != null && current != null ? current - baseline : null,
+    providerDataDate:
+      latestProvider?.snapshot.provider_data_date ?? null,
+    checkedAt: latestProvider?.snapshot.checked_at ?? null,
+  };
+}
+
 const REPORT_DAY_FORMATTER = new Intl.DateTimeFormat("en-GB", {
   timeZone: REPORT_TIME_ZONE,
   year: "numeric",

@@ -205,4 +205,27 @@ test.describe("client report calculations", () => {
       showingTo: 60,
     });
   });
+
+  test("paginates the All Content grid in complete 12-card pages", () => {
+    expect(getReportPagination(3, 1, 12)).toMatchObject({
+      totalPages: 1,
+      showingFrom: 1,
+      showingTo: 3,
+    });
+    expect(getReportPagination(8, 1, 12)).toMatchObject({
+      totalPages: 1,
+      showingFrom: 1,
+      showingTo: 8,
+    });
+    expect(getReportPagination(12, 1, 12)).toMatchObject({
+      totalPages: 1,
+      showingFrom: 1,
+      showingTo: 12,
+    });
+    expect(getReportPagination(50, 2, 12)).toMatchObject({
+      totalPages: 5,
+      showingFrom: 13,
+      showingTo: 24,
+    });
+  });
 });

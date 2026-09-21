@@ -35,6 +35,7 @@ function formatChartDate(iso: string, includeYear = false): string {
 function ChartCard({
   title,
   totalLabel,
+  totalDetail,
   totalValue,
   series,
   emptyTitle = "Not enough data yet",
@@ -44,6 +45,7 @@ function ChartCard({
 }: {
   title: string;
   totalLabel: string;
+  totalDetail?: string | null;
   totalValue: number | null;
   series: ReportChartPoint[];
   emptyTitle?: string;
@@ -288,7 +290,15 @@ function ChartCard({
               <p className="report-chart-card__total">
                 <AnimatedValue value={displayTotal} />
               </p>
-              <p className="report-chart-card__total-label">{totalLabel}</p>
+              <p className="report-chart-card__total-label">
+                {totalLabel}
+                {totalDetail ? (
+                  <>
+                    <br />
+                    {totalDetail}
+                  </>
+                ) : null}
+              </p>
             </>
           ) : null}
         </div>
@@ -536,20 +546,30 @@ export function ViewsCharts({
   creations,
   views,
   creationsTotal,
+  creationsGrowth,
+  creationsProviderDate,
   viewsTotal,
   showCreations = true,
 }: {
   creations: ReportChartPoint[];
   views: ReportChartPoint[];
   creationsTotal: number | null;
+  creationsGrowth?: number | null;
+  creationsProviderDate?: string | null;
   viewsTotal: number | null;
   showCreations?: boolean;
 }) {
-  // TikTok stopped publishing how many videos use a sound, so this chart can
-  // be waiting on a second day of history or on a figure that will never
-  // arrive. Saying "not enough data yet" for the second case promises the
-  // client something that no amount of waiting delivers.
   const creationsUnavailable = creations.length === 0 && creationsTotal == null;
+  const creationsDetail = [
+    creationsGrowth != null
+      ? `${formatSignedFullNumber(creationsGrowth)} since campaign start`
+      : null,
+    creationsProviderDate
+      ? `Data through ${formatChartDate(creationsProviderDate, true)}`
+      : null,
+  ]
+    .filter((value): value is string => Boolean(value))
+    .join(" · ");
 
   return (
     <div
@@ -559,20 +579,19 @@ export function ViewsCharts({
         <ChartCard
           title="TikTok Creations"
           totalLabel="Total creations"
+          totalDetail={creationsDetail || null}
           totalValue={creationsTotal}
           series={creations}
           valueNoun="creations"
           emptyTitle={
-            creationsUnavailable ? "Not published by TikTok" : "Building history"
+            creationsUnavailable ? "No Soundcharts data yet" : "Building history"
           }
           emptyHint={
             creationsUnavailable
-              ? "TikTok no longer shares how many videos use a sound. Every other figure on this report is tracked daily."
+              ? "Soundcharts has not published a TikTok video count for this sound yet."
               : "One day recorded so far. This chart appears once there are two days to compare."
           }
-          // A scanning line implies something is still being looked for. When
-          // TikTok simply does not publish the figure, nothing is.
-          tracking={!creationsUnavailable}
+          tracking
         />
       ) : null}
       <ChartCard

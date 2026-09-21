@@ -73,6 +73,7 @@ export type Database = {
           sound_artist_override: string | null;
           sound_artwork_url: string | null;
           sound_usage_count: number | null;
+          soundcharts_song_uuid: string | null;
           last_synced_at: string | null;
           trashed_at: string | null;
           ended_at: string | null;
@@ -96,6 +97,7 @@ export type Database = {
           sound_artist_override?: string | null;
           sound_artwork_url?: string | null;
           sound_usage_count?: number | null;
+          soundcharts_song_uuid?: string | null;
           last_synced_at?: string | null;
           trashed_at?: string | null;
           ended_at?: string | null;
@@ -119,6 +121,7 @@ export type Database = {
           sound_artist_override?: string | null;
           sound_artwork_url?: string | null;
           sound_usage_count?: number | null;
+          soundcharts_song_uuid?: string | null;
           last_synced_at?: string | null;
           trashed_at?: string | null;
           ended_at?: string | null;
@@ -251,6 +254,8 @@ export type Database = {
           sound_id: string | null;
           creation_count: number;
           captured_at: string;
+          provider_data_date: string | null;
+          checked_at: string;
         };
         Insert: {
           id?: string;
@@ -258,6 +263,8 @@ export type Database = {
           sound_id?: string | null;
           creation_count: number;
           captured_at?: string;
+          provider_data_date?: string | null;
+          checked_at?: string;
         };
         Update: {
           id?: string;
@@ -265,6 +272,8 @@ export type Database = {
           sound_id?: string | null;
           creation_count?: number;
           captured_at?: string;
+          provider_data_date?: string | null;
+          checked_at?: string;
         };
         Relationships: [
           {

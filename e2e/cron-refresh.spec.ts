@@ -1,4 +1,6 @@
 import { test, expect } from "@playwright/test";
+import { readFile } from "node:fs/promises";
+import { getUkCampaignRefreshWindow } from "../src/lib/portal/cron-schedule";
 
 const CRON_PATH = "/api/cron/refresh-campaigns";
 
@@ -14,6 +16,54 @@ const CRON_SECRET = (() => {
  * the only place Vercel actually runs the cron.
  */
 test.describe("Scheduled campaign refresh", () => {
+  test("documents the fixed UTC schedule in GMT and BST", () => {
+    for (const [iso, localHour, exactPreferredHour] of [
+      ["2026-01-15T06:00:00.000Z", 6, true],
+      ["2026-01-15T18:00:00.000Z", 18, true],
+      ["2026-07-15T06:00:00.000Z", 7, false],
+      ["2026-07-15T18:00:00.000Z", 19, false],
+    ] as const) {
+      expect(getUkCampaignRefreshWindow(new Date(iso))).toMatchObject({
+        localHour,
+        shouldRun: exactPreferredHour,
+        timeZone: "Europe/London",
+      });
+    }
+
+    expect(
+      getUkCampaignRefreshWindow(new Date("2026-07-15T05:00:00.000Z")),
+    ).toMatchObject({
+      localHour: 6,
+      shouldRun: true,
+      timeZone: "Europe/London",
+    });
+    expect(
+      getUkCampaignRefreshWindow(new Date("2026-07-15T17:00:00.000Z")),
+    ).toMatchObject({
+      localHour: 18,
+        shouldRun: true,
+        timeZone: "Europe/London",
+      });
+  });
+
+  test("deploys two Hobby-compatible daily UTC schedules", async () => {
+    const config = JSON.parse(
+      await readFile("vercel.json", "utf8"),
+    ) as {
+      crons?: Array<{ path: string; schedule: string }>;
+    };
+    expect(config.crons).toEqual([
+      {
+        path: CRON_PATH,
+        schedule: "0 6 * * *",
+      },
+      {
+        path: CRON_PATH,
+        schedule: "0 18 * * *",
+      },
+    ]);
+  });
+
   test("rejects requests with no, malformed or wrong credentials", async ({
     request,
   }) => {

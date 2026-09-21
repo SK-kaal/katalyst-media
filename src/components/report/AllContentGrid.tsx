@@ -11,7 +11,6 @@ import {
 } from "lucide-react";
 import {
   formatCompactNumber,
-  formatDateTime,
   formatFullNumber,
   formatShortDate,
   getReportPagination,
@@ -22,7 +21,7 @@ import type { ReportPost } from "@/lib/portal/report";
 
 type ViewMode = "grid" | "list";
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 12;
 
 function exportCsv(posts: ReportPost[]) {
   const header = [
@@ -81,7 +80,7 @@ export function AllContentGrid({ posts }: { posts: ReportPost[] }) {
   const pageItems = sorted.slice(start, start + PAGE_SIZE);
 
   return (
-    <section className="report-section">
+    <section className="report-section report-section--content">
       <div className="report-section__head">
         <div className="report-section__title-wrap">
           <h2 className="report-section__title">All Content</h2>
@@ -147,6 +146,7 @@ export function AllContentGrid({ posts }: { posts: ReportPost[] }) {
               target="_blank"
               rel="noopener noreferrer"
               className="report-vcard report-vcard--compact"
+              aria-label={`Open TikTok post by ${post.creator_handle}`}
             >
               <div className="report-vcard__media">
                 {post.thumbnail_url ? (
@@ -167,9 +167,7 @@ export function AllContentGrid({ posts }: { posts: ReportPost[] }) {
               </div>
               <div className="report-vcard__body">
                 <p className="report-vcard__date">
-                  {post.posted_at
-                    ? formatDateTime(post.posted_at)
-                    : formatShortDate(post.created_at)}
+                  {formatShortDate(post.posted_at || post.created_at)}
                 </p>
                 <p className="report-vcard__handle">{post.creator_handle}</p>
                 <div className="report-vcard__metrics">
@@ -178,28 +176,36 @@ export function AllContentGrid({ posts }: { posts: ReportPost[] }) {
                     title={`${formatFullNumber(post.views)} views`}
                   >
                     <span className="report-vcard__metric-label">Views</span>
-                    {formatCompactNumber(post.views)}
+                    <span className="report-vcard__metric-value">
+                      {formatCompactNumber(post.views)}
+                    </span>
                   </span>
                   <span
                     className="report-vcard__metric"
                     title={`${formatFullNumber(post.likes)} likes`}
                   >
                     <span className="report-vcard__metric-label">Likes</span>
-                    {formatCompactNumber(post.likes)}
+                    <span className="report-vcard__metric-value">
+                      {formatCompactNumber(post.likes)}
+                    </span>
                   </span>
                   <span
                     className="report-vcard__metric"
                     title={`${formatFullNumber(post.comments)} comments`}
                   >
                     <span className="report-vcard__metric-label">Comments</span>
-                    {formatCompactNumber(post.comments)}
+                    <span className="report-vcard__metric-value">
+                      {formatCompactNumber(post.comments)}
+                    </span>
                   </span>
                   <span
                     className="report-vcard__metric"
                     title={`${formatFullNumber(post.shares)} shares`}
                   >
                     <span className="report-vcard__metric-label">Shares</span>
-                    {formatCompactNumber(post.shares)}
+                    <span className="report-vcard__metric-value">
+                      {formatCompactNumber(post.shares)}
+                    </span>
                   </span>
                 </div>
               </div>
@@ -215,6 +221,7 @@ export function AllContentGrid({ posts }: { posts: ReportPost[] }) {
               target="_blank"
               rel="noopener noreferrer"
               className="report-vcard report-vcard--list"
+              aria-label={`Open TikTok post by ${post.creator_handle}`}
             >
               <div className="report-vcard__media">
                 {post.thumbnail_url ? (
@@ -245,28 +252,36 @@ export function AllContentGrid({ posts }: { posts: ReportPost[] }) {
                     title={`${formatFullNumber(post.views)} views`}
                   >
                     <span className="report-vcard__metric-label">Views</span>
-                    {formatCompactNumber(post.views)}
+                    <span className="report-vcard__metric-value">
+                      {formatCompactNumber(post.views)}
+                    </span>
                   </span>
                   <span
                     className="report-vcard__metric"
                     title={`${formatFullNumber(post.likes)} likes`}
                   >
                     <span className="report-vcard__metric-label">Likes</span>
-                    {formatCompactNumber(post.likes)}
+                    <span className="report-vcard__metric-value">
+                      {formatCompactNumber(post.likes)}
+                    </span>
                   </span>
                   <span
                     className="report-vcard__metric"
                     title={`${formatFullNumber(post.comments)} comments`}
                   >
                     <span className="report-vcard__metric-label">Comments</span>
-                    {formatCompactNumber(post.comments)}
+                    <span className="report-vcard__metric-value">
+                      {formatCompactNumber(post.comments)}
+                    </span>
                   </span>
                   <span
                     className="report-vcard__metric"
                     title={`${formatFullNumber(post.shares)} shares`}
                   >
                     <span className="report-vcard__metric-label">Shares</span>
-                    {formatCompactNumber(post.shares)}
+                    <span className="report-vcard__metric-value">
+                      {formatCompactNumber(post.shares)}
+                    </span>
                   </span>
                 </div>
               </div>

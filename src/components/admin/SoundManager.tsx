@@ -26,7 +26,9 @@ import {
   campaignArtwork,
   campaignSoundArtist,
   campaignSoundTitle,
+  formatDateTime,
   formatFullNumber,
+  formatShortDate,
 } from "@/lib/portal/metrics";
 import type { Campaign } from "@/lib/supabase/database.types";
 import type { TikTokSoundData } from "@/lib/tiktok/provider";
@@ -141,7 +143,15 @@ function SoundDialog({
   );
 }
 
-export function SoundManager({ campaign }: { campaign: Campaign }) {
+export function SoundManager({
+  campaign,
+  providerDataDate,
+  checkedAt,
+}: {
+  campaign: Campaign;
+  providerDataDate?: string | null;
+  checkedAt?: string | null;
+}) {
   const router = useRouter();
   const { toast } = useAdminToast();
   const [pending, startTransition] = useTransition();
@@ -386,6 +396,18 @@ export function SoundManager({ campaign }: { campaign: Campaign }) {
                     {formatFullNumber(Number(campaign.sound_usage_count))}
                   </p>
                   <p className="admin-metric__label mt-1">TikTok Creations</p>
+                  {providerDataDate ? (
+                    <p
+                      className="mt-1 text-[0.68rem] text-muted-grey"
+                      title={
+                        checkedAt
+                          ? `Katalyst checked ${formatDateTime(checkedAt)}`
+                          : undefined
+                      }
+                    >
+                      Data through {formatShortDate(providerDataDate)}
+                    </p>
+                  ) : null}
                 </>
               ) : (
                 <p className="max-w-[12rem] text-sm text-muted-grey">

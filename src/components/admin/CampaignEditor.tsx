@@ -33,6 +33,7 @@ import {
   formatShortDate,
   formatWeeklyDelta,
   isPostFailed,
+  summarizeSoundTracking,
   weeklyDeltaFromSnapshots,
 } from "@/lib/portal/metrics";
 import type {
@@ -132,13 +133,10 @@ export function CampaignEditor({
   const moveSelectRef = useRef<HTMLSelectElement>(null);
 
   const metrics = useMemo(() => calculateMetrics(posts), [posts]);
-  const creationsSeries = useMemo(
+  const creations = useMemo(
     () =>
-      buildSeriesFromCumulativeSnapshots(
-        soundSnapshots.map((s) => ({
-          captured_at: s.captured_at,
-          value: Number(s.creation_count),
-        })),
+      summarizeSoundTracking(
+        soundSnapshots,
         campaign.sound_usage_count,
       ),
     [soundSnapshots, campaign.sound_usage_count],
@@ -533,7 +531,11 @@ export function CampaignEditor({
             </div>
           </div>
 
-          <SoundManager campaign={campaign} />
+          <SoundManager
+            campaign={campaign}
+            providerDataDate={creations.providerDataDate}
+            checkedAt={creations.checkedAt}
+          />
 
           <div>
             <h2 className="font-display text-lg font-semibold tracking-[-0.03em]">
@@ -582,13 +584,15 @@ export function CampaignEditor({
             </div>
           ) : (
             <ViewsCharts
-              creations={creationsSeries}
+              creations={creations.series}
               views={viewsSeries}
               creationsTotal={
                 campaign.sound_usage_count != null
                   ? Number(campaign.sound_usage_count)
                   : null
               }
+              creationsGrowth={creations.growthFromCampaignStart}
+              creationsProviderDate={creations.providerDataDate}
               viewsTotal={metrics.views}
               showCreations={Boolean(campaign.tiktok_sound_id)}
             />

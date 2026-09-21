@@ -185,8 +185,12 @@ test.describe.serial("TikTok sound management", () => {
     // Manual display corrections survive a provider retry.
     await openSoundMenu(page);
     await page.getByRole("menuitem", { name: "Edit Sound" }).click();
-    await editDialog.getByLabel("Sound Title").fill("Manual Sound Title");
-    await editDialog.getByLabel("Artist Name").fill("Manual Artist");
+    const titleInput = editDialog.locator("#edit-sound-title");
+    const artistInput = editDialog.locator("#edit-sound-artist");
+    await titleInput.fill("Manual Sound Title");
+    await artistInput.fill("Manual Artist");
+    await expect(titleInput).toHaveValue("Manual Sound Title");
+    await expect(artistInput).toHaveValue("Manual Artist");
     await editDialog.getByRole("button", { name: "Save Sound" }).click();
     await expect(editDialog).toHaveCount(0, { timeout: 30_000 });
     const retry = page.getByRole("button", { name: "Retry Sound" });
@@ -266,12 +270,13 @@ test.describe.serial("TikTok sound management", () => {
     const { data: changed } = await db
       .from("campaigns")
       .select(
-        "tiktok_sound_id, sound_title_override, sound_artist_override, artwork_url, budget, share_token",
+        "tiktok_sound_id, soundcharts_song_uuid, sound_title_override, sound_artist_override, artwork_url, budget, share_token",
       )
       .eq("id", campaign!.id)
       .single();
     expect(changed).toMatchObject({
       tiktok_sound_id: SOUND_B_ID,
+      soundcharts_song_uuid: null,
       sound_title_override: null,
       sound_artist_override: null,
       artwork_url: null,
@@ -288,6 +293,7 @@ test.describe.serial("TikTok sound management", () => {
       campaign_id: campaign!.id,
       sound_id: SOUND_B_ID,
       creation_count: 222,
+      provider_data_date: "2026-09-16",
     });
     await db
       .from("campaigns")
@@ -304,26 +310,39 @@ test.describe.serial("TikTok sound management", () => {
     const sharedReport = shared as {
       client?: Record<string, unknown>;
       posts?: { id: string; post_url: string }[];
-      sound_snapshots?: { creation_count: number }[];
+      sound_snapshots?: {
+        creation_count: number;
+        provider_data_date: string | null;
+        checked_at: string;
+      }[];
     };
     expect(
       sharedReport.sound_snapshots,
-    ).toMatchObject([{ creation_count: 222 }]);
+    ).toMatchObject([
+      {
+        creation_count: 222,
+        provider_data_date: "2026-09-16",
+      },
+    ]);
     expect(Object.keys(sharedReport.client ?? {})).toEqual(["name"]);
     expect(sharedReport.posts?.[0]?.id).toBe(sharedReport.posts?.[0]?.post_url);
     expect(JSON.stringify(sharedReport)).not.toMatch(
       /internal_notes|share_token|client_id|campaign_id|last_sync_error|"email"/i,
     );
-    // The tracked count still reaches the UI, but in the portal only: the
-    // client report deliberately does not carry a TikTok Creations card,
-    // because TikTok no longer publishes the figure reliably. The payload
-    // assertion above proves the tracking itself is unaffected.
+    // Soundcharts-backed creation counts and provider freshness reach both
+    // report surfaces without presenting the Katalyst check time as data time.
     await page.reload();
     await expect(
       page.locator(".report-chart-card").filter({ hasText: "TikTok Creations" }),
     ).toContainText("222");
     await reportPage.reload();
-    await expect(reportPage.getByText("TikTok Creations")).toHaveCount(0);
+    const reportCreations = reportPage
+      .locator(".report-chart-card")
+      .filter({ hasText: "TikTok Creations" });
+    await reportCreations.scrollIntoViewIfNeeded();
+    await expect(reportCreations).toContainText("222");
+    await expect(reportCreations).toContainText("0 since campaign start");
+    await expect(reportCreations).toContainText("Data through 16 Sept 2026");
 
     // Case F: remove only sound-specific active data.
     await openSoundMenu(page);
@@ -338,13 +357,14 @@ test.describe.serial("TikTok sound management", () => {
     const { data: removed } = await db
       .from("campaigns")
       .select(
-        "tiktok_sound_id, tiktok_sound_url, sound_title, sound_artist, artwork_url, sound_usage_count, budget, share_token",
+        "tiktok_sound_id, tiktok_sound_url, soundcharts_song_uuid, sound_title, sound_artist, artwork_url, sound_usage_count, budget, share_token",
       )
       .eq("id", campaign!.id)
       .single();
     expect(removed).toMatchObject({
       tiktok_sound_id: null,
       tiktok_sound_url: null,
+      soundcharts_song_uuid: null,
       sound_title: null,
       sound_artist: null,
       artwork_url: null,

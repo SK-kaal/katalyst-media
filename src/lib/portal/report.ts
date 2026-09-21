@@ -3,6 +3,7 @@ import type { CampaignStatus } from "@/lib/supabase/database.types";
 export type ReportCampaign = {
   status: CampaignStatus;
   budget: number;
+  created_at: string;
   display_title: string | null;
   tiktok_sound_url: string | null;
   sound_title: string | null;
@@ -41,6 +42,8 @@ export type ReportPostSnapshot = {
 export type ReportSoundSnapshot = {
   captured_at: string;
   creation_count: number;
+  provider_data_date: string | null;
+  checked_at: string;
 };
 
 export type ReportCampaignSnapshot = {

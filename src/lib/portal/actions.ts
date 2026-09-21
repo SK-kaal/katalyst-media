@@ -11,10 +11,10 @@ import { createAdminClient } from "@/lib/admin-auth/client";
 import {
   insertCampaignSnapshot,
   insertSnapshot,
-  insertSoundSnapshot,
   refreshCampaignDataWithClient,
   refreshCampaignPostsWithClient,
   refreshCampaignSoundWithClient,
+  refreshCampaignSoundchartsWithClient,
   refreshTikTokPostWithClient,
 } from "@/lib/portal/refresh";
 import type { ClientType } from "@/lib/supabase/database.types";
@@ -320,7 +320,7 @@ export async function createCampaignFromSound(formData: FormData) {
       sound_title: title,
       sound_artist: sound.artist,
       sound_artwork_url: sound.artworkUrl,
-      sound_usage_count: sound.usageCount,
+      sound_usage_count: null,
       share_token: shareToken,
       ended_at: null,
     })
@@ -329,12 +329,6 @@ export async function createCampaignFromSound(formData: FormData) {
 
   if (error) throw new Error(error.message);
 
-  await insertSoundSnapshot(
-    supabase,
-    data.id,
-    sound.soundId,
-    sound.usageCount,
-  );
   await insertCampaignSnapshot(supabase, data.id);
 
   revalidatePath("/admin");
@@ -400,7 +394,7 @@ export async function attachCampaignSound(campaignId: string, soundUrl: string) 
   const { data: campaign, error: campaignError } = await supabase
     .from("campaigns")
     .select(
-      "share_token, client_id, tiktok_sound_id, sound_title, sound_artist, sound_artwork_url, sound_usage_count, sound_title_override, sound_artist_override, artwork_url",
+      "share_token, client_id, tiktok_sound_id, sound_title, sound_artist, sound_artwork_url, sound_usage_count, soundcharts_song_uuid, sound_title_override, sound_artist_override, artwork_url",
     )
     .eq("id", campaignId)
     .single();
@@ -418,8 +412,10 @@ export async function attachCampaignSound(campaignId: string, soundUrl: string) 
       sound_artist: sound.artist ?? (sameSound ? campaign.sound_artist : null),
       sound_artwork_url:
         sound.artworkUrl ?? (sameSound ? campaign.sound_artwork_url : null),
-      sound_usage_count:
-        sound.usageCount ?? (sameSound ? campaign.sound_usage_count : null),
+      sound_usage_count: sameSound ? campaign.sound_usage_count : null,
+      soundcharts_song_uuid: sameSound
+        ? campaign.soundcharts_song_uuid
+        : null,
       sound_title_override: sameSound
         ? campaign.sound_title_override
         : null,
@@ -436,32 +432,32 @@ export async function attachCampaignSound(campaignId: string, soundUrl: string) 
     await removePortalAssetWithClient(supabase, campaign.artwork_url);
   }
 
-  if (sound.usageCount != null) {
-    await insertSoundSnapshot(
-      supabase,
-      campaignId,
-      sound.soundId,
-      sound.usageCount,
-    );
-  }
-
   revalidateCampaign(campaignId, campaign.share_token);
   revalidatePath(`/admin/clients/${campaign.client_id}`);
   return {
     sameSound,
-    usageRetrieved: sound.usageCount != null,
-    usageCount: sound.usageCount,
+    usageRetrieved: sameSound && campaign.sound_usage_count != null,
+    usageCount: sameSound ? campaign.sound_usage_count : null,
     sound,
   };
 }
 
 export async function refreshCampaignSound(campaignId: string) {
   const supabase = await requireUser();
-  const result = await refreshCampaignSoundWithClient(supabase, campaignId);
+  const metadata = await refreshCampaignSoundWithClient(supabase, campaignId);
+  const tracked = await refreshCampaignSoundchartsWithClient(
+    supabase,
+    campaignId,
+  );
   const campaign = await campaignContext(supabase, campaignId);
   revalidateCampaign(campaignId, campaign.share_token);
   revalidatePath(`/admin/clients/${campaign.client_id}`);
-  return result;
+  return {
+    ...metadata,
+    usageRetrieved: tracked.creationCount != null,
+    usageCount: tracked.creationCount,
+    providerDataDate: tracked.providerDataDate,
+  };
 }
 
 export async function updateCampaignSoundDetails(
@@ -573,6 +569,7 @@ export async function removeCampaignSound(campaignId: string) {
       sound_artist_override: null,
       sound_artwork_url: null,
       sound_usage_count: null,
+      soundcharts_song_uuid: null,
       artwork_url: null,
       updated_at: new Date().toISOString(),
     })
@@ -692,17 +689,17 @@ async function addFetchedPost(
 
   await insertSnapshot(supabase, inserted.id, post);
 
-  // Backfill sound artwork / TikTok Creations from post music metadata when available
+  // Post metadata can still fill missing artwork. Soundcharts is the
+  // authoritative source for reportable TikTok creation counts.
   const { data: campaign } = await supabase
     .from("campaigns")
-    .select("sound_artwork_url, artwork_url, tiktok_sound_id, sound_usage_count")
+    .select("sound_artwork_url, artwork_url, tiktok_sound_id")
     .eq("id", campaignId)
     .single();
 
   const updates: {
     last_synced_at: string;
     sound_artwork_url?: string;
-    sound_usage_count?: number;
   } = {
     last_synced_at: now,
   };
@@ -714,21 +711,6 @@ async function addFetchedPost(
   ) {
     updates.sound_artwork_url = post.musicArtworkUrl;
   }
-  if (
-    post.musicVideoCount != null &&
-    post.musicVideoCount > 0 &&
-    post.musicId &&
-    (!campaign?.tiktok_sound_id || campaign.tiktok_sound_id === post.musicId)
-  ) {
-    updates.sound_usage_count = post.musicVideoCount;
-    await insertSoundSnapshot(
-      supabase,
-      campaignId,
-      post.musicId || campaign?.tiktok_sound_id,
-      post.musicVideoCount,
-    );
-  }
-
   await supabase.from("campaigns").update(updates).eq("id", campaignId);
 
   return {

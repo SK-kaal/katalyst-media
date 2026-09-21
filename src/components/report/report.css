@@ -2039,9 +2039,29 @@
   margin-top: 2.75rem;
 }
 
+.report-section--featured {
+  margin-top: 3.5rem;
+}
+
+.report-section--content {
+  margin-top: 3.75rem;
+}
+
+.report-section--content .report-section__head {
+  margin-bottom: 1.45rem;
+}
+
 @media (min-width: 900px) {
   .report-section {
     margin-top: 3.25rem;
+  }
+
+  .report-section--featured {
+    margin-top: 4.25rem;
+  }
+
+  .report-section--content {
+    margin-top: 4.5rem;
   }
 }
 
@@ -2167,31 +2187,31 @@
 
 .report-content-grid {
   display: grid;
-  gap: 1.1rem;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: clamp(0.9rem, 1.8vw, 1.15rem);
 }
 
-@media (min-width: 640px) {
+@media (min-width: 360px) {
   .report-content-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 1.05rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (min-width: 900px) {
   .report-content-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1280px) {
+  .report-content-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 
-@media (min-width: 1100px) {
-  .report-content-grid {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 1.1rem;
-  }
-}
-
 .report-vcard {
+  container-type: inline-size;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -2201,9 +2221,36 @@
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-a.report-vcard:hover {
+a.report-vcard:not(.report-vcard--compact):not(.report-vcard--list):hover {
   border-color: rgba(191, 255, 0, 0.3);
   box-shadow: 0 12px 36px rgba(0, 0, 0, 0.35);
+}
+
+a.report-vcard--compact,
+a.report-vcard--list {
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    border-color 0.18s ease,
+    background-color 0.18s ease,
+    transform 0.18s ease;
+}
+
+a.report-vcard--compact:focus-visible,
+a.report-vcard--list:focus-visible {
+  border-color: rgba(191, 255, 0, 0.34);
+  outline: 2px solid rgba(191, 255, 0, 0.55);
+  outline-offset: 3px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  a.report-vcard--compact:hover,
+  a.report-vcard--list:hover {
+    border-color: rgba(191, 255, 0, 0.26);
+    background: rgba(19, 24, 20, 0.96);
+    transform: translateY(-2px);
+  }
 }
 
 .report-vcard__media {
@@ -2294,8 +2341,10 @@ a.report-vcard:hover {
 }
 
 .report-vcard__handle {
-  font-size: 0.82rem;
-  font-weight: 650;
+  font-size: 0.86rem;
+  font-weight: 700;
+  letter-spacing: -0.012em;
+  line-height: 1.25;
 }
 
 .report-vcard__date {
@@ -2307,12 +2356,24 @@ a.report-vcard:hover {
 .report-vcard__metrics {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.35rem;
+  column-gap: clamp(0.4rem, 2.3cqw, 0.65rem);
+  row-gap: 0.35rem;
   margin-top: 0.75rem;
 }
 
+.report-vcard__metrics > * {
+  min-width: 0;
+  text-align: center;
+}
+
 .report-vcard__metric-label {
-  color: var(--color-muted-grey);
+  display: block;
+  width: 100%;
+  color: var(--report-text-secondary);
+  font-size: clamp(0.53rem, 3.15cqw, 0.6rem);
+  font-weight: 680;
+  letter-spacing: clamp(0.035em, 0.12cqw, 0.065em);
+  line-height: 1.2;
   white-space: nowrap;
 }
 
@@ -2321,6 +2382,8 @@ a.report-vcard:hover {
   font-size: 0.84rem;
   font-weight: 700;
   letter-spacing: -0.02em;
+  text-align: center;
+  white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
 
@@ -2357,27 +2420,31 @@ a.report-vcard:hover {
 }
 
 .report-vcard--compact .report-vcard__handle {
-  font-size: 0.82rem;
-  line-height: 1.25;
+  font-size: clamp(0.84rem, 4.2cqw, 0.92rem);
+  line-height: 1.22;
 }
 
 .report-vcard--compact .report-vcard__date {
-  margin-bottom: 0.28rem;
+  margin-bottom: 0.42rem;
   font-size: 0.66rem;
 }
 
 .report-vcard--compact .report-vcard__metrics {
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  margin-top: 0.55rem;
-  gap: 0.55rem 0.4rem;
+  margin-top: 0.72rem;
+  gap: 0.62rem 0.55rem;
 }
 
 .report-vcard--compact .report-vcard__metric {
   display: grid;
-  gap: 0.12rem;
+  gap: 0.16rem;
   color: var(--color-soft-grey);
-  font-size: 0.76rem;
   font-weight: 650;
+}
+
+.report-vcard--compact .report-vcard__metric-value {
+  margin-top: 0;
+  font-size: 0.82rem;
 }
 
 .report-content-list {
@@ -2416,6 +2483,11 @@ a.report-vcard:hover {
   color: var(--color-soft-grey);
   font-size: 0.76rem;
   font-weight: 650;
+}
+
+.report-vcard--list .report-vcard__metric-value {
+  margin-top: 0;
+  font-size: inherit;
 }
 
 .report-vcard--list .report-vcard__metrics {
