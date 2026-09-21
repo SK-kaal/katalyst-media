@@ -4,7 +4,6 @@ import { useRef } from "react";
 import { ArrowDownRight } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useReducedMotion } from "framer-motion";
 import { Wordmark } from "@/components/ui/Wordmark";
 import { SectionNavLink } from "@/components/ui/SectionNavLink";
 import { company, getPrimaryContactHref } from "@/content/company";
@@ -13,14 +12,14 @@ import { useActiveSection } from "@/hooks/useActiveSection";
 import { queueSectionScroll, scrollToSection } from "@/lib/scroll";
 import { cn } from "@/lib/utils";
 import { gsap, motionDuration, motionEase, useGSAP } from "@/lib/motion";
+import { useMotionEnabled } from "@/hooks/useMotionEnabled";
 import "./sidebar.css";
 
 export function Sidebar() {
   const pathname = usePathname();
   const activeId = useActiveSection();
   const isHome = pathname === "/";
-  const reduceMotion = useReducedMotion();
-  const motionOk = reduceMotion === false;
+  const motionOk = useMotionEnabled();
   const navRef = useRef<HTMLElement>(null);
   const markRef = useRef<HTMLSpanElement>(null);
 

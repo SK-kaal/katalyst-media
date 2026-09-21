@@ -263,13 +263,10 @@ const GLYPHS = {
 } as const;
 
 function useCountTo(target: number, enabled: boolean, duration = 1200, delay = 0) {
-  const [value, setValue] = useState(enabled ? 0 : target);
+  const [value, setValue] = useState(0);
 
   useEffect(() => {
-    if (!enabled) {
-      setValue(target);
-      return;
-    }
+    if (!enabled) return;
     let frame = 0;
     const startId = window.setTimeout(() => {
       const start = performance.now();
@@ -286,7 +283,7 @@ function useCountTo(target: number, enabled: boolean, duration = 1200, delay = 0
     };
   }, [delay, duration, enabled, target]);
 
-  return value;
+  return enabled ? value : target;
 }
 
 export function CampaignCommand({
@@ -421,7 +418,8 @@ export function CampaignCommand({
   useMotionValueEvent(readY, "change", applyVisibility);
 
   useEffect(() => {
-    applyVisibility(readY.get());
+    const frame = window.requestAnimationFrame(() => applyVisibility(readY.get()));
+    return () => window.cancelAnimationFrame(frame);
   }, [applyVisibility, readY]);
 
   useEffect(() => {
@@ -451,11 +449,14 @@ export function CampaignCommand({
 
   useEffect(() => {
     if (pulse === 0) return;
-    setCoreHot(true);
-    setReacting(true);
+    const startId = window.setTimeout(() => {
+      setCoreHot(true);
+      setReacting(true);
+    }, 0);
     const hotId = window.setTimeout(() => setCoreHot(false), 420);
     const reactId = window.setTimeout(() => setReacting(false), 520);
     return () => {
+      window.clearTimeout(startId);
       window.clearTimeout(hotId);
       window.clearTimeout(reactId);
     };

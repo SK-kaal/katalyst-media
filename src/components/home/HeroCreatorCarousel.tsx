@@ -9,12 +9,12 @@ import {
   useRef,
   useState,
 } from "react";
-import { useReducedMotion } from "framer-motion";
 import {
   pickRandomCarouselSet,
   type CreatorVideo,
 } from "@/content/creator-videos";
 import { cn } from "@/lib/utils";
+import { useMotionEnabled } from "@/hooks/useMotionEnabled";
 import {
   clearMediaWarmQueue,
   warmMediaSource,
@@ -352,8 +352,9 @@ function SocialNativePlayer({
     }
 
     node.pause();
-    setAutoplayBlocked(false);
+    const frame = window.requestAnimationFrame(() => setAutoplayBlocked(false));
     if (tier === "warm" || tier === "frame") warmToFirstFrame();
+    return () => window.cancelAnimationFrame(frame);
   }, [mediaSrc, playMuted, tier, warmToFirstFrame]);
 
   return (
@@ -641,11 +642,14 @@ const SocialVideoCard = memo(function SocialVideoCard({
 });
 
 export function HeroCreatorCarousel({ videos }: HeroCreatorCarouselProps) {
-  const reduceMotion = useReducedMotion();
+  const motionEnabled = useMotionEnabled();
   const [sessionVideos, setSessionVideos] = useState(videos);
 
-  useLayoutEffect(() => {
-    setSessionVideos(pickRandomCarouselSet(videos));
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      setSessionVideos(pickRandomCarouselSet(videos));
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, [videos]);
   const rootRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -692,7 +696,10 @@ export function HeroCreatorCarousel({ videos }: HeroCreatorCarouselProps) {
   const [staticWarmIds, setStaticWarmIds] = useState<string[]>([]);
   const [staticFrameIds, setStaticFrameIds] = useState<string[]>([]);
   const [staticPlayIds, setStaticPlayIds] = useState<string[]>([]);
-  const animate = reduceMotion === false;
+  // useReducedMotion is unknown during SSR. Keep the server and first browser
+  // render on the same static layout, then enable the virtual reel after
+  // hydration when the actual media preference is available.
+  const animate = motionEnabled;
   const canonicalVideos = useMemo(
     () => interleavePlayableVideos(sessionVideos, new Set()),
     [sessionVideos],
@@ -722,7 +729,9 @@ export function HeroCreatorCarousel({ videos }: HeroCreatorCarouselProps) {
   const [slotTiers, setSlotTiers] = useState<PlayTier[]>(() =>
     Array.from({ length: poolSize }, () => "idle" as PlayTier),
   );
-  videosRef.current = displayVideos;
+  useEffect(() => {
+    videosRef.current = displayVideos;
+  }, [displayVideos]);
   const handleVideoPlayable = useCallback((videoId: string) => {
     setPlayableVideoIds((previous) => {
       if (previous.has(videoId)) return previous;
@@ -812,8 +821,11 @@ export function HeroCreatorCarousel({ videos }: HeroCreatorCarouselProps) {
 
   useLayoutEffect(() => {
     if (!animate) return;
-    resetSlotWindow(poolSize, displayVideos);
-    paintSlotsRef.current();
+    const frame = window.requestAnimationFrame(() => {
+      resetSlotWindow(poolSize, displayVideos);
+      paintSlotsRef.current();
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, [animate, displayVideos, poolSize, resetSlotWindow, videoSignature]);
 
   // Cards outside the slot window get no element, so nothing has asked their

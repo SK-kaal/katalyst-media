@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef } from "react";
-import { useReducedMotion } from "framer-motion";
 import { DirectionalLineBackground } from "@/components/brand/DirectionalLineBackground";
 import { HeroCreatorCarousel } from "@/components/home/HeroCreatorCarousel";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
@@ -9,10 +8,10 @@ import { company, getPrimaryContactHref } from "@/content/company";
 import { creatorVideos } from "@/content/creator-videos";
 import { primaryCta } from "@/content/navigation";
 import { gsap, motionDuration, motionEase, useGSAP } from "@/lib/motion";
+import { useMotionEnabled } from "@/hooks/useMotionEnabled";
 
 export function OverviewSection() {
-  const reduceMotion = useReducedMotion();
-  const animate = reduceMotion === false;
+  const animate = useMotionEnabled();
   const rootRef = useRef<HTMLElement>(null);
 
   useGSAP(

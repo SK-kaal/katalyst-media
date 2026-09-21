@@ -4,7 +4,6 @@ import { useEffect, useId, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { Menu, X } from "lucide-react";
-import { useReducedMotion } from "framer-motion";
 import { Wordmark } from "@/components/ui/Wordmark";
 import { SectionNavLink } from "@/components/ui/SectionNavLink";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
@@ -17,6 +16,7 @@ import { primaryCta, primaryNav } from "@/content/navigation";
 import { useActiveSection } from "@/hooks/useActiveSection";
 import { cn } from "@/lib/utils";
 import { gsap, motionDuration, motionEase, useGSAP } from "@/lib/motion";
+import { useMotionEnabled } from "@/hooks/useMotionEnabled";
 
 export function MobileHeader() {
   const pathname = usePathname();
@@ -31,8 +31,7 @@ export function MobileHeader() {
   const timelineRef = useRef<ReturnType<typeof gsap.timeline> | null>(null);
   const activeId = useActiveSection();
   const isHome = pathname === "/";
-  const reduceMotion = useReducedMotion();
-  const motionOk = reduceMotion === false;
+  const motionOk = useMotionEnabled();
 
   useGSAP(
     () => {

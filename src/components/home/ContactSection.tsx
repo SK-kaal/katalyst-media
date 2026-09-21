@@ -1,19 +1,18 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { useReducedMotion } from "framer-motion";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
 import { ContactHud } from "@/components/home/ContactHud";
 import { getPrimaryContactHref } from "@/content/company";
 import { contactCopy } from "@/content/homepage";
 import { gsap, motionDuration, motionEase, ScrollTrigger, useGSAP } from "@/lib/motion";
 import { cn } from "@/lib/utils";
+import { useMotionEnabled } from "@/hooks/useMotionEnabled";
 import "./contact-stage.css";
 
 export function ContactSection({ className }: { className?: string }) {
   const sectionRef = useRef<HTMLElement>(null);
-  const reduceMotion = useReducedMotion();
-  const motionEnabled = reduceMotion === false;
+  const motionEnabled = useMotionEnabled();
   const primaryHref = getPrimaryContactHref();
 
   useGSAP(

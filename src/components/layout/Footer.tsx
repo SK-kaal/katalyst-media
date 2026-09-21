@@ -3,7 +3,6 @@
 import { useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useReducedMotion } from "framer-motion";
 import { Container } from "@/components/layout/Container";
 import { Wordmark } from "@/components/ui/Wordmark";
 import { company, getSocialLinks, hasPublicEmail } from "@/content/company";
@@ -11,6 +10,7 @@ import { footerNav, legalNav } from "@/content/navigation";
 import { gsap, motionDuration, motionEase, useGSAP } from "@/lib/motion";
 import { queueSectionScroll, scrollToSection, sectionIdFromHref } from "@/lib/scroll";
 import { cn } from "@/lib/utils";
+import { useMotionEnabled } from "@/hooks/useMotionEnabled";
 
 export function Footer({
   className,
@@ -23,13 +23,13 @@ export function Footer({
   const socialLinks = getSocialLinks();
   const pathname = usePathname();
   const footerRef = useRef<HTMLElement>(null);
-  const reduceMotion = useReducedMotion();
+  const motionEnabled = useMotionEnabled();
   const ending = variant === "ending";
 
   useGSAP(
     () => {
       const footer = footerRef.current;
-      if (!ending || !footer || reduceMotion !== false) return;
+      if (!ending || !footer || !motionEnabled) return;
       gsap.from(footer, {
         y: 6,
         duration: motionDuration.ui,
@@ -41,7 +41,7 @@ export function Footer({
         },
       });
     },
-    { dependencies: [ending, reduceMotion] },
+    { dependencies: [ending, motionEnabled] },
   );
 
   const handleSectionClick = (

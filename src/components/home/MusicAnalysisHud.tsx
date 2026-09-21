@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   motion,
   type MotionValue,
@@ -29,7 +29,10 @@ function hash(n: number) {
 
 function polar(radius: number, deg: number) {
   const rad = ((deg - 90) * Math.PI) / 180;
-  return { x: CX + Math.cos(rad) * radius, y: CY + Math.sin(rad) * radius };
+  return {
+    x: Number((CX + Math.cos(rad) * radius).toFixed(6)),
+    y: Number((CY + Math.sin(rad) * radius).toFixed(6)),
+  };
 }
 
 function arcPath(radius: number, start: number, sweep: number) {
@@ -53,8 +56,8 @@ function buildSpectrum(count: number, seed: number, floor: number) {
     const length = Math.min(1, Math.max(floor, (envelope + jitter + peak) * micro));
     return {
       angle: (index / count) * 360,
-      length,
-      width: 0.45 + hash(index + seed) * 0.55,
+      length: Number(length.toFixed(6)),
+      width: Number((0.45 + hash(index + seed) * 0.55).toFixed(6)),
       delay: `${((index * 0.041 + seed) % 2.2).toFixed(2)}s`,
       duration: `${(1.55 + (index % 11) * 0.19).toFixed(2)}s`,
     };
@@ -117,16 +120,14 @@ export function MusicAnalysisHud({
   const y = useTransform(readY, (value) =>
     stageEnterY(value, nodeY, enterLead),
   );
-  const [quiet, setQuiet] = useState(true);
+  const [quiet, setQuiet] = useState(() =>
+    stageIsQuiet(readY.get(), nodeY, enterLead),
+  );
 
   useMotionValueEvent(readY, "change", (value) => {
     const next = stageIsQuiet(value, nodeY, enterLead);
     setQuiet((current) => (current === next ? current : next));
   });
-
-  useEffect(() => {
-    setQuiet(stageIsQuiet(readY.get(), nodeY, enterLead));
-  }, [enterLead, nodeY, readY]);
 
   const cycling = motionEnabled && !quiet;
   const tempoIndex = useCycleIndex(TEMPO.length, 1900, 0, cycling);

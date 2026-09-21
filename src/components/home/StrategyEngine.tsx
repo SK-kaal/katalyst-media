@@ -132,11 +132,6 @@ function clamp(value: number, min = 0, max = 1) {
   return Math.min(Math.max(value, min), max);
 }
 
-function smoothstep(value: number) {
-  const t = clamp(value);
-  return t * t * (3 - 2 * t);
-}
-
 function MetricValue({
   value,
   enabled,
@@ -215,7 +210,6 @@ export function StrategyEngine({
   const [ambient, setAmbient] = useState(!motionEnabled);
   const [live, setLive] = useState(!motionEnabled);
   const liveRef = useRef(live);
-  liveRef.current = live;
   const [quiet, setQuiet] = useState(false);
   const [pulse, setPulse] = useState(0);
   const [coreHot, setCoreHot] = useState(false);
@@ -247,6 +241,7 @@ export function StrategyEngine({
       }
       const nextLive = stageIsLive(value, nodeY);
       const nextQuiet = stageIsQuiet(value, nodeY);
+      liveRef.current = nextLive;
       setLive((current) => (current === nextLive ? current : nextLive));
       setQuiet((current) => (current === nextQuiet ? current : nextQuiet));
     },
@@ -256,14 +251,18 @@ export function StrategyEngine({
   useMotionValueEvent(readY, "change", applyVisibility);
 
   useEffect(() => {
-    applyVisibility(readY.get());
+    const frame = window.requestAnimationFrame(() => applyVisibility(readY.get()));
+    return () => window.cancelAnimationFrame(frame);
   }, [applyVisibility, readY]);
 
   useEffect(() => {
     if (pulse === 0) return;
-    setCoreHot(true);
+    const startId = window.setTimeout(() => setCoreHot(true), 0);
     const id = window.setTimeout(() => setCoreHot(false), 420);
-    return () => window.clearTimeout(id);
+    return () => {
+      window.clearTimeout(startId);
+      window.clearTimeout(id);
+    };
   }, [pulse]);
 
   useEffect(() => {
@@ -490,14 +489,14 @@ export function StrategyEngine({
               ))}
             </motion.g>
 
-            {MODULES.map((module, index) => (
-              <g key={module.id}>
+            {MODULES.map((strategyModule, index) => (
+              <g key={strategyModule.id}>
                 <motion.path
                   className={cn(
                     "process-strategy__link",
-                    hot?.module === module.id && "process-strategy__link--hot",
+                    hot?.module === strategyModule.id && "process-strategy__link--hot",
                   )}
-                  d={module.path}
+                  d={strategyModule.path}
                   initial={false}
                   animate={lineState}
                   variants={{
@@ -515,7 +514,7 @@ export function StrategyEngine({
                 />
                 <motion.path
                   className="process-strategy__energy"
-                  d={module.path}
+                  d={strategyModule.path}
                   initial={false}
                   animate={lineState}
                   variants={{
@@ -535,16 +534,16 @@ export function StrategyEngine({
             ))}
 
             {packets.map((packet) => {
-              const module = MODULES.find((item) => item.id === packet.from);
-              if (!module) return null;
+              const strategyModule = MODULES.find((item) => item.id === packet.from);
+              if (!strategyModule) return null;
               return (
                 <motion.circle
                   key={packet.id}
                   className="process-strategy__packet"
                   r="2.35"
                   initial={{
-                    cx: module.from.x,
-                    cy: module.from.y,
+                    cx: strategyModule.from.x,
+                    cy: strategyModule.from.y,
                     opacity: 0,
                   }}
                   animate={{
@@ -605,23 +604,23 @@ export function StrategyEngine({
               <span>Strategy</span>
             </motion.div>
 
-            {MODULES.map((module, index) => {
-              const Icon = ICONS[module.id];
+            {MODULES.map((strategyModule, index) => {
+              const Icon = ICONS[strategyModule.id];
               const items =
-                CARD_SETS[module.id][cardSet % CARD_SETS[module.id].length];
+                CARD_SETS[strategyModule.id][cardSet % CARD_SETS[strategyModule.id].length];
               return (
                 <div
-                  key={module.id}
+                  key={strategyModule.id}
                   className={cn(
                     "process-strategy__card-slot",
-                    `process-strategy__card-slot--${module.id}`,
+                    `process-strategy__card-slot--${strategyModule.id}`,
                   )}
                 >
                   <motion.article
                     className={cn(
                       "process-strategy__card",
-                      `process-strategy__card--${module.id}`,
-                      hot?.module === module.id && "process-strategy__card--hot",
+                      `process-strategy__card--${strategyModule.id}`,
+                      hot?.module === strategyModule.id && "process-strategy__card--hot",
                     )}
                     initial={false}
                     animate={
@@ -629,8 +628,8 @@ export function StrategyEngine({
                         ? { opacity: 1, x: 0, y: 0 }
                         : {
                             opacity: 0,
-                            x: module.magnet.x,
-                            y: module.magnet.y,
+                            x: strategyModule.magnet.x,
+                            y: strategyModule.magnet.y,
                           }
                     }
                     transition={{
@@ -642,19 +641,19 @@ export function StrategyEngine({
                     <div
                       className={cn(
                         "process-strategy__card-float",
-                        `process-strategy__card-float--${module.id}`,
+                        `process-strategy__card-float--${strategyModule.id}`,
                       )}
                     >
                       <div className="process-strategy__card-head">
                         <Icon />
-                        <h4>{module.title}</h4>
+                        <h4>{strategyModule.title}</h4>
                       </div>
                       <ul>
                         {items.map((item, itemIndex) => (
                           <li
-                            key={`${module.id}-${itemIndex}`}
+                            key={`${strategyModule.id}-${itemIndex}`}
                             className={
-                              hot?.module === module.id &&
+                              hot?.module === strategyModule.id &&
                               hot.item === itemIndex
                                 ? "is-lit"
                                 : undefined

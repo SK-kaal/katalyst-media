@@ -12,6 +12,7 @@ import {
 import { processCopy } from "@/content/homepage";
 import { campaignNote } from "@/content/process-campaign";
 import { cn } from "@/lib/utils";
+import { useMotionEnabled } from "@/hooks/useMotionEnabled";
 import { gsap, ScrollTrigger, useGSAP } from "@/lib/motion";
 import { MusicAnalysisHud } from "@/components/home/MusicAnalysisHud";
 import { AudienceConstellation } from "@/components/home/AudienceConstellation";
@@ -20,7 +21,6 @@ import { CampaignCommand } from "@/components/home/CampaignCommand";
 import { OptimisationEngine } from "@/components/home/OptimisationEngine";
 import {
   EASE_OUT,
-  EASE_SOFT,
   clamp,
   introClearY,
   introDepart,
@@ -444,7 +444,7 @@ function JourneyStage({
     >
       <motion.p
         className="process-stage-copy__counter font-sans tabular-nums"
-        style={motionEnabled ? { opacity: numberOpacity } : undefined}
+        style={motionEnabled ? { opacity: numberOpacity } : { opacity: 1 }}
       >
         <span>{step.number}</span>
         <span> / 05</span>
@@ -452,7 +452,7 @@ function JourneyStage({
       <motion.h3
         className="process-stage-copy__title font-display font-semibold text-off-white text-balance"
         style={
-          motionEnabled ? { opacity: titleOpacity, y: titleY } : undefined
+          motionEnabled ? { opacity: titleOpacity, y: titleY } : { opacity: 1, y: 0 }
         }
       >
         {stackedLines ? (
@@ -469,7 +469,7 @@ function JourneyStage({
         style={
           motionEnabled
             ? { opacity: descriptionOpacity, y: descriptionY }
-            : undefined
+            : { opacity: 1, y: 0 }
         }
       >
         {step.description}
@@ -499,9 +499,6 @@ function IntroAtmosphere({
   const glowScale = useTransform(recede, (value) => 1 - value * 0.02);
   const ringOpacity = useTransform(fade, (value) => 0.78 * (1 - value * 0.7));
   const ringScale = useTransform(recede, (value) => 1 - value * 0.025);
-  const enter = { opacity: 1, scale: 1 };
-  const viewport = { once: true, amount: 0.42 as const };
-
   return (
     <motion.div
       className="process-intro__atmosphere"
@@ -509,7 +506,7 @@ function IntroAtmosphere({
       style={
         motionEnabled
           ? { opacity: atmosphereOpacity, y: atmosphereLift }
-          : undefined
+          : { opacity: 1, y: 0 }
       }
     >
       <div className="process-intro__grid" />
@@ -518,12 +515,7 @@ function IntroAtmosphere({
       <div className="process-intro__vignette" />
 
       <div className="process-intro__glow-slot">
-        <motion.div
-          initial={motionEnabled ? { opacity: 0, scale: 0.97 } : false}
-          whileInView={enter}
-          viewport={viewport}
-          transition={{ duration: 1.4, delay: 0.04, ease: EASE_SOFT }}
-        >
+        <div>
           <motion.div
             className="process-intro__glow"
             style={
@@ -534,16 +526,11 @@ function IntroAtmosphere({
           >
             <span className="process-intro__glow-core" />
           </motion.div>
-        </motion.div>
+        </div>
       </div>
 
       <div className="process-intro__rings-slot">
-        <motion.div
-          initial={motionEnabled ? { opacity: 0, scale: 0.97 } : false}
-          whileInView={enter}
-          viewport={viewport}
-          transition={{ duration: 1.25, delay: 0.14, ease: EASE_SOFT }}
-        >
+        <div>
           <motion.div
             className="process-intro__rings"
             style={
@@ -601,7 +588,7 @@ function IntroAtmosphere({
               </g>
             </svg>
           </motion.div>
-        </motion.div>
+        </div>
       </div>
     </motion.div>
   );
@@ -624,7 +611,11 @@ function BloomStem({
         className="process-recap-stem process-recap-stem--glow"
         d={d}
         strokeLinecap="round"
-        initial={false}
+        initial={
+          revealed
+            ? { pathLength: 1, opacity: 0.85 }
+            : { pathLength: 0, opacity: 0 }
+        }
         animate={
           revealed
             ? { pathLength: 1, opacity: 0.85 }
@@ -640,7 +631,11 @@ function BloomStem({
         className="process-recap-stem"
         d={d}
         strokeLinecap="round"
-        initial={false}
+        initial={
+          revealed
+            ? { pathLength: 1, opacity: 1 }
+            : { pathLength: 0, opacity: 0 }
+        }
         animate={
           revealed
             ? { pathLength: 1, opacity: 1 }
@@ -740,7 +735,11 @@ function RecapMark({
       <span className="process-recap-mark__dot-slot">
         <motion.span
           className="process-recap-mark__dot"
-          initial={false}
+          initial={
+            revealed
+              ? { opacity: 1, scale: 1 }
+              : { opacity: 0, scale: 0.4 }
+          }
           animate={
             revealed
               ? { opacity: 1, scale: [0.7, 1.08, 1] }
@@ -757,14 +756,14 @@ function RecapMark({
         <span className="process-recap-mark__label">
           <motion.span
             className="process-recap-mark__number"
-            initial={false}
+            initial={revealed ? { opacity: 1, y: 0 } : { opacity: 0, y: 6 }}
             animate={revealed ? { opacity: 1, y: 0 } : { opacity: 0, y: 6 }}
             transition={appear(0.22)}
           >
             {number}
           </motion.span>
           <motion.span
-            initial={false}
+            initial={revealed ? { opacity: 1, y: 0 } : { opacity: 0, y: 6 }}
             animate={revealed ? { opacity: 1, y: 0 } : { opacity: 0, y: 6 }}
             transition={appear(0.32)}
           >
@@ -832,12 +831,12 @@ function Checkpoint({
       <motion.span
         className="process-node__ring"
         style={
-          motionEnabled ? { opacity: ringOpacity, scale } : undefined
+          motionEnabled ? { opacity: ringOpacity, scale } : { opacity: 1, scale: 1 }
         }
       />
       <motion.span
         className="process-node__core"
-        style={motionEnabled ? { opacity: coreOpacity } : undefined}
+        style={motionEnabled ? { opacity: coreOpacity } : { opacity: 1 }}
       />
     </motion.div>
   );
@@ -853,13 +852,16 @@ export function ProcessSection() {
   const mapRef = useRef<PathMap | null>(null);
   const stopsRef = useRef<JourneyStop[]>([]);
   const reduceMotion = useReducedMotion();
-  const motionEnabled = reduceMotion === false;
+  const motionEnabled = useMotionEnabled();
   const [layoutMode, setLayoutMode] = useState<LayoutMode>("mobile");
   const [overviewBloom, setOverviewBloom] = useState(false);
   const introSceneRef = useRef<HTMLDivElement>(null);
   const geometry = geometryFor(layoutMode);
   const geometryRef = useRef(geometry);
-  geometryRef.current = geometry;
+
+  useEffect(() => {
+    geometryRef.current = geometry;
+  }, [geometry]);
 
   const headProgress = useMotionValue(0);
   const signalX = useMotionValue(geometry.start.x);
@@ -1082,8 +1084,11 @@ export function ProcessSection() {
   }, [motionEnabled]);
 
   useEffect(() => {
-    if (reduceMotion) setOverviewBloom(true);
-    else setOverviewBloom(headProgress.get() >= 5.78);
+    const frame = window.requestAnimationFrame(() => {
+      if (reduceMotion) setOverviewBloom(true);
+      else setOverviewBloom(headProgress.get() >= 5.78);
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, [headProgress, reduceMotion]);
 
   useMotionValueEvent(headProgress, "change", (value) => {
@@ -1347,7 +1352,7 @@ export function ProcessSection() {
                     originX: 0.5,
                     originY: 0.5,
                   }
-                : undefined
+                : { opacity: 1, scale: 1, y: 0 }
             }
           >
             <p className="process-intro__eyebrow label-caps text-acid-lime">
@@ -1364,7 +1369,7 @@ export function ProcessSection() {
           </motion.div>
           <motion.p
             className="process-intro__hint"
-            style={motionEnabled ? { opacity: hintOpacity } : undefined}
+            style={motionEnabled ? { opacity: hintOpacity } : { opacity: 1 }}
           >
             <span className="process-intro__hint-inner">
               {processCopy.scrollHint}

@@ -1,9 +1,9 @@
 "use client";
 
 import { useRef } from "react";
-import { useReducedMotion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { gsap, motionDuration, motionEase, ScrollTrigger, useGSAP } from "@/lib/motion";
+import { useMotionEnabled } from "@/hooks/useMotionEnabled";
 
 type RevealProps = {
   children: React.ReactNode;
@@ -12,9 +12,8 @@ type RevealProps = {
 };
 
 export function Reveal({ children, className, delay = 0 }: RevealProps) {
-  const reduceMotion = useReducedMotion();
   const rootRef = useRef<HTMLDivElement>(null);
-  const motionOk = reduceMotion === false;
+  const motionOk = useMotionEnabled();
 
   useGSAP(
     () => {

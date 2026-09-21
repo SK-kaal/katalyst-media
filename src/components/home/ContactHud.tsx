@@ -1,8 +1,8 @@
 function polar(cx: number, cy: number, radius: number, deg: number) {
   const rad = ((deg - 90) * Math.PI) / 180;
   return {
-    x: cx + Math.cos(rad) * radius,
-    y: cy + Math.sin(rad) * radius,
+    x: Number((cx + Math.cos(rad) * radius).toFixed(6)),
+    y: Number((cy + Math.sin(rad) * radius).toFixed(6)),
   };
 }
 

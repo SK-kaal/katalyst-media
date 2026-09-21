@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import {
   motion,
   type MotionValue,
@@ -79,41 +79,26 @@ export function AudienceConstellation({
 }) {
   const opacity = useTransform(readY, (value) => stageOpacity(value, nodeY));
   const y = useTransform(readY, (value) => stageEnterY(value, nodeY));
-  const [quiet, setQuiet] = useState(true);
+  const [quiet, setQuiet] = useState(() => stageIsQuiet(readY.get(), nodeY));
 
   useMotionValueEvent(readY, "change", (value) => {
     const next = stageIsQuiet(value, nodeY);
     setQuiet((current) => (current === next ? current : next));
   });
 
-  useEffect(() => {
-    setQuiet(stageIsQuiet(readY.get(), nodeY));
-  }, [nodeY, readY]);
-
   const cycling = motionEnabled && !quiet;
-  const ageIndex = useCycleIndex(CYCLES.age.length, 2000, 0, cycling);
-  const locationIndex = useCycleIndex(CYCLES.location.length, 1700, 240, cycling);
-  const behaviourIndex = useCycleIndex(CYCLES.behaviour.length, 2200, 880, cycling);
-  const platformIndex = useCycleIndex(CYCLES.platform.length, 1900, 420, cycling);
-  const interestIndex = useCycleIndex(CYCLES.interest.length, 2300, 1100, cycling);
   const [focus, setFocus] = useState<FocusId>("location");
+  const focusAge = useCallback(() => setFocus("age"), []);
+  const focusLocation = useCallback(() => setFocus("location"), []);
+  const focusBehaviour = useCallback(() => setFocus("behaviour"), []);
+  const focusPlatform = useCallback(() => setFocus("platform"), []);
+  const focusInterest = useCallback(() => setFocus("interest"), []);
+  const ageIndex = useCycleIndex(CYCLES.age.length, 2000, 0, cycling, focusAge);
+  const locationIndex = useCycleIndex(CYCLES.location.length, 1700, 240, cycling, focusLocation);
+  const behaviourIndex = useCycleIndex(CYCLES.behaviour.length, 2200, 880, cycling, focusBehaviour);
+  const platformIndex = useCycleIndex(CYCLES.platform.length, 1900, 420, cycling, focusPlatform);
+  const interestIndex = useCycleIndex(CYCLES.interest.length, 2300, 1100, cycling, focusInterest);
   const focusNode = KEY_NODES.find((node) => node.id === focus) ?? KEY_NODES[1];
-
-  useEffect(() => {
-    setFocus("age");
-  }, [ageIndex]);
-  useEffect(() => {
-    setFocus("location");
-  }, [locationIndex]);
-  useEffect(() => {
-    setFocus("behaviour");
-  }, [behaviourIndex]);
-  useEffect(() => {
-    setFocus("platform");
-  }, [platformIndex]);
-  useEffect(() => {
-    setFocus("interest");
-  }, [interestIndex]);
 
   return (
     <div

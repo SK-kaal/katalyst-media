@@ -335,7 +335,8 @@ export function OptimisationEngine({
   useMotionValueEvent(readY, "change", applyVisibility);
 
   useEffect(() => {
-    applyVisibility(readY.get());
+    const frame = window.requestAnimationFrame(() => applyVisibility(readY.get()));
+    return () => window.cancelAnimationFrame(frame);
   }, [applyVisibility, readY]);
 
   useEffect(() => {

@@ -10,6 +10,7 @@ export function useCycleIndex(
   interval: number,
   delay: number,
   enabled: boolean,
+  onCycle?: () => void,
 ) {
   const [index, setIndex] = useState(0);
 
@@ -19,13 +20,14 @@ export function useCycleIndex(
     const startId = window.setTimeout(() => {
       intervalId = window.setInterval(() => {
         setIndex((current) => (current + 1) % length);
+        onCycle?.();
       }, interval);
     }, delay);
     return () => {
       window.clearTimeout(startId);
       window.clearInterval(intervalId);
     };
-  }, [delay, enabled, interval, length]);
+  }, [delay, enabled, interval, length, onCycle]);
 
   return index;
 }
