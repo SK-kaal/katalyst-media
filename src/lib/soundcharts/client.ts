@@ -80,7 +80,7 @@ export async function resolveSoundchartsSong(
   tiktokSoundId: string,
 ): Promise<{ uuid: string; name: string | null; creditName: string | null }> {
   const payload = await requestSoundchartsJson<SongByPlatformResponse>(
-    `/api/v2/song/by-platform/tiktok/${encodeURIComponent(tiktokSoundId)}`,
+    `/api/v2.25/song/by-platform/tiktok/${encodeURIComponent(tiktokSoundId)}`,
   );
   const uuid = payload.object?.uuid?.trim();
   if (!uuid) {
