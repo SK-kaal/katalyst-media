@@ -217,11 +217,7 @@ function nativeMediaSrc(video: CreatorVideo, nonce: number) {
     video.platform === "tiktok"
       ? `/api/tiktok-video/${encodeURIComponent(video.id)}`
       : `/api/instagram-reel/${encodeURIComponent(video.id)}`;
-  // The normal request redirects the browser to the social platform's CDN, so
-  // Vercel only serves a tiny redirect response. If direct playback is blocked,
-  // the existing bounded Vercel proxy remains available as a compatibility
-  // fallback on the player's retry path.
-  return nonce > 0 ? `${path}?proxy=1&r=${nonce}` : path;
+  return nonce > 0 ? `${path}?r=${nonce}` : path;
 }
 
 /**
@@ -331,7 +327,6 @@ function SocialNativePlayer({
     setReady(false);
     setAutoplayBlocked(false);
     node.preload = preloadFor(tier);
-    node.setAttribute("referrerpolicy", "no-referrer");
     node.src = mediaSrc;
     node.load();
   }, [mediaSrc, tier]);

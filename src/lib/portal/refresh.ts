@@ -9,7 +9,7 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { calculateMetrics } from "@/lib/portal/metrics";
+import { calculateMetrics, reportSnapshotDate } from "@/lib/portal/metrics";
 import {
   getCampaignStartTikTokAudiencePoint,
   getLatestTikTokAudiencePoint,
@@ -28,14 +28,16 @@ export async function insertSnapshot(
 ) {
   const { data: latest, error: latestError } = await supabase
     .from("post_metric_snapshots")
-    .select("views, likes, comments, shares")
+    .select("captured_at, views, likes, comments, shares")
     .eq("post_id", postId)
     .order("captured_at", { ascending: false })
     .limit(1)
     .maybeSingle();
   if (latestError) throw new Error(latestError.message);
+  const today = reportSnapshotDate(new Date().toISOString());
   if (
     latest &&
+    reportSnapshotDate(latest.captured_at) === today &&
     Number(latest.views) === metrics.views &&
     Number(latest.likes) === metrics.likes &&
     Number(latest.comments) === metrics.comments &&
@@ -254,14 +256,16 @@ export async function insertCampaignSnapshot(
   const metrics = calculateMetrics(posts ?? []);
   const { data: latest, error: latestError } = await supabase
     .from("campaign_metric_snapshots")
-    .select("tracked_posts, views, likes, comments, shares")
+    .select("captured_at, tracked_posts, views, likes, comments, shares")
     .eq("campaign_id", campaignId)
     .order("captured_at", { ascending: false })
     .limit(1)
     .maybeSingle();
   if (latestError) throw new Error(latestError.message);
+  const today = reportSnapshotDate(new Date().toISOString());
   if (
     latest &&
+    reportSnapshotDate(latest.captured_at) === today &&
     Number(latest.tracked_posts) === metrics.posts &&
     Number(latest.views) === metrics.views &&
     Number(latest.likes) === metrics.likes &&
