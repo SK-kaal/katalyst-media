@@ -62,6 +62,16 @@ export async function GET(request: Request, context: RouteContext) {
       return NextResponse.json({ error: "Unavailable" }, { status: 404 });
     }
 
+    const requestUrl = new URL(request.url);
+    if (requestUrl.searchParams.get("proxy") !== "1") {
+      const response = NextResponse.redirect(sourceUrl, 307);
+      // The signed Instagram URL is intentionally short-lived. Let the browser
+      // reuse it briefly, while keeping the video bytes off Vercel's origin.
+      response.headers.set("Cache-Control", "private, max-age=60");
+      response.headers.set("Referrer-Policy", "no-referrer");
+      return response;
+    }
+
     const range = boundedRange(request.headers.get("range"));
     let upstream = await fetchInstagramMedia(sourceUrl, range);
 
